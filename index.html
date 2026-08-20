@@ -252,6 +252,45 @@
                 </div>
                 <textarea id="jsonEditor" class="flex-1 w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-lg border border-slate-700/80 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"></textarea>
             </div>
+
+            <!-- Collapsible Advanced Styles & Typography Accordion (Footer of Sidebar) -->
+            <div class="border-t border-slate-800 bg-slate-950/60 p-3">
+                <button onclick="toggleTypographyAccordion()" class="w-full flex items-center justify-between text-xs text-slate-400 hover:text-slate-200 transition py-1 font-medium">
+                    <span class="flex items-center"><i class="fa-solid fa-sliders text-blue-400 mr-2"></i>進階字體與線條樣式</span>
+                    <i id="typoAccordionIcon" class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200"></i>
+                </button>
+                <div id="typoAccordionContent" class="hidden space-y-3 pt-3 text-xs">
+                    <div>
+                        <label class="text-[11px] text-slate-400 block mb-1">全局字型 (Font Family)</label>
+                        <select id="typoFontFamily" onchange="updateTypography('fontFamily', this.value)" class="w-full bg-slate-900 px-2 py-1.5 rounded border border-slate-700 text-slate-200 text-xs focus:outline-none focus:border-blue-500">
+                            <option value="sans">現代無襯線 (System / Inter)</option>
+                            <option value="mono">代碼等寬 (JetBrains Mono / Code)</option>
+                            <option value="serif">學術襯線 (Times New Roman / Georgia)</option>
+                            <option value="tc">微軟正黑體 / 繁體中文</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">主標題字級: <span id="valNodeTitle">14px</span></label>
+                            <input type="range" min="11" max="20" value="14" id="rangeNodeTitle" oninput="updateTypography('nodeTitleSize', parseInt(this.value)); document.getElementById('valNodeTitle').innerText=this.value+'px';" class="w-full accent-blue-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">副標題字級: <span id="valNodeSub">11px</span></label>
+                            <input type="range" min="9" max="15" value="11" id="rangeNodeSub" oninput="updateTypography('nodeSubSize', parseInt(this.value)); document.getElementById('valNodeSub').innerText=this.value+'px';" class="w-full accent-blue-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">連線粗細: <span id="valEdgeWidth">2.5px</span></label>
+                            <input type="range" min="1" max="5" step="0.5" value="2.5" id="rangeEdgeWidth" oninput="updateTypography('edgeWidth', parseFloat(this.value)); document.getElementById('valEdgeWidth').innerText=this.value+'px';" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">連線標籤字級: <span id="valEdgeLabel">11px</span></label>
+                            <input type="range" min="9" max="15" value="11" id="rangeEdgeLabel" oninput="updateTypography('edgeLabelSize', parseInt(this.value)); document.getElementById('valEdgeLabel').innerText=this.value+'px';" class="w-full accent-amber-500 h-1.5 bg-slate-800 rounded cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
         </aside>
 
         <!-- Right Preview Canvas Area -->
@@ -292,13 +331,13 @@
 
     <!-- Export Options Modal -->
     <div id="exportModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[400px] overflow-hidden transform scale-95 transition-transform duration-200" id="exportModalContent">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[420px] overflow-hidden transform scale-95 transition-transform duration-200" id="exportModalContent">
             <div class="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
                 <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-download text-blue-400 mr-2"></i>匯出工作流圖表</h3>
                 <button onclick="closeExportModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div class="p-5 space-y-5">
+            <div class="p-5 space-y-4">
                 <!-- Format -->
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-2">檔案格式</label>
@@ -306,6 +345,18 @@
                         <button id="expFmtPng" onclick="setExportFmt('png')" class="flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition"><i class="fa-solid fa-image mr-1.5"></i>高畫質 PNG</button>
                         <button id="expFmtSvg" onclick="setExportFmt('svg')" class="flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition"><i class="fa-solid fa-vector-square mr-1.5"></i>向量 SVG</button>
                     </div>
+                </div>
+
+                <!-- PNG Resolution / Scale (Only visible when format is PNG) -->
+                <div id="pngScaleSection">
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5"><i class="fa-solid fa-expand mr-1 text-blue-400"></i>PNG 輸出解析度 / 像素倍率</label>
+                    <select id="expScale" class="w-full bg-slate-900 px-3 py-2 rounded-lg border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="1">1x (標準 - 72 DPI - 輕量預覽)</option>
+                        <option value="2">2x (高清 HD - 144 DPI - 適合網頁/簡報)</option>
+                        <option value="3" selected>3x (超高清 2K/3K - 216 DPI - 推薦預設)</option>
+                        <option value="4">4x (極致 4K - 300 DPI - 學術論文/專業印刷)</option>
+                        <option value="8">8x (超高精細 8K - 600 DPI - 大海報出版)</option>
+                    </select>
                 </div>
 
                 <!-- Area -->
@@ -316,7 +367,7 @@
                             <input type="radio" name="expArea" value="autofit" checked class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
                             <div>
                                 <div class="text-sm font-medium text-slate-200">全圖自動裁切 (Auto Fit)</div>
-                                <div class="text-[10px] text-slate-500">自動包圍所有節點，去除多餘空白</div>
+                                <div class="text-[10px] text-slate-500">自動包圍所有節點與群組，去除多餘空白</div>
                             </div>
                         </label>
                         <label class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition">
@@ -642,6 +693,15 @@
 
             viewport.addEventListener('mousedown', (e) => {
                 if (e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+
+                // Priority 1: Edge Click Detection
+                const edgeGroup = e.target.closest('[data-edge-idx]');
+                if (edgeGroup) {
+                    const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
+                    selectEdge(edgeIdx);
+                    e.stopPropagation();
+                    return;
+                }
 
                 if (appMode === 'select') {
                     isSelectingArea = true;
@@ -1278,6 +1338,42 @@
             renderDiagram();
         }
 
+        // --- Typography System ---
+        const FONT_FAMILIES = {
+            'sans': "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif",
+            'mono': "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, Monaco, monospace",
+            'serif': "'Times New Roman', Georgia, 'Songti TC', serif",
+            'tc': "'Microsoft JhengHei', 'Noto Sans TC', PingFang, sans-serif"
+        };
+
+        function toggleTypographyAccordion() {
+            const content = document.getElementById('typoAccordionContent');
+            const icon = document.getElementById('typoAccordionIcon');
+            const isHidden = content.classList.contains('hidden');
+            if (isHidden) {
+                content.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            } else {
+                content.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+            }
+        }
+
+        function updateTypography(key, val) {
+            if (!state.typography) {
+                state.typography = {
+                    fontFamily: 'sans',
+                    nodeTitleSize: 14,
+                    nodeSubSize: 11,
+                    edgeLabelSize: 11,
+                    edgeWidth: 2.5
+                };
+            }
+            state.typography[key] = val;
+            saveHistory();
+            renderDiagram();
+        }
+
         function renderNodeShape(shape, w, h, fill, border) {
             if (shape === 'pill') {
                 const rx = h / 2;
@@ -1295,7 +1391,7 @@
             } else if (shape === 'cloud') {
                 return `<rect x="0" y="0" width="${w}" height="${h}" rx="22" fill="${fill}" stroke="${border}" stroke-width="2" stroke-dasharray="6 3" />`;
             } else if (shape === 'hexagon') {
-                const p = 20;
+                const p = 22;
                 return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else {
                 return `<rect x="0" y="0" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${border}" stroke-width="2" />`;
@@ -1321,23 +1417,27 @@
             }
             
             const showIcon = n.showIcon !== false;
-            const paddingLeft = showIcon ? 72 : 30;
-            const paddingRight = 30;
+            const paddingLeft = showIcon ? 72 : 32;
+            const paddingRight = 32;
             const contentW = Math.max(labelW, subW) + paddingLeft + paddingRight;
             
             let baseW = Math.max(180, Math.ceil(contentW / 10) * 10);
             let baseH = 72;
             
-            // Shape geometry compensation (avoid cutting off text in corners)
+            // Shape geometry compensation (inscribed safe zones)
             if (n.shape === 'diamond') {
-                baseW = Math.max(200, Math.round(baseW * 1.35));
-                baseH = 80;
+                const maxTextW = Math.max(labelW, subW);
+                const neededCenterW = showIcon ? (maxTextW + 48) : maxTextW;
+                baseW = Math.max(220, Math.ceil((neededCenterW / 0.55) / 10) * 10);
+                baseH = Math.max(90, Math.round(baseW * 0.44));
             } else if (n.shape === 'hexagon') {
-                baseW = Math.max(200, baseW + 36);
+                baseW = Math.max(210, baseW + 48);
             } else if (n.shape === 'pill') {
-                baseW = Math.max(190, baseW + 16);
+                baseW = Math.max(190, baseW + 24);
             } else if (n.shape === 'cloud') {
-                baseW = Math.max(200, baseW + 20);
+                baseW = Math.max(200, baseW + 24);
+            } else if (n.shape === 'database') {
+                baseH = 76;
             }
             
             return { w: baseW, h: baseH };
@@ -1477,6 +1577,14 @@
 
         function renderDiagram() {
             const theme = THEMES[state.theme] || THEMES.academic;
+            const typo = state.typography || {
+                fontFamily: 'sans',
+                nodeTitleSize: 14,
+                nodeSubSize: 11,
+                edgeLabelSize: 11,
+                edgeWidth: 2.5
+            };
+            const activeFont = FONT_FAMILIES[typo.fontFamily] || FONT_FAMILIES.sans;
             
             // Build lookup maps for O(1) queries
             const nodeMap = new Map();
@@ -1493,7 +1601,7 @@
             const svgH = Math.max(2000, maxY);
 
             let svgHtml = `
-                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="overflow: visible; display:block;">
+                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
                     <defs>
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
@@ -1531,6 +1639,7 @@
 
             // Multi-edge pair index map for adaptive routing
             const edgePairInfoMap = buildEdgePairIndexMap();
+            const edgeStrokeWidth = typo.edgeWidth || 2.5;
 
             state.edges.forEach((e, idx) => {
                 const nodeA = nodeMap.get(e.from);
@@ -1546,8 +1655,8 @@
 
                     svgHtml += `
                         <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
-                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="7" opacity="0.4" stroke-linecap="round" />` : ''}
-                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${isEdgeSelected ? 3 : 2.5}" ${strokeDash} marker-end="${markerId}" />
+                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${edgeStrokeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${edgeStrokeWidth}" ${strokeDash} marker-end="${markerId}" />
                             <!-- Hit area for easy clicking & selection -->
                             <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="18" style="cursor: pointer;" />
                     `;
@@ -1557,7 +1666,7 @@
                         const boxW = Math.max(50, labelLen * 9 + 16);
                         svgHtml += `
                             <rect class="edge-label-bg" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${isEdgeSelected ? '#3b82f6' : theme.nodeBorder}" stroke-width="${isEdgeSelected ? 1.5 : 1}" opacity="0.95" style="cursor: pointer;" />
-                            <text class="edge-label-text" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${isEdgeSelected ? '#60a5fa' : theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle" style="cursor: pointer; user-select: none;">${e.label}</text>
+                            <text class="edge-label-text" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${isEdgeSelected ? '#60a5fa' : theme.edgeText}" font-size="${typo.edgeLabelSize || 11}" font-weight="600" text-anchor="middle" style="cursor: pointer; user-select: none;">${e.label}</text>
                         `;
                     }
                     svgHtml += `</g>`;
@@ -1582,24 +1691,79 @@
                 }
 
                 const nodeShowIcon = n.showIcon !== false;
-                const textStartX = nodeShowIcon ? 66 : 24;
-                const iconY = Math.round(h / 2 - 18);
-                const iconHtml = nodeShowIcon ? `
-                    <rect x="16" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
-                    <svg x="22" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
-                        <path d="${iconPath}" />
-                    </svg>
-                ` : '';
+                let textStartX = 24;
+                let textAnchor = 'start';
+                let iconHtml = '';
+                let mainTextY = n.sub ? Math.round(h / 2 - 2) : Math.round(h / 2 + 5);
+                let subTextY = Math.round(h / 2 + 15);
 
-                const mainTextY = n.sub ? Math.round(h / 2 - 2) : Math.round(h / 2 + 5);
-                const subTextY = Math.round(h / 2 + 15);
+                // Specific placement based on shape to ensure 100% containment
+                if (n.shape === 'diamond') {
+                    if (nodeShowIcon) {
+                        const iconX = Math.round(w / 2 - 16);
+                        const iconY = 12;
+                        iconHtml = `
+                            <rect x="${iconX}" y="${iconY}" width="32" height="32" rx="8" fill="${iconColor}20" />
+                            <svg x="${iconX + 5}" y="${iconY + 5}" width="22" height="22" viewBox="0 0 24 24" fill="${iconColor}">
+                                <path d="${iconPath}" />
+                            </svg>
+                        `;
+                        textStartX = Math.round(w / 2);
+                        textAnchor = 'middle';
+                        mainTextY = 56;
+                        subTextY = 70;
+                    } else {
+                        textStartX = Math.round(w / 2);
+                        textAnchor = 'middle';
+                        mainTextY = n.sub ? Math.round(h / 2 - 3) : Math.round(h / 2 + 5);
+                        subTextY = Math.round(h / 2 + 14);
+                    }
+                } else if (n.shape === 'hexagon') {
+                    const iconY = Math.round(h / 2 - 18);
+                    iconHtml = nodeShowIcon ? `
+                        <rect x="24" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
+                        <svg x="30" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                            <path d="${iconPath}" />
+                        </svg>
+                    ` : '';
+                    textStartX = nodeShowIcon ? 72 : 32;
+                } else if (n.shape === 'database') {
+                    const iconY = Math.round(h / 2 - 13);
+                    iconHtml = nodeShowIcon ? `
+                        <rect x="16" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
+                        <svg x="22" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                            <path d="${iconPath}" />
+                        </svg>
+                    ` : '';
+                    textStartX = nodeShowIcon ? 66 : 24;
+                    mainTextY = n.sub ? Math.round(h / 2 + 3) : Math.round(h / 2 + 8);
+                    subTextY = Math.round(h / 2 + 18);
+                } else if (n.shape === 'pill') {
+                    const iconY = Math.round(h / 2 - 18);
+                    iconHtml = nodeShowIcon ? `
+                        <rect x="20" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
+                        <svg x="26" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                            <path d="${iconPath}" />
+                        </svg>
+                    ` : '';
+                    textStartX = nodeShowIcon ? 68 : 28;
+                } else {
+                    const iconY = Math.round(h / 2 - 18);
+                    iconHtml = nodeShowIcon ? `
+                        <rect x="16" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
+                        <svg x="22" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                            <path d="${iconPath}" />
+                        </svg>
+                    ` : '';
+                    textStartX = nodeShowIcon ? 66 : 24;
+                }
 
                 svgHtml += `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
                         ${renderNodeShape(n.shape, w, h, theme.nodeBg, nodeBorder)}
                         ${iconHtml}
-                        <text x="${textStartX}" y="${mainTextY}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${theme.text}">${n.label}</text>
-                        ${n.sub ? `<text x="${textStartX}" y="${subTextY}" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
+                        <text x="${textStartX}" y="${mainTextY}" text-anchor="${textAnchor}" font-size="${typo.nodeTitleSize || 14}" font-weight="bold" fill="${theme.text}">${n.label}</text>
+                        ${n.sub ? `<text x="${textStartX}" y="${subTextY}" text-anchor="${textAnchor}" font-size="${typo.nodeSubSize || 11}" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
                     </g>
                 `;
             });
@@ -1615,6 +1779,7 @@
                 state = JSON.parse(JSON.stringify(PRESETS[key]));
                 document.getElementById('themeSelect').value = state.theme;
                 selectNode(null);
+                selectedEdgeIdx = null;
                 saveHistory();
                 renderDiagram();
                 updateRelationsPanel();
@@ -1634,6 +1799,7 @@
             try {
                 state = JSON.parse(document.getElementById('jsonEditor').value);
                 selectNode(null);
+                selectedEdgeIdx = null;
                 saveHistory();
                 renderDiagram();
                 updateRelationsPanel();
@@ -1685,13 +1851,16 @@
             selectedExportFormat = fmt;
             const btnPng = document.getElementById('expFmtPng');
             const btnSvg = document.getElementById('expFmtSvg');
+            const scaleSec = document.getElementById('pngScaleSection');
             
             if (fmt === 'png') {
                 btnPng.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
                 btnSvg.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+                if (scaleSec) scaleSec.style.display = 'block';
             } else {
                 btnSvg.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
                 btnPng.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+                if (scaleSec) scaleSec.style.display = 'none';
             }
         }
 
@@ -1707,8 +1876,10 @@
             if (!originalSvg) return;
 
             const oldSelectedId = selectedNodeId;
-            if (oldSelectedId) {
+            const oldSelectedEdge = selectedEdgeIdx;
+            if (oldSelectedId || oldSelectedEdge !== null) {
                 selectedNodeId = null;
+                selectedEdgeIdx = null;
                 renderDiagram(); 
             }
 
@@ -1757,12 +1928,15 @@
                     restoreSelection();
                 } 
                 else if (format === 'png') {
-                    showToast('正在生成高解析度 PNG...', 'success');
+                    const scaleFactor = parseInt(document.getElementById('expScale')?.value || '3');
+                    showToast(`正在生成 ${scaleFactor}x 超高解析度 PNG...`, 'success');
                     
                     const canvas = document.getElementById('exportCanvas');
-                    canvas.width = exportW * 2; 
-                    canvas.height = exportH * 2;
+                    canvas.width = exportW * scaleFactor; 
+                    canvas.height = exportH * scaleFactor;
                     const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
                     
                     if (bgColor !== 'transparent') {
                         ctx.fillStyle = bgColor;
@@ -1781,9 +1955,9 @@
                             const pngDataUrl = canvas.toDataURL('image/png');
                             const a = document.createElement('a');
                             a.href = pngDataUrl;
-                            a.download = `workflow-${Date.now()}.png`;
+                            a.download = `workflow-${scaleFactor}x-${Date.now()}.png`;
                             a.click();
-                            showToast('高解析度 PNG 匯出完成！');
+                            showToast(`${scaleFactor}x 高解析度 PNG 匯出完成！`);
                         } catch (err) {
                             showToast('PNG 轉換發生問題，請嘗試下載 SVG', 'error');
                         }
@@ -1798,8 +1972,9 @@
             }, 50);
 
             function restoreSelection() {
-                if (oldSelectedId) {
+                if (oldSelectedId || oldSelectedEdge !== null) {
                     selectedNodeId = oldSelectedId;
+                    selectedEdgeIdx = oldSelectedEdge;
                     renderDiagram();
                 }
             }
