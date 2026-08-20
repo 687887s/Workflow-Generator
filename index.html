@@ -744,6 +744,7 @@
 
             filtered.forEach(item => {
                 const isSelected = (currIcon === item.key);
+                const iconSvgPath = SVG_ICONS[item.key] || SVG_ICONS['default'];
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = `p-2.5 rounded-xl border flex flex-col items-center justify-center text-center space-y-1.5 transition group cursor-pointer ${
@@ -754,7 +755,9 @@
                 btn.onclick = () => selectIcon(item.key);
                 btn.innerHTML = `
                     <div class="w-8 h-8 rounded-lg ${isSelected ? 'bg-blue-500/30' : 'bg-slate-800 group-hover:bg-blue-500/20'} flex items-center justify-center text-base transition">
-                        <i class="fa-solid ${item.icon}"></i>
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="${iconSvgPath}" />
+                        </svg>
                     </div>
                     <span class="text-[10px] text-slate-300 font-medium truncate w-full group-hover:text-white">${item.name}</span>
                     <span class="text-[9px] font-mono text-slate-500 truncate w-full">${item.key.replace('fa-', '')}</span>
@@ -964,10 +967,8 @@
             state.edges.push(...newEdges);
 
             const rootNewId = idMap.get(clipboardGroup.rootGroupId);
-            selectedGroupId = rootNewId;
             saveHistory();
-            renderDiagram();
-            updateRelationsPanel();
+            selectGroup(rootNewId);
             showToast(`已貼上群組 (含 ${newNodes.length} 個節點與 ${newEdges.length} 條連線)`);
         }
 
@@ -1633,13 +1634,20 @@
             document.getElementById('propLabel').value = node.label;
             document.getElementById('propSub').value = node.sub;
             
-            const iconKey = node.icon || 'fa-cube';
-            document.getElementById('propIcon').value = iconKey;
+            const rawIconKey = node.icon || 'fa-cube';
+            const normIconKey = rawIconKey.startsWith('fa-') ? rawIconKey : 'fa-' + rawIconKey;
+            const iconSvgPath = SVG_ICONS[normIconKey] || SVG_ICONS['default'];
+            
+            document.getElementById('propIcon').value = normIconKey;
             const iconNameEl = document.getElementById('propIconName');
-            if (iconNameEl) iconNameEl.textContent = iconKey;
+            if (iconNameEl) iconNameEl.textContent = normIconKey;
             const iconPreviewEl = document.getElementById('propIconPreview');
             if (iconPreviewEl) {
-                iconPreviewEl.innerHTML = `<i class="fa-solid ${iconKey}"></i>`;
+                iconPreviewEl.innerHTML = `
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="${iconSvgPath}" />
+                    </svg>
+                `;
                 iconPreviewEl.style.color = node.color || '#3b82f6';
             }
 
@@ -2228,25 +2236,37 @@
         function getBorderIntersection(pCenter, pTarget, box, shape = 'rect', port = 'auto', offset = 0) {
             const cx = box.cx !== undefined ? box.cx : (box.x + box.w / 2);
             const cy = box.cy !== undefined ? box.cy : (box.y + box.h / 2);
-            const w = box.w;
-            const h = box.h;
+            const w = box.w || 100;
+            const h = box.h || 50;
             const halfW = w / 2;
             const halfH = h / 2;
             const ox = (offset && typeof offset === 'number') ? offset : 0;
 
-            // 1. Explicit Anchor Port Tuning
+            // 1. Explicit Anchor Port Tuning with Shape Geometry Awareness
             if (port && port !== 'auto') {
-                if (port === 'top') {
-                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
-                }
-                if (port === 'bottom') {
-                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
-                }
-                if (port === 'left') {
-                    return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: -1, ny: 0, side: 'left' };
-                }
-                if (port === 'right') {
-                    return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: 1, ny: 0, side: 'right' };
+                if (shape === 'diamond') {
+                    if (port === 'top') return { x: cx + ox, y: box.y + Math.abs(ox) * (h / (w || 1)), nx: 0, ny: -1, side: 'top' };
+                    if (port === 'bottom') return { x: cx + ox, y: box.y + h - Math.abs(ox) * (h / (w || 1)), nx: 0, ny: 1, side: 'bottom' };
+                    if (port === 'left') return { x: box.x + Math.abs(ox) * (w / (h || 1)), y: cy + ox, nx: -1, ny: 0, side: 'left' };
+                    if (port === 'right') return { x: box.x + w - Math.abs(ox) * (w / (h || 1)), y: cy + ox, nx: 1, ny: 0, side: 'right' };
+                } else if (shape === 'hexagon') {
+                    const p = 22;
+                    if (port === 'top') return { x: Math.max(box.x + p, Math.min(box.x + w - p, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
+                    if (port === 'bottom') return { x: Math.max(box.x + p, Math.min(box.x + w - p, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
+                    if (port === 'left') return { x: box.x, y: cy + ox, nx: -1, ny: 0, side: 'left' };
+                    if (port === 'right') return { x: box.x + w, y: cy + ox, nx: 1, ny: 0, side: 'right' };
+                } else if (shape === 'pill') {
+                    const r = halfH;
+                    const straightHalfW = Math.max(0, halfW - r);
+                    if (port === 'top') return { x: Math.max(cx - straightHalfW, Math.min(cx + straightHalfW, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
+                    if (port === 'bottom') return { x: Math.max(cx - straightHalfW, Math.min(cx + straightHalfW, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
+                    if (port === 'left') return { x: box.x, y: cy, nx: -1, ny: 0, side: 'left' };
+                    if (port === 'right') return { x: box.x + w, y: cy, nx: 1, ny: 0, side: 'right' };
+                } else {
+                    if (port === 'top') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
+                    if (port === 'bottom') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
+                    if (port === 'left') return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: -1, ny: 0, side: 'left' };
+                    if (port === 'right') return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: 1, ny: 0, side: 'right' };
                 }
             }
 
@@ -2279,10 +2299,10 @@
                 const vertices = [
                     { x: box.x + p, y: box.y },
                     { x: box.x + w - p, y: box.y },
-                    { x: box.x + w, y: box.y + halfH },
+                    { x: box.x + w, y: cy },
                     { x: box.x + w - p, y: box.y + h },
                     { x: box.x + p, y: box.y + h },
-                    { x: box.x, y: box.y + halfH }
+                    { x: box.x, y: cy }
                 ];
                 for (let i = 0; i < 6; i++) {
                     const v1 = vertices[i];
@@ -2329,6 +2349,25 @@
                         const nx = (hit.x - arcCx) / r;
                         const ny = (hit.y - cy) / r;
                         return { x: hit.x, y: hit.y, nx, ny, side: 'left' };
+                    }
+                }
+            }
+
+            // Shape: Database (Cylinder with top ellipse rx=halfW, ry=14)
+            if (shape === 'database') {
+                const ry = 14;
+                if (dy < 0) {
+                    // Top ellipse ray intersection: (dx*t/halfW)^2 + ((dy*t + (halfH - ry))/ry)^2 = 1
+                    const scaleX = halfW / Math.abs(dx || 0.0001);
+                    const scaleY = halfH / Math.abs(dy || 0.0001);
+                    if (scaleY <= scaleX) {
+                        return { x: cx + dx * scaleY, y: box.y, nx: 0, ny: -1, side: 'top' };
+                    }
+                } else {
+                    const scaleY = halfH / Math.abs(dy || 0.0001);
+                    const scaleX = halfW / Math.abs(dx || 0.0001);
+                    if (scaleY <= scaleX) {
+                        return { x: cx + dx * scaleY, y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
                     }
                 }
             }
@@ -2550,10 +2589,16 @@
                 cp2x = x2 + n2x * curvature;
                 cp2y = y2 + n2y * curvature;
             } else {
-                const perpX = -dy / dist;
-                const perpY = dx / dist;
+                // Canonical Base Normal Orientation: ensure X->Y and Y->X curve symmetrically in absolute world space
+                const id1 = String(ep1.id || (typeof ep1 === 'string' ? ep1 : ''));
+                const id2 = String(ep2.id || (typeof ep2 === 'string' ? ep2 : ''));
+                const isForward = id1 <= id2;
+                const baseSign = isForward ? 1 : -1;
+
+                const perpX = (-dy / dist) * baseSign;
+                const perpY = (dx / dist) * baseSign;
                 const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
-                const curveOffset = offsetMultiplier * 45;
+                const curveOffset = offsetMultiplier * 50;
 
                 cp1x = x1 + n1x * curvature + perpX * curveOffset;
                 cp1y = y1 + n1y * curvature + perpY * curveOffset;
@@ -2672,21 +2717,21 @@
             let svgHtml = `
                 <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
                     <defs>
-                        <!-- End Arrowhead (refX=10 puts point precisely at path boundary) -->
-                        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <!-- End Arrowhead (refX=10 puts apex exactly on boundary point) -->
+                        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                             <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.edgeColor}" />
                         </marker>
-                        <!-- Start Arrowhead -->
-                        <marker id="arrow-start" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="${theme.edgeColor}" />
+                        <!-- Start Arrowhead (refX=10 + auto-start-reverse puts apex on start boundary pointing outward) -->
+                        <marker id="arrow-start" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.edgeColor}" />
                         </marker>
                         <!-- Selected End Arrowhead -->
-                        <marker id="arrow-selected" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <marker id="arrow-selected" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                             <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#60a5fa" />
                         </marker>
                         <!-- Selected Start Arrowhead -->
-                        <marker id="arrow-selected-start" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="#60a5fa" />
+                        <marker id="arrow-selected-start" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#60a5fa" />
                         </marker>
                         <filter id="dropShadow" x="-25%" y="-25%" width="150%" height="150%">
                             <feDropShadow dx="0" dy="${shadowDy}" stdDeviation="${shadowStdDev}" flood-color="${theme.shadow}" flood-opacity="${shadowOpacity}" />
