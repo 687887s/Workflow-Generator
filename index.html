@@ -66,7 +66,7 @@
             </div>
             <div>
                 <h1 class="text-base font-bold text-white leading-tight">Workflow Figure Builder</h1>
-                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器 <span class="hidden md:inline-block ml-2 px-1.5 py-0.5 rounded bg-slate-700/60 text-[10px] text-slate-300"><i class="fa-solid fa-keyboard mr-1 text-blue-400"></i>[X] 交換順序 | [雙擊群組] 收折/展開</span></p>
+                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器 <span class="hidden md:inline-block ml-2 px-1.5 py-0.5 rounded bg-slate-700/60 text-[10px] text-slate-300"><i class="fa-solid fa-keyboard mr-1 text-blue-400"></i>[Ctrl+C/V] 複製貼上 | [X] 交換順序 | [雙擊/按鈕] 收折容器</span></p>
             </div>
         </div>
 
@@ -185,9 +185,14 @@
                 <div id="nodePropertiesEditor" class="hidden space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-blue-400"><i class="fa-solid fa-cube mr-1"></i>編輯節點</span>
-                        <button onclick="deleteSelectedNode()" class="text-red-400 hover:text-red-300 text-xs flex items-center px-2 py-1 bg-red-400/10 rounded">
-                            <i class="fa-solid fa-trash mr-1"></i>刪除
-                        </button>
+                        <div class="flex items-center space-x-1.5">
+                            <button onclick="copySelectedNode()" class="text-blue-400 hover:text-blue-300 text-xs flex items-center px-2 py-1 bg-blue-400/10 rounded transition" title="複製此節點 (Ctrl+C)">
+                                <i class="fa-regular fa-copy mr-1"></i>複製
+                            </button>
+                            <button onclick="deleteSelectedNode()" class="text-red-400 hover:text-red-300 text-xs flex items-center px-2 py-1 bg-red-400/10 rounded transition" title="刪除此節點 (Delete)">
+                                <i class="fa-solid fa-trash mr-1"></i>刪除
+                            </button>
+                        </div>
                     </div>
 
                     <div class="space-y-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
@@ -607,6 +612,40 @@
             }
         }
 
+        // Clipboard State
+        let clipboardNode = null;
+
+        function copySelectedNode() {
+            if (!selectedNodeId) {
+                showToast('請先在畫布上選取要複製的節點', 'warning');
+                return;
+            }
+            const node = state.nodes.find(n => n.id === selectedNodeId);
+            if (!node) return;
+            clipboardNode = JSON.parse(JSON.stringify(node));
+            showToast(`已複製「${node.label}」組件 (Ctrl+C)`);
+        }
+
+        function pasteNode() {
+            if (!clipboardNode) {
+                showToast('剪貼簿中沒有可貼上的組件', 'warning');
+                return;
+            }
+            const newId = 'n_' + Date.now().toString().slice(-4);
+            const newNode = JSON.parse(JSON.stringify(clipboardNode));
+            newNode.id = newId;
+            newNode.label = newNode.label + ' (副本)';
+            newNode.x = (newNode.x || 100) + 30;
+            newNode.y = (newNode.y || 100) + 30;
+            
+            state.nodes.push(newNode);
+            saveHistory();
+            selectNode(newId);
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已貼上「${newNode.label}」組件 (Ctrl+V)`);
+        }
+
         window.addEventListener('keydown', function(e) {
             const activeEl = document.activeElement;
             const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
@@ -614,6 +653,18 @@
             if (e.ctrlKey || e.metaKey) {
                 if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); return; }
                 else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); return; }
+                else if ((e.key === 'c' || e.key === 'C') && !isInput) {
+                    if (selectedNodeId) {
+                        e.preventDefault();
+                        copySelectedNode();
+                        return;
+                    }
+                }
+                else if ((e.key === 'v' || e.key === 'V') && !isInput) {
+                    e.preventDefault();
+                    pasteNode();
+                    return;
+                }
             }
             
             if (!isInput) {
@@ -725,6 +776,15 @@
 
             viewport.addEventListener('mousedown', (e) => {
                 if (e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+
+                // Priority 0: Group Collapse/Expand Button Detection
+                const collapseBtn = e.target.closest('[data-action="toggle-collapse"]');
+                if (collapseBtn) {
+                    const gid = collapseBtn.getAttribute('data-group-id');
+                    toggleGroupCollapse(gid);
+                    e.stopPropagation();
+                    return;
+                }
 
                 // Priority 1: Edge Click Detection
                 const edgeGroup = e.target.closest('[data-edge-idx]');
@@ -1331,6 +1391,18 @@
             showToast(collapse ? '已收折全部群組' : '已展開全部群組');
         }
 
+        // Expanded Edge Details Map
+        let expandedEdgeIndices = new Set();
+
+        function toggleEdgeDetails(idx) {
+            if (expandedEdgeIndices.has(idx)) {
+                expandedEdgeIndices.delete(idx);
+            } else {
+                expandedEdgeIndices.add(idx);
+            }
+            updateRelationsPanel();
+        }
+
         function updateRelationsPanel() {
             const edgesContainer = document.getElementById('edgesList');
             edgesContainer.innerHTML = '';
@@ -1341,6 +1413,7 @@
             
             state.edges.forEach((e, idx) => {
                 const isSelected = selectedEdgeIdx === idx;
+                const isDetailsOpen = expandedEdgeIndices.has(idx) || isSelected;
                 const item = document.createElement('div');
                 item.setAttribute('data-relation-edge-idx', idx);
                 item.className = `p-2.5 rounded-lg border transition-all space-y-2 text-xs cursor-pointer ${
@@ -1380,56 +1453,80 @@
                 const curWidth = e.width || '';
 
                 item.innerHTML = `
+                    <!-- Essential Row 1: From -> Swap(X) -> To + Delete -->
                     <div class="grid grid-cols-[1fr_auto_auto_1fr_auto] items-center gap-1 min-w-0">
-                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
+                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsFrom}
                         </select>
                         <button onclick="swapConnectedNodes(${idx}); event.stopPropagation();" title="交換相連兩端順序與位置 (快速鍵: X)" class="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-slate-800 shrink-0 transition">
                             <i class="fa-solid fa-arrow-right-arrow-left text-[10px]"></i>
                         </button>
                         <i class="fa-solid fa-arrow-right text-slate-500 text-[10px] shrink-0"></i>
-                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
+                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsTo}
                         </select>
-                        <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     </div>
-                    <div class="grid grid-cols-[1fr_80px_65px] gap-1.5">
-                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 min-w-0 text-[11px] focus:border-blue-500 focus:outline-none">
-                        <select onchange="updateEdge(${idx}, 'type', this.value); saveHistory();" class="bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
-                            <option value="bezier" ${curType === 'bezier' ? 'selected' : ''}>平滑曲線</option>
-                            <option value="orthogonal" ${curType === 'orthogonal' ? 'selected' : ''}>直角折線</option>
-                            <option value="straight" ${curType === 'straight' ? 'selected' : ''}>直線</option>
-                        </select>
-                        <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
-                            <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
-                            <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-1.5 pt-0.5">
-                        <div class="flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-location-arrow mr-0.5"></i>箭頭:</span>
-                            <select onchange="updateEdge(${idx}, 'arrow', this.value); saveHistory();" class="w-full bg-transparent text-slate-200 text-[10px] focus:outline-none cursor-pointer">
-                                <option value="end" ${curArrow === 'end' ? 'selected' : ''}>單向 (→)</option>
-                                <option value="both" ${curArrow === 'both' ? 'selected' : ''}>雙向 (↔)</option>
-                                <option value="start" ${curArrow === 'start' ? 'selected' : ''}>反向 (←)</option>
-                                <option value="none" ${curArrow === 'none' ? 'selected' : ''}>無箭頭 (-)</option>
-                            </select>
+
+                    <!-- Essential Row 2: Tag (Label) Input + Advanced Toggle Button -->
+                    <div class="flex items-center space-x-1.5">
+                        <div class="flex-1 flex items-center bg-slate-950 px-2 py-0.5 rounded border border-slate-700 focus-within:border-blue-500">
+                            <span class="text-[10px] text-slate-500 mr-1.5 shrink-0"><i class="fa-solid fa-tag mr-0.5"></i>Tag:</span>
+                            <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="w-full bg-transparent text-slate-200 text-[11px] focus:outline-none min-w-0">
                         </div>
-                        <div class="flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-ruler-horizontal mr-0.5"></i>線寬:</span>
-                            <select onchange="updateEdge(${idx}, 'width', this.value); saveHistory();" class="w-full bg-transparent text-slate-200 text-[10px] focus:outline-none cursor-pointer">
-                                <option value="" ${!curWidth ? 'selected' : ''}>預設</option>
-                                <option value="1.5" ${curWidth === '1.5' ? 'selected' : ''}>1.5px (細)</option>
-                                <option value="2.5" ${curWidth === '2.5' ? 'selected' : ''}>2.5px (標準)</option>
-                                <option value="4" ${curWidth === '4' ? 'selected' : ''}>4.0px (粗)</option>
-                                <option value="6" ${curWidth === '6' ? 'selected' : ''}>6.0px (特粗)</option>
-                            </select>
-                        </div>
+                        <button onclick="toggleEdgeDetails(${idx}); event.stopPropagation();" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-${isDetailsOpen ? 'blue-400' : 'slate-400'} shrink-0 transition flex items-center" title="切換進階樣式設定">
+                            <i class="fa-solid fa-sliders mr-1 text-[9px]"></i>進階
+                            <i class="fa-solid fa-chevron-${isDetailsOpen ? 'up' : 'down'} ml-1 text-[8px]"></i>
+                        </button>
                     </div>
-                    ${e.label ? `
-                    <div class="flex items-center space-x-2 pt-1 border-t border-slate-800/80">
-                        <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-arrows-left-right mr-1"></i>標籤位置: <b id="edgePosVal_${idx}" class="text-blue-400 font-mono">${curPos}%</b></span>
-                        <input type="range" min="10" max="90" value="${curPos}" oninput="updateEdge(${idx}, 'labelPos', parseInt(this.value)/100); document.getElementById('edgePosVal_${idx}').innerText=this.value+'%';" onchange="saveHistory();" class="flex-1 accent-blue-500 h-1 bg-slate-800 rounded cursor-pointer">
+
+                    <!-- Collapsible Advanced Properties Section -->
+                    ${isDetailsOpen ? `
+                    <div class="pt-2 border-t border-slate-800/80 space-y-2">
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">線條種類</label>
+                                <select onchange="updateEdge(${idx}, 'type', this.value); saveHistory();" class="w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                                    <option value="bezier" ${curType === 'bezier' ? 'selected' : ''}>平滑曲線</option>
+                                    <option value="orthogonal" ${curType === 'orthogonal' ? 'selected' : ''}>直角折線</option>
+                                    <option value="straight" ${curType === 'straight' ? 'selected' : ''}>直線</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">線條樣式</label>
+                                <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                                    <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
+                                    <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">箭頭方向</label>
+                                <select onchange="updateEdge(${idx}, 'arrow', this.value); saveHistory();" class="w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                                    <option value="end" ${curArrow === 'end' ? 'selected' : ''}>單向 (→)</option>
+                                    <option value="both" ${curArrow === 'both' ? 'selected' : ''}>雙向 (↔)</option>
+                                    <option value="start" ${curArrow === 'start' ? 'selected' : ''}>反向 (←)</option>
+                                    <option value="none" ${curArrow === 'none' ? 'selected' : ''}>無箭頭 (-)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">線條粗細</label>
+                                <select onchange="updateEdge(${idx}, 'width', this.value); saveHistory();" class="w-full bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                                    <option value="" ${!curWidth ? 'selected' : ''}>預設</option>
+                                    <option value="1.5" ${curWidth === '1.5' ? 'selected' : ''}>1.5px (細)</option>
+                                    <option value="2.5" ${curWidth === '2.5' ? 'selected' : ''}>2.5px (標準)</option>
+                                    <option value="4" ${curWidth === '4' ? 'selected' : ''}>4.0px (粗)</option>
+                                    <option value="6" ${curWidth === '6' ? 'selected' : ''}>6.0px (特粗)</option>
+                                </select>
+                            </div>
+                        </div>
+                        ${e.label ? `
+                        <div class="flex items-center space-x-2 pt-1">
+                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-arrows-left-right mr-1"></i>標籤位置: <b id="edgePosVal_${idx}" class="text-blue-400 font-mono">${curPos}%</b></span>
+                            <input type="range" min="10" max="90" value="${curPos}" oninput="updateEdge(${idx}, 'labelPos', parseInt(this.value)/100); document.getElementById('edgePosVal_${idx}').innerText=this.value+'%';" onchange="saveHistory();" class="flex-1 accent-blue-500 h-1 bg-slate-800 rounded cursor-pointer">
+                        </div>
+                        ` : ''}
                     </div>
                     ` : ''}
                 `;
@@ -2119,7 +2216,7 @@
                         <g data-group-id="${g.id}" class="group-container group-collapsed" transform="translate(${box.gx}, ${box.gy})" style="cursor: pointer;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
                             <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="24" fill="${theme.nodeBg}" stroke="${gColor}" stroke-width="2" filter="url(#dropShadow)" />
                             <!-- Collapse / Expand Icon Button -->
-                            <g onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊展開容器">
+                            <g data-action="toggle-collapse" data-group-id="${g.id}" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊展開容器">
                                 <circle cx="24" cy="24" r="14" fill="${gColor}25" />
                                 <path d="M 21 18 L 28 24 L 21 30" fill="none" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                             </g>
@@ -2138,9 +2235,9 @@
                             <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
                             <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
                             <!-- Collapse Toggle Button in Header -->
-                            <g onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
-                                <rect x="${box.gw - 28}" y="6" width="20" height="20" rx="4" fill="${gColor}20" />
-                                <path d="M ${box.gw - 22} 16 L ${box.gw - 14} 16" stroke="${gColor}" stroke-width="2" stroke-linecap="round" />
+                            <g data-action="toggle-collapse" data-group-id="${g.id}" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
+                                <rect x="${box.gw - 32}" y="4" width="24" height="24" rx="6" fill="${gColor}25" stroke="${gColor}60" stroke-width="1" />
+                                <path d="M ${box.gw - 25} 16 L ${box.gw - 15} 16" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" />
                             </g>
                             ${box.isEmpty ? `<text class="group-empty-hint" x="${box.gw/2}" y="${box.gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：可拖曳移動或指派節點/子群組</text>` : ''}
                         </g>
