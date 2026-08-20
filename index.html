@@ -774,16 +774,18 @@
                 const draggedNode = nodeMap.get(nodeId);
                 const edgePairInfoMap = buildEdgePairIndexMap();
 
-                // Update affected edges
+                // Update affected edges (either connected directly to the node or to affected groups)
                 state.edges.forEach((e, idx) => {
-                    if (e.from === nodeId || e.to === nodeId) {
+                    const isDirectlyConnected = (e.from === nodeId || e.to === nodeId);
+                    const isGroupConnected = (draggedNode && draggedNode.group && (e.from === draggedNode.group || e.to === draggedNode.group));
+                    if (isDirectlyConnected || isGroupConnected) {
                         const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
                         if (edgeEl) {
-                            const n1 = nodeMap.get(e.from);
-                            const n2 = nodeMap.get(e.to);
-                            if (n1 && n2) {
+                            const epA = getEndpointBounds(e.from);
+                            const epB = getEndpointBounds(e.to);
+                            if (epA && epB) {
                                 const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                                const pathData = computeEdgePath(n1, n2, edgeInfo.indexInPair, edgeInfo.totalInPair);
+                                const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
                                 const pathEl = edgeEl.querySelector('.edge-path');
                                 if (pathEl) pathEl.setAttribute('d', pathData.d);
                                 const hitboxEl = edgeEl.querySelector('.edge-hitbox');
@@ -1243,11 +1245,30 @@
                     }
                 };
 
-                let nodeOptionsFrom = '', nodeOptionsTo = '';
+                let nodeOptionsFrom = '<optgroup label="節點">';
+                let nodeOptionsTo = '<optgroup label="節點">';
                 state.nodes.forEach(n => {
                     nodeOptionsFrom += `<option value="${n.id}" ${e.from === n.id ? 'selected' : ''}>${n.label}</option>`;
                     nodeOptionsTo += `<option value="${n.id}" ${e.to === n.id ? 'selected' : ''}>${n.label}</option>`;
                 });
+                nodeOptionsFrom += '</optgroup>';
+                nodeOptionsTo += '</optgroup>';
+
+                if (state.subgraphs.length > 0) {
+                    nodeOptionsFrom += '<optgroup label="群組 (Group)">';
+                    nodeOptionsTo += '<optgroup label="群組 (Group)">';
+                    state.subgraphs.forEach(g => {
+                        nodeOptionsFrom += `<option value="${g.id}" ${e.from === g.id ? 'selected' : ''}>[群組] ${g.label}</option>`;
+                        nodeOptionsTo += `<option value="${g.id}" ${e.to === g.id ? 'selected' : ''}>[群組] ${g.label}</option>`;
+                    });
+                    nodeOptionsFrom += '</optgroup>';
+                    nodeOptionsTo += '</optgroup>';
+                }
+
+                const curPos = Math.round((e.labelPos !== undefined ? e.labelPos : 0.5) * 100);
+                const curType = e.type || 'bezier';
+                const curArrow = e.arrow || 'end';
+                const curWidth = e.width || '';
 
                 item.innerHTML = `
                     <div class="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5 min-w-0">
@@ -1260,13 +1281,45 @@
                         </select>
                         <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1.5 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
-                    <div class="grid grid-cols-[1fr_80px] gap-1.5">
+                    <div class="grid grid-cols-[1fr_80px_65px] gap-1.5">
                         <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 min-w-0 text-[11px] focus:border-blue-500 focus:outline-none">
-                        <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                        <select onchange="updateEdge(${idx}, 'type', this.value); saveHistory();" class="bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
+                            <option value="bezier" ${curType === 'bezier' ? 'selected' : ''}>平滑曲線</option>
+                            <option value="orthogonal" ${curType === 'orthogonal' ? 'selected' : ''}>直角折線</option>
+                            <option value="straight" ${curType === 'straight' ? 'selected' : ''}>直線</option>
+                        </select>
+                        <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
                             <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
                             <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
                         </select>
                     </div>
+                    <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+                        <div class="flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-location-arrow mr-0.5"></i>箭頭:</span>
+                            <select onchange="updateEdge(${idx}, 'arrow', this.value); saveHistory();" class="w-full bg-transparent text-slate-200 text-[10px] focus:outline-none cursor-pointer">
+                                <option value="end" ${curArrow === 'end' ? 'selected' : ''}>單向 (→)</option>
+                                <option value="both" ${curArrow === 'both' ? 'selected' : ''}>雙向 (↔)</option>
+                                <option value="start" ${curArrow === 'start' ? 'selected' : ''}>反向 (←)</option>
+                                <option value="none" ${curArrow === 'none' ? 'selected' : ''}>無箭頭 (-)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-ruler-horizontal mr-0.5"></i>線寬:</span>
+                            <select onchange="updateEdge(${idx}, 'width', this.value); saveHistory();" class="w-full bg-transparent text-slate-200 text-[10px] focus:outline-none cursor-pointer">
+                                <option value="" ${!curWidth ? 'selected' : ''}>預設</option>
+                                <option value="1.5" ${curWidth === '1.5' ? 'selected' : ''}>1.5px (細)</option>
+                                <option value="2.5" ${curWidth === '2.5' ? 'selected' : ''}>2.5px (標準)</option>
+                                <option value="4" ${curWidth === '4' ? 'selected' : ''}>4.0px (粗)</option>
+                                <option value="6" ${curWidth === '6' ? 'selected' : ''}>6.0px (特粗)</option>
+                            </select>
+                        </div>
+                    </div>
+                    ${e.label ? `
+                    <div class="flex items-center space-x-2 pt-1 border-t border-slate-800/80">
+                        <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-arrows-left-right mr-1"></i>標籤位置: <b id="edgePosVal_${idx}" class="text-blue-400 font-mono">${curPos}%</b></span>
+                        <input type="range" min="10" max="90" value="${curPos}" oninput="updateEdge(${idx}, 'labelPos', parseInt(this.value)/100); document.getElementById('edgePosVal_${idx}').innerText=this.value+'%';" onchange="saveHistory();" class="flex-1 accent-blue-500 h-1 bg-slate-800 rounded cursor-pointer">
+                    </div>
+                    ` : ''}
                 `;
                 edgesContainer.appendChild(item);
             });
@@ -1311,7 +1364,7 @@
                 showToast('需要至少 2 個節點才能建立連線', 'warning');
                 return;
             }
-            state.edges.push({ from: state.nodes[0].id, to: state.nodes[1].id, label: '', style: 'solid' });
+            state.edges.push({ from: state.nodes[0].id, to: state.nodes[1].id, label: '', style: 'solid', type: 'bezier', labelPos: 0.5 });
             saveHistory();
             updateRelationsPanel();
             renderDiagram();
@@ -1456,9 +1509,15 @@
             // Shape geometry compensation (inscribed safe zones)
             if (n.shape === 'diamond') {
                 const maxTextW = Math.max(labelW, subW);
-                const neededCenterW = showIcon ? (maxTextW + 48) : maxTextW;
-                baseW = Math.max(220, Math.ceil((neededCenterW / 0.55) / 10) * 10);
-                baseH = Math.max(90, Math.round(baseW * 0.44));
+                if (showIcon) {
+                    // With icon: vertical stacked layout, width strictly constrained by text
+                    baseW = Math.max(170, Math.ceil((maxTextW + 36) / 0.75 / 10) * 10);
+                    baseH = n.sub ? 88 : 80;
+                } else {
+                    // Without icon: text centered horizontally at y = H/2 (widest area)
+                    baseW = Math.max(150, Math.ceil((maxTextW + 48) / 10) * 10);
+                    baseH = n.sub ? 72 : 64;
+                }
             } else if (n.shape === 'hexagon') {
                 baseW = Math.max(210, baseW + 48);
             } else if (n.shape === 'pill') {
@@ -1472,7 +1531,7 @@
             return { w: baseW, h: baseH };
         }
 
-        // --- Multi-edge Adaptive Routing Helpers ---
+        // --- Multi-edge & Multi-type Adaptive Routing Helpers ---
         function getEdgePairKey(id1, id2) {
             return id1 < id2 ? `${id1}___${id2}` : `${id2}___${id1}`;
         }
@@ -1500,53 +1559,182 @@
             return edgeInfoMap;
         }
 
-        function computeEdgePath(n1, n2, pairIndex = 0, totalInPair = 1) {
-            const dim1 = getNodeDimensions(n1);
-            const dim2 = getNodeDimensions(n2);
-            const cx1 = n1.x + dim1.w / 2;
-            const cy1 = n1.y + dim1.h / 2;
-            const cx2 = n2.x + dim2.w / 2;
-            const cy2 = n2.y + dim2.h / 2;
+        // --- Unified Endpoint Bounds Resolver (Supports Node & Subgraph Group) ---
+        function getEndpointBounds(endpoint) {
+            if (!endpoint) return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false };
+            
+            const id = typeof endpoint === 'string' ? endpoint : endpoint.id;
+            
+            // 1. Check if endpoint is a Node
+            const node = state.nodes.find(n => n.id === id);
+            if (node) {
+                const dim = getNodeDimensions(node);
+                return {
+                    x: node.x,
+                    y: node.y,
+                    w: dim.w,
+                    h: dim.h,
+                    cx: node.x + dim.w / 2,
+                    cy: node.y + dim.h / 2,
+                    label: node.label,
+                    isGroup: false
+                };
+            }
+            
+            // 2. Check if endpoint is a Group / Subgraph
+            const group = state.subgraphs.find(g => g.id === id);
+            if (group) {
+                const box = getGroupBoundingBox(group.id);
+                return {
+                    x: box.gx,
+                    y: box.gy,
+                    w: box.gw,
+                    h: box.gh,
+                    cx: box.gx + box.gw / 2,
+                    cy: box.gy + box.gh / 2,
+                    label: group.label,
+                    isGroup: true
+                };
+            }
+            
+            if (endpoint.x !== undefined && endpoint.y !== undefined) {
+                const w = endpoint.w || 100, h = endpoint.h || 50;
+                return {
+                    x: endpoint.x,
+                    y: endpoint.y,
+                    w, h,
+                    cx: endpoint.x + w / 2,
+                    cy: endpoint.y + h / 2,
+                    label: endpoint.label || '',
+                    isGroup: false
+                };
+            }
+            
+            return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false };
+        }
+
+        function computeEdgePath(ep1, ep2, pairIndex = 0, totalInPair = 1, edgeType = 'bezier', labelPos = 0.5) {
+            const b1 = getEndpointBounds(ep1);
+            const b2 = getEndpointBounds(ep2);
+            const cx1 = b1.cx;
+            const cy1 = b1.cy;
+            const cx2 = b2.cx;
+            const cy2 = b2.cy;
             
             const dx = cx2 - cx1;
             const dy = cy2 - cy1;
             const dist = Math.hypot(dx, dy) || 1;
+            const t = Math.max(0.08, Math.min(0.92, labelPos !== undefined ? labelPos : 0.5));
 
-            // Single edge between these two nodes: use natural curve
+            // 1. Straight Line
+            if (edgeType === 'straight') {
+                const d = `M ${cx1} ${cy1} L ${cx2} ${cy2}`;
+                const midX = cx1 + dx * t;
+                const midY = cy1 + dy * t;
+                return { d, midX, midY };
+            }
+
+            // 2. Orthogonal Step Line (Right-Angle)
+            if (edgeType === 'orthogonal') {
+                const absDx = Math.abs(dx);
+                const absDy = Math.abs(dy);
+                let d = '';
+                let midX = 0, midY = 0;
+
+                if (absDx >= absDy) {
+                    const midX1 = cx1 + dx / 2;
+                    d = `M ${cx1} ${cy1} L ${midX1} ${cy1} L ${midX1} ${cy2} L ${cx2} ${cy2}`;
+                    
+                    const len1 = Math.abs(dx / 2);
+                    const len2 = absDy;
+                    const len3 = Math.abs(dx / 2);
+                    const totalLen = len1 + len2 + len3 || 1;
+                    const targetLen = totalLen * t;
+
+                    if (targetLen <= len1) {
+                        const segT = targetLen / (len1 || 1);
+                        midX = cx1 + (dx / 2) * segT;
+                        midY = cy1;
+                    } else if (targetLen <= len1 + len2) {
+                        const segT = (targetLen - len1) / (len2 || 1);
+                        midX = midX1;
+                        midY = cy1 + dy * segT;
+                    } else {
+                        const segT = (targetLen - len1 - len2) / (len3 || 1);
+                        midX = midX1 + (dx / 2) * segT;
+                        midY = cy2;
+                    }
+                } else {
+                    const midY1 = cy1 + dy / 2;
+                    d = `M ${cx1} ${cy1} L ${cx1} ${midY1} L ${cx2} ${midY1} L ${cx2} ${cy2}`;
+
+                    const len1 = Math.abs(dy / 2);
+                    const len2 = absDx;
+                    const len3 = Math.abs(dy / 2);
+                    const totalLen = len1 + len2 + len3 || 1;
+                    const targetLen = totalLen * t;
+
+                    if (targetLen <= len1) {
+                        const segT = targetLen / (len1 || 1);
+                        midX = cx1;
+                        midY = cy1 + (dy / 2) * segT;
+                    } else if (targetLen <= len1 + len2) {
+                        const segT = (targetLen - len1) / (len2 || 1);
+                        midX = cx1 + dx * segT;
+                        midY = midY1;
+                    } else {
+                        const segT = (targetLen - len1 - len2) / (len3 || 1);
+                        midX = cx2;
+                        midY = midY1 + (dy / 2) * segT;
+                    }
+                }
+                return { d, midX, midY };
+            }
+
+            // 3. Smooth Bezier Curve (Default)
+            let cp1x, cp1y, cp2x, cp2y;
+
             if (totalInPair <= 1) {
                 const absDx = Math.abs(dx);
                 const absDy = Math.abs(dy);
-                let d = "";
                 if (absDx > absDy) {
-                    const controlOffset = absDx * 0.4;
-                    d = `M ${cx1} ${cy1} C ${cx1 + (dx > 0 ? controlOffset : -controlOffset)} ${cy1}, ${cx2 - (dx > 0 ? controlOffset : -controlOffset)} ${cy2}, ${cx2} ${cy2}`;
+                    const controlOffset = absDx * 0.45;
+                    cp1x = cx1 + (dx > 0 ? controlOffset : -controlOffset);
+                    cp1y = cy1;
+                    cp2x = cx2 - (dx > 0 ? controlOffset : -controlOffset);
+                    cp2y = cy2;
                 } else {
-                    const controlOffset = absDy * 0.4;
-                    d = `M ${cx1} ${cy1} C ${cx1} ${cy1 + (dy > 0 ? controlOffset : -controlOffset)}, ${cx2} ${cy2 - (dy > 0 ? controlOffset : -controlOffset)}, ${cx2} ${cy2}`;
+                    const controlOffset = absDy * 0.45;
+                    cp1x = cx1;
+                    cp1y = cy1 + (dy > 0 ? controlOffset : -controlOffset);
+                    cp2x = cx2;
+                    cp2y = cy2 - (dy > 0 ? controlOffset : -controlOffset);
                 }
-                return { d: d, midX: (cx1 + cx2) / 2, midY: (cy1 + cy2) / 2 };
+            } else {
+                const nx = -dy / dist;
+                const ny = dx / dist;
+                const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
+                const curveOffset = offsetMultiplier * 50;
+
+                cp1x = cx1 + dx * 0.25 + nx * curveOffset;
+                cp1y = cy1 + dy * 0.25 + ny * curveOffset;
+                cp2x = cx1 + dx * 0.75 + nx * curveOffset;
+                cp2y = cy1 + dy * 0.75 + ny * curveOffset;
             }
-
-            // Multiple edges between the same two nodes: calculate adaptive perpendicular normal offset
-            const nx = -dy / dist;
-            const ny = dx / dist;
-
-            // Compute balanced symmetric offset spread: e.g. -45, +45, -90, +90, etc.
-            const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
-            const curveOffset = offsetMultiplier * 50;
-
-            const cp1x = cx1 + dx * 0.25 + nx * curveOffset;
-            const cp1y = cy1 + dy * 0.25 + ny * curveOffset;
-            const cp2x = cx1 + dx * 0.75 + nx * curveOffset;
-            const cp2y = cy1 + dy * 0.75 + ny * curveOffset;
 
             const d = `M ${cx1} ${cy1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${cx2} ${cy2}`;
 
-            // Exact midpoint of cubic Bezier at t = 0.5
-            const midX = 0.125 * cx1 + 0.375 * cp1x + 0.375 * cp2x + 0.125 * cx2;
-            const midY = 0.125 * cy1 + 0.375 * cp1y + 0.375 * cp2y + 0.125 * cy2;
+            // Cubic Bezier parameter evaluation at t
+            const omt = 1 - t;
+            const omt2 = omt * omt;
+            const omt3 = omt2 * omt;
+            const t2 = t * t;
+            const t3 = t2 * t;
 
-            return { d: d, midX: midX, midY: midY };
+            const midX = omt3 * cx1 + 3 * omt2 * t * cp1x + 3 * omt * t2 * cp2x + t3 * cx2;
+            const midY = omt3 * cy1 + 3 * omt2 * t * cp1y + 3 * omt * t2 * cp2y + t3 * cy2;
+
+            return { d, midX, midY };
         }
 
         // --- Hierarchy and Bounding Box Calculations for Groups ---
@@ -1636,11 +1824,21 @@
             let svgHtml = `
                 <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
                     <defs>
+                        <!-- End Arrowhead -->
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
                         </marker>
+                        <!-- Start Arrowhead -->
+                        <marker id="arrow-start" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 10 1 L 0 5 L 10 9 z" fill="${theme.edgeColor}" />
+                        </marker>
+                        <!-- Selected End Arrowhead -->
                         <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
+                        </marker>
+                        <!-- Selected Start Arrowhead -->
+                        <marker id="arrow-selected-start" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 10 1 L 0 5 L 10 9 z" fill="#60a5fa" />
                         </marker>
                         <filter id="dropShadow" x="-25%" y="-25%" width="150%" height="150%">
                             <feDropShadow dx="0" dy="${shadowDy}" stdDeviation="${shadowStdDev}" flood-color="${theme.shadow}" flood-opacity="${shadowOpacity}" />
@@ -1676,21 +1874,36 @@
             const edgePairInfoMap = buildEdgePairIndexMap();
 
             state.edges.forEach((e, idx) => {
-                const nodeA = nodeMap.get(e.from);
-                const nodeB = nodeMap.get(e.to);
+                const epA = getEndpointBounds(e.from);
+                const epB = getEndpointBounds(e.to);
                 
-                if (nodeA && nodeB) {
+                if (epA && epB) {
                     const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                    const pathData = computeEdgePath(nodeA, nodeB, edgeInfo.indexInPair, edgeInfo.totalInPair);
+                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
                     const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
                     const isEdgeSelected = selectedEdgeIdx === idx;
                     const strokeColor = isEdgeSelected ? '#60a5fa' : theme.edgeColor;
-                    const markerId = isEdgeSelected ? 'url(#arrow-selected)' : 'url(#arrow)';
+                    const strokeWidth = e.width ? parseFloat(e.width) : effectiveEdgeWidth;
+
+                    const markerEndId = isEdgeSelected ? 'url(#arrow-selected)' : 'url(#arrow)';
+                    const markerStartId = isEdgeSelected ? 'url(#arrow-selected-start)' : 'url(#arrow-start)';
+                    const arrowMode = e.arrow || 'end';
+
+                    let markerAttrs = '';
+                    if (arrowMode === 'both') {
+                        markerAttrs = `marker-start="${markerStartId}" marker-end="${markerEndId}"`;
+                    } else if (arrowMode === 'start') {
+                        markerAttrs = `marker-start="${markerStartId}"`;
+                    } else if (arrowMode === 'none') {
+                        markerAttrs = '';
+                    } else {
+                        markerAttrs = `marker-end="${markerEndId}"`;
+                    }
 
                     svgHtml += `
                         <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
-                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${effectiveEdgeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
-                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${effectiveEdgeWidth}" ${strokeDash} marker-end="${markerId}" />
+                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${strokeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" ${strokeDash} ${markerAttrs} />
                             <!-- Hit area for easy clicking & selection -->
                             <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="18" style="cursor: pointer;" />
                     `;
