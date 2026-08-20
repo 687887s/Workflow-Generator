@@ -59,6 +59,14 @@
             stroke-width: 2.5px;
             filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
         }
+        /* Group Collapse Button Drag Hiding */
+        .group-collapse-btn {
+            transition: opacity 0.18s ease-out;
+        }
+        .cursor-move .group-collapse-btn, .cursor-grabbing .group-collapse-btn {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 <body class="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden">
@@ -239,6 +247,43 @@
                             <input type="text" id="propSub" onchange="updateSelectedNode('sub', this.value); saveHistory();" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
                         </div>
                         <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-[11px] text-slate-400 block font-medium">組件形狀 (Shape)</label>
+                                <span id="propShapeNameDisplay" class="text-[10px] text-blue-400 font-mono">標準矩形</span>
+                            </div>
+                            <!-- Visual Shape Grid (Like Component Library) -->
+                            <div class="grid grid-cols-4 gap-1.5 bg-slate-950 p-2 rounded-lg border border-slate-700/60" id="propShapeGrid">
+                                <button type="button" onclick="selectNodeShape('rect')" data-shape="rect" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="標準矩形 (Rectangle)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="12" rx="2"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">矩形</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('rounded')" data-shape="rounded" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="圓角矩形 (Rounded Rect)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="12" rx="5"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">圓角</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('pill')" data-shape="pill" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="膠囊橢圓 (Pill / Capsule)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="12" rx="6"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">膠囊</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('diamond')" data-shape="diamond" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="決策菱形 (Decision Diamond)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12,1 22,8 12,15 2,8"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">菱形</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('database')" data-shape="database" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="資料庫圓柱 (Database Cylinder)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="4" rx="9" ry="3"/><path d="M3 4v8c0 1.66 4.03 3 9 3s9-1.34 9-3V4"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">資料庫</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('cloud')" data-shape="cloud" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="雲端容器 (Cloud)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 1.5"><rect x="2" y="2" width="20" height="12" rx="6"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">雲端</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('hexagon')" data-shape="hexagon" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="六角形 (Hexagon)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="6,2 18,2 22,8 18,14 6,14 2,8"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">六角形</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="text-[11px] text-slate-400 block">圖示 (Icon)</label>
                                 <!-- Icon Toggle Checkbox for individual node -->
@@ -349,8 +394,19 @@
 
         <!-- Right Preview Canvas Area -->
         <main id="canvasViewport" class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden bg-grid-pattern cursor-grab">
-            <!-- Selection Overlay -->
-            <div id="selectionBox" class="absolute border-2 border-blue-500 bg-blue-500/20 hidden pointer-events-none z-40"></div>
+            <!-- Selection Overlay Box in Working Area -->
+            <div id="selectionBox" class="absolute border-2 border-blue-400 bg-blue-500/15 shadow-[0_0_20px_rgba(59,130,246,0.35)] hidden pointer-events-none z-40 rounded-sm">
+                <!-- Top Badge on Canvas -->
+                <div id="selectionBoxBadge" class="absolute -top-7 left-0 bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow flex items-center space-x-1 whitespace-nowrap font-mono">
+                    <svg class="w-3 h-3 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6v2H5v4H3V3zm18 0v6h-2V5h-4V3h6zm0 18h-6v-2h4v-4h2v6zm-18 0v-6h2v4h4v2H3z"/></svg>
+                    <span id="selectionBoxBadgeText">0 × 0 px</span>
+                </div>
+                <!-- 4 Corner Handles -->
+                <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
+            </div>
 
             <!-- Floating Multi-Select Action Capsule Bar -->
             <div id="multiSelectBar" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 hidden items-center space-x-2 bg-slate-900/95 backdrop-blur border border-blue-500/60 rounded-full px-4 py-2 shadow-2xl transition-all duration-200">
@@ -368,6 +424,10 @@
                 <button onclick="groupSelectedNodes()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-medium flex items-center space-x-1 transition" title="將選取的節點打包為新群組">
                     <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                     <span>打包群組</span>
+                </button>
+                <button onclick="copySelectedMultiNodes()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-medium flex items-center space-x-1 transition" title="複製選取的節點 (Ctrl+C)">
+                    <svg class="w-3.5 h-3.5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    <span>複製</span>
                 </button>
                 <button onclick="deleteSelectedMultiNodes()" class="p-1 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-full transition ml-1" title="批量刪除 (Delete)">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -414,76 +474,144 @@
                 <span id="toastMsg" class="text-xs font-medium">訊息標題</span>
             </div>
 
-            <!-- Custom Context Menu for Right-Click Interaction -->
-            <div id="contextMenu" class="fixed z-[999] hidden bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-xl shadow-2xl py-1.5 w-52 text-xs text-slate-200 transition-opacity duration-150 select-none">
-                <div id="ctxNodeOptions" class="space-y-0.5">
-                    <div id="ctxMultiHeader" class="px-3 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider border-b border-slate-800 mb-1 flex items-center justify-between">
-                        <span>節點操作</span>
-                        <span id="ctxSelectedCount" class="bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">1</span>
+            <!-- Bottom Selection Mode Guide Bar -->
+            <div id="selectionModeGuide" class="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 hidden items-center space-x-3 bg-slate-900/95 backdrop-blur-md border border-blue-500/80 rounded-2xl px-5 py-2.5 shadow-2xl transition-all duration-200">
+                <div class="p-2 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6v2H5v4H3V3zm18 0v6h-2V5h-4V3h6zm0 18h-6v-2h4v-4h2v6zm-18 0v-6h2v4h4v2H3z"/></svg>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                        <span>框選匯出模式</span>
+                        <span id="selectionBoxDimension" class="bg-blue-600/40 text-blue-300 px-2 py-0.5 rounded-full text-[10px] font-mono border border-blue-500/30">請在畫布上拖曳圈選區域</span>
                     </div>
-                    <button onclick="connectSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        <span class="flex-1 font-semibold">建立連線</span>
-                        <span class="text-[10px] text-slate-400 font-mono">L / C</span>
-                    </button>
-                    <button onclick="connectSelectedNodesBidirectional(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
-                        <span class="flex-1">建立雙向互連</span>
-                    </button>
-                    <button onclick="groupSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                        <span class="flex-1">打包為群組</span>
-                    </button>
-                    <div class="h-[1px] bg-slate-800 my-1"></div>
-                    <button onclick="copySelectedNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                        <span class="flex-1">複製副本</span>
-                        <span class="text-[10px] text-slate-400 font-mono">Ctrl+C</span>
-                    </button>
-                    <button onclick="deleteSelectedNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                        <span class="flex-1">刪除節點</span>
-                        <span class="text-[10px] text-slate-400 font-mono">Del</span>
-                    </button>
+                    <p class="text-[10px] text-slate-400">拖曳出藍色矩形後放開滑鼠即可鎖定選區</p>
                 </div>
-                <div id="ctxEdgeOptions" class="space-y-0.5 hidden">
-                    <button onclick="swapConnectedNodes(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
-                        <span class="flex-1 font-semibold">反轉連線方向</span>
-                        <span class="text-[10px] text-slate-400 font-mono">X / S</span>
+                <!-- Action Buttons Container -->
+                <div class="flex items-center space-x-2 pl-2 border-l border-slate-700/80">
+                    <button id="btnQuickExportPng" onclick="executeQuickExport('png')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center space-x-1">
+                        <i class="fa-solid fa-image"></i>
+                        <span>下載 PNG</span>
                     </button>
-                    <button onclick="toggleSelectedEdgeStyle(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/></svg>
-                        <span class="flex-1">切換連線樣式 (平滑/直/折)</span>
+                    <button id="btnQuickExportSvg" onclick="executeQuickExport('svg')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition border border-slate-700 flex items-center space-x-1">
+                        <i class="fa-solid fa-vector-square"></i>
+                        <span>下載 SVG</span>
                     </button>
-                    <button onclick="removeEdge(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
-                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        <span class="flex-1">刪除連線</span>
-                        <span class="text-[10px] text-slate-400 font-mono">Del</span>
+                    <button onclick="openExportModal()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl text-xs transition border border-slate-700" title="開啟完整設定">
+                        <i class="fa-solid fa-sliders"></i>
                     </button>
-                </div>
-                <div id="ctxCanvasOptions" class="space-y-0.5 hidden">
-                    <button onclick="addNewNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                        <span class="flex-1">新增組件節點</span>
-                    </button>
-                    <button onclick="addNewGroup(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
-                        <span class="flex-1">新增群組容器</span>
-                    </button>
-                    <button onclick="pasteClipboard(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                        <span class="flex-1">貼上剪貼簿內容</span>
-                        <span class="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
-                    </button>
-                    <div class="h-[1px] bg-slate-800 my-1"></div>
-                    <button onclick="centerView(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
-                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
-                        <span class="flex-1">置中畫布畫面</span>
+                    <button onclick="setMode('drag')" class="px-3 py-1.5 bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-xl text-xs font-medium transition border border-slate-700">
+                        退出
                     </button>
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Custom Context Menu for Right-Click Interaction (Moved to Root for Zero Event Collisions) -->
+    <div id="contextMenu" onmousedown="event.stopPropagation();" class="fixed z-[999] hidden bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-xl shadow-2xl py-1.5 w-52 text-xs text-slate-200 transition-opacity duration-150 select-none">
+        <div id="ctxNodeOptions" class="space-y-0.5">
+            <div id="ctxMultiHeader" class="px-3 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider border-b border-slate-800 mb-1 flex items-center justify-between">
+                <span>節點操作</span>
+                <span id="ctxSelectedCount" class="bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">1</span>
+            </div>
+            <button onclick="connectSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span class="flex-1 font-semibold">建立連線</span>
+                <span class="text-[10px] text-slate-400 font-mono">L / C</span>
+            </button>
+            <button onclick="connectSelectedNodesBidirectional(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                <span class="flex-1">建立雙向互連</span>
+            </button>
+            <button onclick="groupSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <span class="flex-1">打包為群組</span>
+                <span class="text-[10px] text-slate-400 font-mono">G</span>
+            </button>
+            <div class="h-[1px] bg-slate-800 my-1"></div>
+            <button onclick="duplicateSelection(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 text-blue-300 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span class="flex-1 font-semibold">複製並建立副本</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+D</span>
+            </button>
+            <button onclick="copySelection(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/></svg>
+                <span class="flex-1">複製到剪貼簿</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+C</span>
+            </button>
+            <button onclick="pasteClipboard(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                <span class="flex-1">貼上</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
+            </button>
+            <button onclick="deleteSelectedNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <span class="flex-1">刪除節點</span>
+                <span class="text-[10px] text-slate-400 font-mono">Del</span>
+            </button>
+        </div>
+        <div id="ctxGroupOptions" class="space-y-0.5 hidden">
+            <button onclick="duplicateSelection(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 text-blue-300 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span class="flex-1 font-semibold">複製並建立群組副本</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+D</span>
+            </button>
+            <button onclick="copySelectedGroup(selectedGroupId); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/></svg>
+                <span class="flex-1">複製群組到剪貼簿</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+C</span>
+            </button>
+            <button onclick="pasteClipboard(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                <span class="flex-1">貼上</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
+            </button>
+            <button onclick="toggleGroupCollapse(selectedGroupId); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6m0 0v6m0-6L3 21m17-7h-6m0 0v6m0-6l7 7M10 4v6m0 0H4m6 0L3 3m14 7h6m-6 0V4m0 6l7-7"/></svg>
+                <span class="flex-1">收折 / 展開容器</span>
+            </button>
+            <button onclick="deleteSelectedGroup(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <span class="flex-1">刪除群組</span>
+                <span class="text-[10px] text-slate-400 font-mono">Del</span>
+            </button>
+        </div>
+        <div id="ctxEdgeOptions" class="space-y-0.5 hidden">
+            <button onclick="swapConnectedNodes(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                <span class="flex-1 font-semibold">反轉連線方向</span>
+                <span class="text-[10px] text-slate-400 font-mono">X / S</span>
+            </button>
+            <button onclick="toggleSelectedEdgeStyle(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/></svg>
+                <span class="flex-1">切換連線樣式 (平滑/直/折)</span>
+            </button>
+            <button onclick="removeEdge(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <span class="flex-1">刪除連線</span>
+                <span class="text-[10px] text-slate-400 font-mono">Del</span>
+            </button>
+        </div>
+        <div id="ctxCanvasOptions" class="space-y-0.5 hidden">
+            <button onclick="addNewNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                <span class="flex-1">新增組件節點</span>
+            </button>
+            <button onclick="addNewGroup(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                <span class="flex-1">新增群組容器</span>
+            </button>
+            <button onclick="pasteClipboard(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span class="flex-1">貼上剪貼簿內容</span>
+                <span class="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
+            </button>
+            <div class="h-[1px] bg-slate-800 my-1"></div>
+            <button onclick="centerView(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+                <span class="flex-1">置中畫布畫面</span>
+            </button>
+        </div>
     </div>
 
     <!-- Export Options Modal -->
@@ -537,8 +665,8 @@
                         <label id="labelCustomArea" class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition opacity-50">
                             <input type="radio" name="expArea" id="radioCustomArea" value="custom" disabled class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
                             <div>
-                                <div class="text-sm font-medium text-slate-200">自訂框選區域 (Custom)</div>
-                                <div class="text-[10px] text-slate-500">請使用上方「框選匯出」按鈕選取範圍</div>
+                                <div class="text-sm font-medium text-slate-200">自訂框選區域 (Custom Area)</div>
+                                <div id="customAreaDesc" class="text-[10px] text-slate-500">請使用上方「框選匯出」按鈕選取範圍</div>
                             </div>
                         </label>
                     </div>
@@ -985,9 +1113,10 @@
             }
         }
 
-        // Clipboard State (Supports Node & Group Deep Copy)
-        let clipboardType = null; // 'node' | 'group'
+        // Clipboard State (Supports Node, Multi-Nodes & Group Deep Copy)
+        let clipboardType = null; // 'node' | 'multi_nodes' | 'group'
         let clipboardNode = null;
+        let clipboardMultiNodes = null;
         let clipboardGroup = null;
 
         function copySelectedNode() {
@@ -1000,6 +1129,20 @@
             clipboardType = 'node';
             clipboardNode = JSON.parse(JSON.stringify(node));
             showToast(`已複製「${node.label}」組件 (Ctrl+C)`);
+        }
+
+        function copySelectedMultiNodes() {
+            if (selectedNodeIds.size === 0) return;
+            const nodes = Array.from(selectedNodeIds).map(nid => state.nodes.find(n => n.id === nid)).filter(Boolean);
+            const nodeIds = new Set(nodes.map(n => n.id));
+            const internalEdges = state.edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+            
+            clipboardType = 'multi_nodes';
+            clipboardMultiNodes = {
+                nodes: JSON.parse(JSON.stringify(nodes)),
+                edges: JSON.parse(JSON.stringify(internalEdges))
+            };
+            showToast(`已複製 ${nodes.length} 個組件及關聯連線 (Ctrl+C)`);
         }
 
         function copySelectedGroup(gid) {
@@ -1027,6 +1170,18 @@
             showToast(`已複製「${rootGroup.label}」群組 (含 ${nodes.length} 個節點與 ${internalEdges.length} 條連線)`);
         }
 
+        function copySelection() {
+            if (selectedGroupId) {
+                copySelectedGroup(selectedGroupId);
+            } else if (selectedNodeIds.size > 1) {
+                copySelectedMultiNodes();
+            } else if (selectedNodeId) {
+                copySelectedNode();
+            } else {
+                showToast('請先在畫布上選取欲複製的節點或群組', 'warning');
+            }
+        }
+
         function pasteNode() {
             if (!clipboardNode) {
                 showToast('剪貼簿中沒有可貼上的組件', 'warning');
@@ -1041,18 +1196,61 @@
             
             state.nodes.push(newNode);
             saveHistory();
-            selectNode(newId);
+            selectNode(newId, false, true);
             renderDiagram();
             updateRelationsPanel();
             showToast(`已貼上「${newNode.label}」組件 (Ctrl+V)`);
         }
 
-        function pasteClipboard() {
-            if (clipboardType === 'group') {
-                pasteGroup();
-            } else {
-                pasteNode();
+        function pasteMultiNodes() {
+            if (!clipboardMultiNodes || !clipboardMultiNodes.nodes || clipboardMultiNodes.nodes.length === 0) {
+                showToast('剪貼簿中沒有可貼上的組件清單', 'warning');
+                return;
             }
+            const idMap = new Map();
+            const newNodes = [];
+            const newEdges = [];
+            const offset = 40;
+
+            clipboardMultiNodes.nodes.forEach(n => {
+                const newId = 'n_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
+                idMap.set(n.id, newId);
+                const cloneN = JSON.parse(JSON.stringify(n));
+                cloneN.id = newId;
+                cloneN.label = cloneN.label + ' (副本)';
+                cloneN.x = (cloneN.x || 100) + offset;
+                cloneN.y = (cloneN.y || 100) + offset;
+                newNodes.push(cloneN);
+            });
+
+            clipboardMultiNodes.edges.forEach(e => {
+                if (idMap.has(e.from) && idMap.has(e.to)) {
+                    const cloneE = JSON.parse(JSON.stringify(e));
+                    cloneE.from = idMap.get(e.from);
+                    cloneE.to = idMap.get(e.to);
+                    newEdges.push(cloneE);
+                }
+            });
+
+            state.nodes.push(...newNodes);
+            state.edges.push(...newEdges);
+
+            // Select all pasted new nodes
+            selectedNodeIds.clear();
+            selectedNodeOrder = [];
+            newNodes.forEach(n => {
+                selectedNodeIds.add(n.id);
+                selectedNodeOrder.push(n.id);
+            });
+            selectedNodeId = newNodes[newNodes.length - 1].id;
+            selectedGroupId = null;
+
+            saveHistory();
+            updateMultiSelectBar();
+            renderDiagram();
+            updateRelationsPanel();
+            if (activeTab === 'properties') refreshPropertiesPanel();
+            showToast(`已貼上 ${newNodes.length} 個組件及關聯連線 (Ctrl+V)`);
         }
 
         function pasteGroup() {
@@ -1064,7 +1262,7 @@
             const newSubgraphs = [];
             const newNodes = [];
             const newEdges = [];
-            const offset = 40;
+            const offset = 50;
 
             // Map new IDs for subgraphs
             clipboardGroup.subgraphs.forEach(g => {
@@ -1124,6 +1322,25 @@
             showToast(`已貼上群組 (含 ${newNodes.length} 個節點與 ${newEdges.length} 條連線)`);
         }
 
+        function pasteClipboard() {
+            if (clipboardType === 'group') {
+                pasteGroup();
+            } else if (clipboardType === 'multi_nodes') {
+                pasteMultiNodes();
+            } else {
+                pasteNode();
+            }
+        }
+
+        function duplicateSelection() {
+            if (!selectedGroupId && selectedNodeIds.size === 0 && !selectedNodeId) {
+                showToast('請先選取欲複製的組件或群組', 'warning');
+                return;
+            }
+            copySelection();
+            pasteClipboard();
+        }
+
         window.addEventListener('keydown', function(e) {
             const activeEl = document.activeElement;
             const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
@@ -1131,24 +1348,19 @@
             if (e.ctrlKey || e.metaKey) {
                 if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); return; }
                 else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); return; }
+                else if ((e.key === 'd' || e.key === 'D') && !isInput) {
+                    e.preventDefault();
+                    duplicateSelection();
+                    return;
+                }
                 else if ((e.key === 'c' || e.key === 'C') && !isInput) {
-                    if (selectedNodeId) {
-                        e.preventDefault();
-                        copySelectedNode();
-                        return;
-                    } else if (selectedGroupId) {
-                        e.preventDefault();
-                        copySelectedGroup(selectedGroupId);
-                        return;
-                    }
+                    e.preventDefault();
+                    copySelection();
+                    return;
                 }
                 else if ((e.key === 'v' || e.key === 'V') && !isInput) {
                     e.preventDefault();
-                    if (clipboardType === 'group') {
-                        pasteGroup();
-                    } else {
-                        pasteNode();
-                    }
+                    pasteClipboard();
                     return;
                 }
             }
@@ -1201,7 +1413,7 @@
             if (ctxMenu) ctxMenu.classList.add('hidden');
         }
 
-        window.addEventListener('click', (e) => {
+        window.addEventListener('pointerdown', (e) => {
             if (!e.target.closest('#contextMenu')) {
                 closeContextMenu();
             }
@@ -1227,21 +1439,6 @@
             if (tabName === 'properties') refreshPropertiesPanel();
             if (tabName === 'relations') updateRelationsPanel();
             if (tabName === 'code') document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
-        }
-
-        function setMode(m) {
-            appMode = m;
-            document.getElementById('modeDrag').className = m === 'drag' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
-            document.getElementById('modeSelect').className = m === 'select' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
-            
-            const vp = document.getElementById('canvasViewport');
-            if (m === 'select') {
-                vp.classList.remove('cursor-grab', 'cursor-grabbing');
-                vp.classList.add('cursor-crosshair');
-            } else {
-                vp.classList.remove('cursor-crosshair');
-                vp.classList.add('cursor-grab');
-            }
         }
 
         function getMousePositionInSVG(e) {
@@ -1290,27 +1487,21 @@
             const viewport = document.getElementById('canvasViewport');
 
             viewport.addEventListener('mousedown', (e) => {
-                if (e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+                if (e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4') || e.target.closest('#selectionModeGuide')) return;
 
-                // Priority 0: Group Collapse/Expand Button Detection
-                const collapseBtn = e.target.closest('[data-action="toggle-collapse"]');
-                if (collapseBtn) {
-                    const gid = collapseBtn.getAttribute('data-group-id');
-                    toggleGroupCollapse(gid);
-                    e.stopPropagation();
+                // Priority -1: Middle mouse button (button === 1) or Alt+LeftClick for viewport panning in ANY mode!
+                if (e.button === 1 || (e.button === 0 && e.altKey)) {
+                    isDraggingCanvas = true;
+                    dragStartX = e.clientX - panX;
+                    dragStartY = e.clientY - panY;
+                    viewport.classList.remove('cursor-crosshair', 'cursor-grab');
+                    viewport.classList.add('cursor-grabbing');
+                    e.preventDefault();
                     return;
                 }
 
-                // Priority 1: Edge Click Detection
-                const edgeGroup = e.target.closest('[data-edge-idx]');
-                if (edgeGroup) {
-                    const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
-                    selectEdge(edgeIdx);
-                    e.stopPropagation();
-                    return;
-                }
-
-                if (appMode === 'select') {
+                // Priority 0: Area Selection in Select Mode (Highest priority over any node/edge/collapse click!)
+                if (appMode === 'select' && e.button === 0) {
                     isSelectingArea = true;
                     const rect = viewport.getBoundingClientRect();
                     selectStartX = e.clientX - rect.left;
@@ -1321,6 +1512,24 @@
                     sb.style.width = '0px';
                     sb.style.height = '0px';
                     sb.classList.remove('hidden');
+                    return;
+                }
+
+                // Priority 1: Group Collapse/Expand Button Detection
+                const collapseBtn = e.target.closest('[data-action="toggle-collapse"]');
+                if (collapseBtn) {
+                    const gid = collapseBtn.getAttribute('data-group-id');
+                    toggleGroupCollapse(gid);
+                    e.stopPropagation();
+                    return;
+                }
+
+                // Priority 2: Edge Click Detection
+                const edgeGroup = e.target.closest('[data-edge-idx]');
+                if (edgeGroup) {
+                    const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
+                    selectEdge(edgeIdx);
+                    e.stopPropagation();
                     return;
                 }
 
@@ -1459,12 +1668,14 @@
 
                 const ctxMenu = document.getElementById('contextMenu');
                 const ctxNode = document.getElementById('ctxNodeOptions');
+                const ctxGroup = document.getElementById('ctxGroupOptions');
                 const ctxEdge = document.getElementById('ctxEdgeOptions');
                 const ctxCanvas = document.getElementById('ctxCanvasOptions');
                 const multiHeader = document.getElementById('ctxMultiHeader');
                 const ctxSelectedCount = document.getElementById('ctxSelectedCount');
 
                 ctxNode.classList.add('hidden');
+                if (ctxGroup) ctxGroup.classList.add('hidden');
                 ctxEdge.classList.add('hidden');
                 ctxCanvas.classList.add('hidden');
 
@@ -1480,6 +1691,10 @@
                     } else {
                         multiHeader.classList.add('hidden');
                     }
+                } else if (groupEl && !e.target.closest('[data-action="toggle-collapse"]')) {
+                    const gid = groupEl.getAttribute('data-group-id');
+                    selectGroup(gid);
+                    if (ctxGroup) ctxGroup.classList.remove('hidden');
                 } else if (edgeGroup) {
                     const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
                     selectEdge(edgeIdx);
@@ -1487,6 +1702,8 @@
                 } else {
                     ctxCanvas.classList.remove('hidden');
                 }
+
+                lastContextMenuPosInSVG = getMousePositionInSVG(e);
 
                 // Dynamic boundary positioning
                 const menuW = 210, menuH = 220;
@@ -1509,10 +1726,26 @@
                     const currX = e.clientX - rect.left;
                     const currY = e.clientY - rect.top;
                     const sb = document.getElementById('selectionBox');
-                    sb.style.left = Math.min(selectStartX, currX) + 'px';
-                    sb.style.top = Math.min(selectStartY, currY) + 'px';
-                    sb.style.width = Math.abs(currX - selectStartX) + 'px';
-                    sb.style.height = Math.abs(currY - selectStartY) + 'px';
+                    const badgeText = document.getElementById('selectionBoxBadgeText');
+                    const minX = Math.min(selectStartX, currX);
+                    const minY = Math.min(selectStartY, currY);
+                    const w = Math.abs(currX - selectStartX);
+                    const h = Math.abs(currY - selectStartY);
+                    sb.style.left = minX + 'px';
+                    sb.style.top = minY + 'px';
+                    sb.style.width = w + 'px';
+                    sb.style.height = h + 'px';
+                    sb.classList.remove('hidden');
+                    
+                    const svgW = Math.round(w / canvasZoom);
+                    const svgH = Math.round(h / canvasZoom);
+                    if (badgeText) {
+                        badgeText.innerText = `${svgW} × ${svgH} px`;
+                    }
+                    const dimLabel = document.getElementById('selectionBoxDimension');
+                    if (dimLabel) {
+                        dimLabel.innerText = `選取範圍: ${svgW} × ${svgH} px`;
+                    }
                     return;
                 }
 
@@ -1565,9 +1798,6 @@
 
                 if (isSelectingArea) {
                     isSelectingArea = false;
-                    const sb = document.getElementById('selectionBox');
-                    sb.classList.add('hidden');
-                    
                     const rect = viewport.getBoundingClientRect();
                     const endX = e.clientX - rect.left;
                     const endY = e.clientY - rect.top;
@@ -1576,16 +1806,46 @@
                     const w = Math.abs(endX - selectStartX);
                     const h = Math.abs(endY - selectStartY);
 
-                    if (w > 20 && h > 20) {
-                        const pt1 = { x: (minX - panX)/canvasZoom, y: (minY - panY)/canvasZoom };
-                        const pt2 = { x: (minX + w - panX)/canvasZoom, y: (minY + h - panY)/canvasZoom };
-                        customExportBox = { x: pt1.x, y: pt1.y, w: pt2.x - pt1.x, h: pt2.y - pt1.y };
+                    if (w > 15 && h > 15) {
+                        const pt1 = { x: (minX - panX) / canvasZoom, y: (minY - panY) / canvasZoom };
+                        const pt2 = { x: (minX + w - panX) / canvasZoom, y: (minY + h - panY) / canvasZoom };
+                        customExportBox = { 
+                            x: Math.round(pt1.x), 
+                            y: Math.round(pt1.y), 
+                            w: Math.max(20, Math.round(pt2.x - pt1.x)), 
+                            h: Math.max(20, Math.round(pt2.y - pt1.y)) 
+                        };
                         
-                        document.getElementById('radioCustomArea').disabled = false;
-                        document.getElementById('radioCustomArea').checked = true;
-                        document.getElementById('labelCustomArea').classList.remove('opacity-50');
-                        openExportModal();
-                        setMode('drag');
+                        // Keep #selectionBox visible on workspace!
+                        const sb = document.getElementById('selectionBox');
+                        if (sb) sb.classList.remove('hidden');
+
+                        const radioCustom = document.getElementById('radioCustomArea');
+                        const labelCustom = document.getElementById('labelCustomArea');
+                        const customDesc = document.getElementById('customAreaDesc');
+                        if (radioCustom) {
+                            radioCustom.disabled = false;
+                            radioCustom.checked = true;
+                        }
+                        if (labelCustom) {
+                            labelCustom.classList.remove('opacity-50');
+                        }
+                        if (customDesc) {
+                            customDesc.innerText = `已鎖定框選：${customExportBox.w} × ${customExportBox.h} px (X: ${customExportBox.x}, Y: ${customExportBox.y})`;
+                        }
+                        const dimLabel = document.getElementById('selectionBoxDimension');
+                        if (dimLabel) {
+                            dimLabel.innerText = `已鎖定選區: ${customExportBox.w} × ${customExportBox.h} px`;
+                        }
+                        showToast(`已鎖定選區 (${customExportBox.w} × ${customExportBox.h} px)，可點擊下方按鈕直接下載！`);
+                    } else {
+                        const sb = document.getElementById('selectionBox');
+                        if (sb) sb.classList.add('hidden');
+                        customExportBox = null;
+                        const dimLabel = document.getElementById('selectionBoxDimension');
+                        if (dimLabel) {
+                            dimLabel.innerText = "請在畫布上拖曳圈選區域";
+                        }
                     }
                     return;
                 }
@@ -1637,11 +1897,14 @@
                 isDraggingNode = false;
                 isDraggingGroup = false;
                 isDraggingCanvas = false;
-                selectedGroupId = null;
                 multiDragInitialNodes = [];
                 const viewport = document.getElementById('canvasViewport');
                 viewport.classList.remove('cursor-grabbing', 'cursor-move');
-                viewport.classList.add('cursor-grab');
+                if (appMode === 'select') {
+                    viewport.classList.add('cursor-crosshair');
+                } else {
+                    viewport.classList.add('cursor-grab');
+                }
                 
                 if (activeTab === 'code') {
                     document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
@@ -1658,6 +1921,26 @@
             }, { passive: false });
         }
 
+        function updateSelectionBoxScreenPosition() {
+            const sb = document.getElementById('selectionBox');
+            if (!sb || !customExportBox) return;
+            const viewport = document.getElementById('canvasViewport');
+            if (!viewport) return;
+            const screenX = customExportBox.x * canvasZoom + panX;
+            const screenY = customExportBox.y * canvasZoom + panY;
+            const screenW = customExportBox.w * canvasZoom;
+            const screenH = customExportBox.h * canvasZoom;
+            sb.style.left = screenX + 'px';
+            sb.style.top = screenY + 'px';
+            sb.style.width = screenW + 'px';
+            sb.style.height = screenH + 'px';
+            
+            const badgeText = document.getElementById('selectionBoxBadgeText');
+            if (badgeText) {
+                badgeText.innerText = `${Math.round(customExportBox.w)} × ${Math.round(customExportBox.h)} px`;
+            }
+        }
+
         function updateCanvasTransform() {
             const vpTransform = document.getElementById('viewportTransform');
             if (vpTransform) {
@@ -1666,6 +1949,7 @@
                 renderDiagram();
             }
             document.getElementById('zoomLevelDisplay').innerText = Math.round(canvasZoom * 100) + '%';
+            updateSelectionBoxScreenPosition();
         }
 
         let lastZoomLOD = 1.0;
@@ -1824,6 +2108,23 @@
             if (activeTab === 'properties') refreshPropertiesPanel();
         }
 
+        function selectGroup(gid) {
+            selectedGroupId = gid;
+            if (gid) {
+                selectedNodeId = null;
+                selectedNodeIds.clear();
+                selectedNodeOrder = [];
+                selectedEdgeIdx = null;
+                updateMultiSelectBar();
+            }
+            renderDiagram();
+            if (gid && activeTab !== 'properties') {
+                switchSidebarTab('properties');
+            } else if (activeTab === 'properties') {
+                refreshPropertiesPanel();
+            }
+        }
+
         function updateMultiSelectBar() {
             const bar = document.getElementById('multiSelectBar');
             const countEl = document.getElementById('multiSelectCount');
@@ -1966,31 +2267,73 @@
             }
         }
 
-        function addNodeToCenter(shape) {
+        let lastContextMenuPosInSVG = null;
+
+        function addNewNode(shape = 'rect') {
             const vp = document.getElementById('canvasViewport');
-            const centerPt = {
-                x: (vp.clientWidth/2 - panX) / canvasZoom - NODE_W/2,
-                y: (vp.clientHeight/2 - panY) / canvasZoom - NODE_H/2
-            };
-            
+            let posX, posY;
+            if (lastContextMenuPosInSVG) {
+                posX = lastContextMenuPosInSVG.x - NODE_W / 2;
+                posY = lastContextMenuPosInSVG.y - NODE_H / 2;
+            } else {
+                posX = (vp.clientWidth / 2 - panX) / canvasZoom - NODE_W / 2;
+                posY = (vp.clientHeight / 2 - panY) / canvasZoom - NODE_H / 2;
+            }
+
             const newId = 'n_' + Date.now().toString().slice(-4);
             const newNode = {
                 id: newId,
-                label: '新節點',
+                label: '新組件',
                 sub: '',
                 shape: shape,
-                icon: shape === 'database' ? 'fa-database' : (shape === 'cloud' ? 'fa-cloud' : 'fa-cube'),
+                icon: shape === 'database' ? 'database' : (shape === 'cloud' ? 'cloud' : (shape === 'diamond' ? 'help-circle' : 'box')),
                 group: '',
                 color: '#3b82f6',
-                x: Math.round(centerPt.x / 10) * 10,
-                y: Math.round(centerPt.y / 10) * 10,
+                x: Math.round(posX / 10) * 10,
+                y: Math.round(posY / 10) * 10,
                 showIcon: true
             };
-            
+
             state.nodes.push(newNode);
             saveHistory();
             selectNode(newId);
-            showToast('已新增組件');
+            renderDiagram();
+            updateRelationsPanel();
+            showToast('已新增組件節點');
+        }
+
+        function addNewGroup() {
+            const vp = document.getElementById('canvasViewport');
+            let posX, posY;
+            if (lastContextMenuPosInSVG) {
+                posX = lastContextMenuPosInSVG.x - 100;
+                posY = lastContextMenuPosInSVG.y - 80;
+            } else {
+                posX = (vp.clientWidth / 2 - panX) / canvasZoom - 100;
+                posY = (vp.clientHeight / 2 - panY) / canvasZoom - 80;
+            }
+
+            const newId = 'sg_' + Date.now().toString().slice(-4);
+            const newGroup = {
+                id: newId,
+                label: '新群組容器',
+                color: '#6366f1',
+                x: Math.round(posX / 10) * 10,
+                y: Math.round(posY / 10) * 10,
+                parent: ''
+            };
+
+            state.subgraphs.push(newGroup);
+            saveHistory();
+            selectGroup(newId);
+            renderDiagram();
+            updateRelationsPanel();
+            showToast('已新增群組容器');
+        }
+
+        function addNodeToCenter(shape) {
+            lastContextMenuPosInSVG = null;
+            addNewNode(shape);
         }
 
         function deleteSelectedNode() {
@@ -2008,6 +2351,27 @@
             refreshPropertiesPanel();
             updateRelationsPanel();
             showToast('已刪除節點');
+        }
+
+        const SHAPE_NAMES = {
+            'rect': '標準矩形',
+            'rounded': '圓角矩形',
+            'pill': '膠囊橢圓',
+            'diamond': '決策菱形',
+            'database': '資料庫圓柱',
+            'cloud': '雲端容器',
+            'hexagon': '六角形'
+        };
+
+        function selectNodeShape(shape) {
+            if (!selectedNodeId) return;
+            const node = state.nodes.find(n => n.id === selectedNodeId);
+            if (!node) return;
+            node.shape = shape;
+            saveHistory();
+            renderDiagram();
+            refreshPropertiesPanel();
+            showToast(`已切換為「${SHAPE_NAMES[shape] || shape}」`);
         }
 
         function refreshPropertiesPanel() {
@@ -2028,6 +2392,26 @@
             
             document.getElementById('propLabel').value = node.label;
             document.getElementById('propSub').value = node.sub;
+            
+            const currentShape = node.shape || 'rect';
+            const shapeNameDisplay = document.getElementById('propShapeNameDisplay');
+            if (shapeNameDisplay) {
+                shapeNameDisplay.innerText = SHAPE_NAMES[currentShape] || '標準矩形';
+            }
+
+            const shapeBtns = document.querySelectorAll('#propShapeGrid .shape-btn');
+            shapeBtns.forEach(btn => {
+                const s = btn.getAttribute('data-shape');
+                if (s === currentShape) {
+                    btn.className = "shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border-2 border-blue-500 bg-blue-500/20 text-white shadow-sm transition";
+                    const svg = btn.querySelector('svg');
+                    if (svg) svg.classList.add('text-blue-400');
+                } else {
+                    btn.className = "shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300";
+                    const svg = btn.querySelector('svg');
+                    if (svg) svg.classList.remove('text-blue-400');
+                }
+            });
             
             const rawIconKey = node.icon || 'box';
             const normIconKey = rawIconKey.startsWith('fa-') ? rawIconKey.replace('fa-', '') : rawIconKey;
@@ -2524,6 +2908,8 @@
             if (shape === 'pill') {
                 const rx = h / 2;
                 return `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'rounded') {
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="14" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'diamond') {
                 return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'database') {
@@ -2540,7 +2926,7 @@
                 const p = 22;
                 return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else {
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             }
         }
 
@@ -3210,7 +3596,7 @@
                             <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
                             <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
                             <!-- Collapse Toggle Button in Header -->
-                            <g data-action="toggle-collapse" data-group-id="${g.id}" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
+                            <g data-action="toggle-collapse" data-group-id="${g.id}" class="group-collapse-btn" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
                                 <rect x="${box.gw - 32}" y="4" width="24" height="24" rx="6" fill="${gColor}25" stroke="${gColor}60" stroke-width="1" />
                                 <path d="M ${box.gw - 25} 16 L ${box.gw - 15} 16" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" />
                             </g>
@@ -3432,9 +3818,65 @@
             });
         }
 
+        function setMode(mode) {
+            appMode = mode;
+            const btnDrag = document.getElementById('modeDrag');
+            const btnSelect = document.getElementById('modeSelect');
+            const vp = document.getElementById('canvasViewport');
+            const guideBar = document.getElementById('selectionModeGuide');
+            const dimLabel = document.getElementById('selectionBoxDimension');
+            
+            if (mode === 'select') {
+                if (btnSelect) btnSelect.className = "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm";
+                if (btnDrag) btnDrag.className = "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
+                if (vp) {
+                    vp.classList.remove('cursor-grab', 'cursor-move');
+                    vp.classList.add('cursor-crosshair');
+                }
+                if (guideBar) {
+                    guideBar.classList.remove('hidden');
+                    guideBar.classList.add('flex');
+                }
+                if (dimLabel) {
+                    dimLabel.innerText = "請在畫布上拖曳圈選區域";
+                }
+                showToast('已進入「框選匯出」模式：請在畫布上拖曳拉出選取矩形');
+            } else {
+                if (btnDrag) btnDrag.className = "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm";
+                if (btnSelect) btnSelect.className = "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
+                if (vp) {
+                    vp.classList.remove('cursor-crosshair');
+                    vp.classList.add('cursor-grab');
+                }
+                if (guideBar) {
+                    guideBar.classList.add('hidden');
+                    guideBar.classList.remove('flex');
+                }
+                const sb = document.getElementById('selectionBox');
+                if (sb) sb.classList.add('hidden');
+                customExportBox = null;
+            }
+        }
+
         function openExportModal() {
             const modal = document.getElementById('exportModal');
             const content = document.getElementById('exportModalContent');
+            
+            // If customExportBox exists, automatically select 'custom' radio and activate options
+            if (customExportBox) {
+                const radioCustom = document.getElementById('radioCustomArea');
+                const labelCustom = document.getElementById('labelCustomArea');
+                const customDesc = document.getElementById('customAreaDesc');
+                if (radioCustom) {
+                    radioCustom.disabled = false;
+                    radioCustom.checked = true;
+                }
+                if (labelCustom) labelCustom.classList.remove('opacity-50');
+                if (customDesc) {
+                    customDesc.innerText = `已鎖定框選：${Math.round(customExportBox.w)} × ${Math.round(customExportBox.h)} px (X: ${Math.round(customExportBox.x)}, Y: ${Math.round(customExportBox.y)})`;
+                }
+            }
+
             modal.classList.remove('hidden');
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
@@ -3445,6 +3887,7 @@
         function closeExportModal() {
             const modal = document.getElementById('exportModal');
             const content = document.getElementById('exportModalContent');
+            // Keep selection box on canvas for easy user verification!
             modal.classList.add('opacity-0');
             content.classList.add('scale-95');
             setTimeout(() => {
@@ -3469,8 +3912,21 @@
             }
         }
 
+        function executeQuickExport(format) {
+            if (!customExportBox) {
+                showToast('請先在畫布上拖曳拉出框選範圍', 'warning');
+                return;
+            }
+            const bg = document.getElementById('expBg')?.value || 'transparent';
+            executeExport(format, 'custom', bg);
+        }
+
         function confirmExport() {
-            const area = document.querySelector('input[name="expArea"]:checked').value;
+            const checkedRadio = document.querySelector('input[name="expArea"]:checked');
+            let area = checkedRadio ? checkedRadio.value : 'autofit';
+            if (customExportBox && (!checkedRadio || checkedRadio.value === 'custom')) {
+                area = 'custom';
+            }
             const bg = document.getElementById('expBg').value;
             closeExportModal();
             executeExport(selectedExportFormat, area, bg);
@@ -3497,16 +3953,22 @@
                 if (bgRect) bgRect.setAttribute('fill', bgColor);
 
                 let exportW, exportH, viewBoxStr;
-                if (area === 'autofit') {
+                if (area === 'custom' && customExportBox) {
+                    exportW = Math.max(20, Math.round(customExportBox.w));
+                    exportH = Math.max(20, Math.round(customExportBox.h));
+                    viewBoxStr = `${Math.round(customExportBox.x)} ${Math.round(customExportBox.y)} ${exportW} ${exportH}`;
+                    if (bgRect) {
+                        bgRect.setAttribute('x', Math.round(customExportBox.x));
+                        bgRect.setAttribute('y', Math.round(customExportBox.y));
+                        bgRect.setAttribute('width', exportW);
+                        bgRect.setAttribute('height', exportH);
+                    }
+                } else if (area === 'autofit') {
                     const bbox = getNodesBoundingBox();
                     const pad = 50;
                     exportW = bbox.w + pad * 2;
                     exportH = bbox.h + pad * 2;
                     viewBoxStr = `${bbox.x - pad} ${bbox.y - pad} ${exportW} ${exportH}`;
-                } else if (area === 'custom' && customExportBox) {
-                    exportW = customExportBox.w;
-                    exportH = customExportBox.h;
-                    viewBoxStr = `${customExportBox.x} ${customExportBox.y} ${exportW} ${exportH}`;
                 } else {
                     const vp = document.getElementById('canvasViewport');
                     exportW = vp.clientWidth / canvasZoom;
