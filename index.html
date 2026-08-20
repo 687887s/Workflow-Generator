@@ -1,620 +1,435 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="h-full">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workflow Figure SVG Generator</title>
-    <!-- Tailwind CSS -->
+    <title>Workflow Figure Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome for UI & Node icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- HTML-to-Image for flawless PNG exports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: { 50: '#f0f7ff', 500: '#3b82f6', 600: '#2563eb' }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
-        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
-        .bg-grid-pattern {
-            background-size: 24px 24px;
-            background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
-        }
-        .dark .bg-grid-pattern {
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        
+        .grid-bg {
+            background-size: 20px 20px;
             background-image: radial-gradient(circle, #334155 1px, transparent 1px);
         }
-        .canvas-container {
-            user-select: none;
-            will-change: transform;
-            transform-origin: 0 0; /* Changed for absolute coordinate system */
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .node-selected rect { stroke: #3b82f6 !important; stroke-width: 3px !important; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5)); }
+        
+        #selectionBox {
+            position: absolute; border: 2px dashed #3b82f6; background-color: rgba(59, 130, 246, 0.2);
+            pointer-events: none; display: none; z-index: 50;
         }
-        /* SVG Node transition for smooth selection ring */
-        .node-group { transition: filter 0.2s; }
-        .node-selected rect, .node-selected polygon, .node-selected path {
-            stroke: #3b82f6 !important;
-            stroke-width: 3px !important;
-            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+
+        .toast-enter { animation: toastIn 0.3s ease-out forwards; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
         }
     </style>
 </head>
-<body class="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden">
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col">
 
-    <!-- Navigation / Header Bar -->
-    <header class="h-16 bg-slate-800 border-b border-slate-700/80 px-4 flex items-center justify-between z-10 shrink-0">
+    <!-- Top Toolbar -->
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0 z-10 relative">
         <div class="flex items-center space-x-3">
-            <div class="p-2 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-500/20">
-                <i class="fa-solid fa-diagram-project text-xl"></i>
+            <div class="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-project-diagram text-white text-sm"></i>
             </div>
-            <div>
-                <h1 class="text-base font-bold text-white leading-tight">Workflow Figure Builder</h1>
-                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器</p>
-            </div>
+            <h1 class="font-bold text-slate-100 tracking-wide text-sm hidden sm:block">Workflow<span class="text-blue-400 font-normal">Gen</span></h1>
         </div>
 
-        <!-- Controls Toolbar -->
         <div class="flex items-center space-x-3">
+            <!-- Undo / Redo -->
+            <div class="flex items-center bg-slate-950 rounded-lg border border-slate-700 p-0.5">
+                <button id="btnUndo" onclick="undo()" class="p-1.5 px-2 text-slate-400 hover:text-white disabled:opacity-30 transition" title="復原 (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+                <div class="w-[1px] h-4 bg-slate-700 mx-1"></div>
+                <button id="btnRedo" onclick="redo()" class="p-1.5 px-2 text-slate-400 hover:text-white disabled:opacity-30 transition" title="重做 (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+
             <!-- Mode Switch -->
-            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5 mr-2">
-                <button id="modeDrag" onclick="setMode('drag')" class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm">拖曳編輯</button>
-                <button id="modeSelect" onclick="setMode('select')" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition">框選匯出</button>
+            <div class="flex items-center bg-slate-950 rounded-lg border border-slate-700 p-0.5">
+                <button id="modeDrag" onclick="setMode('drag')" class="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-bold transition">拖曳編輯</button>
+                <button id="modeSelect" onclick="setMode('select')" class="px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs font-bold transition">框選匯出</button>
             </div>
 
-            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
-                <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>範本:</span>
-                <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
-                    <option value="aiml">AI / ML 管線流程</option>
-                    <option value="microservices">微服務架構</option>
-                    <option value="blank">空白畫布</option>
-                </select>
-            </div>
+            <button onclick="toggleIcons()" id="btnToggleIcons" class="bg-slate-950 text-blue-400 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 transition flex items-center">
+                <i class="fa-solid fa-icons mr-1.5"></i>圖示
+            </button>
 
-            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
-                <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-palette mr-1"></i>主題:</span>
-                <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
-                    <option value="academic">Academic Clean (學術)</option>
-                    <option value="tech">Tech Dark (科技)</option>
-                    <option value="pastel">Pastel Modern (粉彩)</option>
-                    <option value="vibrant">Vibrant Flow (鮮明)</option>
-                </select>
-            </div>
-
-            <div class="h-6 w-[1px] bg-slate-700 mx-1"></div>
-
-            <div class="flex items-center space-x-2">
-                <button onclick="copySVGCode()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
-                    <i class="fa-regular fa-copy mr-1.5"></i>複製程式碼
-                </button>
-                <button onclick="openExportModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i>匯出圖表...
-                </button>
-            </div>
+            <!-- Themes -->
+            <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-950 text-xs text-slate-200 rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer hidden md:block">
+                <option value="academic">Academic Clean (學術)</option>
+                <option value="tech">Tech Dark (科技)</option>
+                <option value="pastel">Pastel (粉彩)</option>
+            </select>
+            
+            <!-- Export -->
+            <button onclick="openExportModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-lg flex items-center">
+                <i class="fa-solid fa-download mr-1.5"></i> 匯出
+            </button>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <div class="flex-1 flex overflow-hidden relative">
-        <!-- Sidebar Controls -->
-        <aside class="w-80 bg-slate-800/95 border-r border-slate-700/80 flex flex-col shrink-0 z-20 shadow-xl">
-            <!-- Sidebar Tabs -->
-            <div class="flex border-b border-slate-700 bg-slate-900/60">
-                <button onclick="switchSidebarTab('modules')" id="tab-modules" class="flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition">
-                    <i class="fa-solid fa-shapes mr-1.5"></i>組件庫
-                </button>
-                <button onclick="switchSidebarTab('properties')" id="tab-properties" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
-                    <i class="fa-solid fa-sliders mr-1.5"></i>屬性
-                </button>
-                <button onclick="switchSidebarTab('relations')" id="tab-relations" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
-                    <i class="fa-solid fa-link mr-1.5"></i>關聯
-                </button>
-                <button onclick="switchSidebarTab('code')" id="tab-code" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
-                    <i class="fa-solid fa-code mr-1.5"></i>數據
-                </button>
+    <!-- Main Content -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Sidebar (Tools & Properties) -->
+        <aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-10">
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-800">
+                <button onclick="switchTab('library')" id="tab-library" class="flex-1 py-3 text-xs font-bold text-blue-400 border-b-2 border-blue-500">組件庫</button>
+                <button onclick="switchTab('properties')" id="tab-properties" class="flex-1 py-3 text-xs font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent">屬性</button>
+                <button onclick="switchTab('relations')" id="tab-relations" class="flex-1 py-3 text-xs font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent">關聯</button>
             </div>
 
-            <!-- Content: Modules (Add Nodes) -->
-            <div id="panel-modules" class="flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="text-xs text-slate-400 mb-2">點擊以新增模塊到畫布中央</div>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="addNodeToCenter('rect')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-12 h-8 border-2 border-slate-500 rounded group-hover:border-blue-400"></div>
-                        <span class="text-xs text-slate-300">一般矩形</span>
-                    </button>
-                    <button onclick="addNodeToCenter('pill')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-12 h-8 border-2 border-slate-500 rounded-full group-hover:border-blue-400"></div>
-                        <span class="text-xs text-slate-300">膠囊節點</span>
-                    </button>
-                    <button onclick="addNodeToCenter('database')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-solid fa-database text-2xl text-slate-500 group-hover:text-blue-400"></i>
-                        <span class="text-xs text-slate-300">資料庫</span>
-                    </button>
-                    <button onclick="addNodeToCenter('cloud')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-solid fa-cloud text-2xl text-slate-500 group-hover:text-blue-400"></i>
-                        <span class="text-xs text-slate-300">雲端服務</span>
-                    </button>
-                    <button onclick="addNodeToCenter('diamond')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-8 h-8 border-2 border-slate-500 rotate-45 group-hover:border-blue-400"></div>
-                        <span class="text-xs text-slate-300">決策菱形</span>
-                    </button>
-                    <button onclick="addNodeToCenter('hexagon')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-regular fa-circle-stop text-2xl text-slate-500 group-hover:text-blue-400"></i>
-                        <span class="text-xs text-slate-300">六角節點</span>
-                    </button>
-                </div>
+            <!-- Tab Contents -->
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 
-                <div class="pt-4 border-t border-slate-700 mt-4">
-                    <div class="text-xs text-slate-400 mb-2">背景群組 (泳道)</div>
-                    <button onclick="addGroup()" class="w-full bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg p-3 flex items-center justify-center space-x-2 transition text-slate-300 group">
-                        <i class="fa-solid fa-layer-group text-slate-500 group-hover:text-emerald-400"></i>
-                        <span class="text-xs">新增群組包圍盒</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Content: Properties (Edit selected node) -->
-            <div id="panel-properties" class="flex-1 overflow-y-auto p-4 hidden flex-col">
-                <div id="noSelectionMsg" class="flex-1 flex items-center justify-center text-slate-500 text-xs text-center px-4">
-                    請在畫布上點選任何節點，<br>即可在此處編輯其屬性。
-                </div>
-                
-                <div id="nodePropertiesEditor" class="hidden space-y-4">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-blue-400"><i class="fa-solid fa-cube mr-1"></i>編輯節點</span>
-                        <button onclick="deleteSelectedNode()" class="text-red-400 hover:text-red-300 text-xs flex items-center px-2 py-1 bg-red-400/10 rounded">
-                            <i class="fa-solid fa-trash mr-1"></i>刪除
+                <!-- Library Tab -->
+                <div id="panel-library" class="space-y-6 block">
+                    <div>
+                        <h3 class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-3">流程節點 (點擊新增)</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addNode('rect')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-2 flex flex-col items-center justify-center transition">
+                                <div class="w-10 h-6 border-2 border-blue-400 rounded-sm mb-1"></div>
+                                <span class="text-[10px] text-slate-300">矩形</span>
+                            </button>
+                            <button onclick="addNode('capsule')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-2 flex flex-col items-center justify-center transition">
+                                <div class="w-10 h-6 border-2 border-emerald-400 rounded-full mb-1"></div>
+                                <span class="text-[10px] text-slate-300">膠囊</span>
+                            </button>
+                            <button onclick="addNode('diamond')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-2 flex flex-col items-center justify-center transition">
+                                <div class="w-8 h-8 border-2 border-amber-400 rotate-45 mb-1 mt-1"></div>
+                                <span class="text-[10px] text-slate-300">菱形 (判斷)</span>
+                            </button>
+                            <button onclick="addNode('database')" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-2 flex flex-col items-center justify-center transition">
+                                <div class="w-10 h-8 border-2 border-purple-400 rounded-[50%/15%] mb-1 relative before:absolute before:top-[15%] before:left-[-2px] before:right-[-2px] before:border-t-2 before:border-purple-400"></div>
+                                <span class="text-[10px] text-slate-300">資料庫</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-3">結構與群組</h3>
+                        <button onclick="addGroup()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed rounded p-3 flex items-center justify-center transition group">
+                            <i class="fa-solid fa-object-group text-slate-400 group-hover:text-white mr-2"></i>
+                            <span class="text-xs text-slate-300 group-hover:text-white">新增群組包圍盒</span>
                         </button>
                     </div>
 
-                    <div class="space-y-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                    <div>
+                        <h3 class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-3">預設範本</h3>
+                        <div class="space-y-2">
+                            <button onclick="loadTemplate('ml')" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-xs text-slate-300 transition">🚀 AI/ML 訓練管線</button>
+                            <button onclick="loadTemplate('microservice')" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-xs text-slate-300 transition">🌐 微服務架構</button>
+                            <button onclick="loadTemplate('empty')" class="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-xs text-slate-300 transition text-rose-400">🗑️ 清空畫布</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Properties Tab -->
+                <div id="panel-properties" class="hidden">
+                    <div id="emptyProperties" class="text-center py-10">
+                        <i class="fa-solid fa-hand-pointer text-slate-600 text-3xl mb-3"></i>
+                        <p class="text-xs text-slate-400">請在畫布上點選一個節點<br>以編輯其屬性</p>
+                    </div>
+                    
+                    <div id="nodeProperties" class="hidden space-y-4">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                            <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-sliders mr-1.5"></i>節點設定</span>
+                            <button onclick="deleteSelectedNode()" class="text-[10px] text-rose-400 hover:text-rose-300 bg-rose-400/10 px-2 py-1 rounded">刪除節點</button>
+                        </div>
+                        
                         <div>
                             <label class="text-[11px] text-slate-400 block mb-1">主標題 (Label)</label>
-                            <input type="text" id="propLabel" oninput="updateSelectedNode('label', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                            <input type="text" id="propLabel" oninput="updateSelectedNode('label', this.value)" onchange="saveHistory()" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
                         </div>
                         <div>
                             <label class="text-[11px] text-slate-400 block mb-1">副標題 (Sub)</label>
-                            <input type="text" id="propSub" oninput="updateSelectedNode('sub', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                            <input type="text" id="propSub" oninput="updateSelectedNode('sub', this.value)" onchange="saveHistory()" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="text-[11px] text-slate-400 block mb-1">圖示 (Icon)</label>
-                                <input type="text" id="propIcon" placeholder="fa-brain" oninput="updateSelectedNode('icon', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                                <input type="text" id="propIcon" placeholder="fa-brain" oninput="updateSelectedNode('icon', this.value)" onchange="saveHistory()" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
                             </div>
                             <div>
                                 <label class="text-[11px] text-slate-400 block mb-1">主題色 (Color)</label>
                                 <div class="flex items-center space-x-2">
-                                    <input type="color" id="propColor" oninput="updateSelectedNode('color', this.value)" class="w-8 h-8 rounded cursor-pointer border border-slate-700 bg-transparent p-0">
-                                    <button onclick="document.getElementById('propColor').value='#3b82f6'; updateSelectedNode('color', '#3b82f6');" class="text-[10px] text-slate-400 hover:text-white">重置</button>
+                                    <input type="color" id="propColor" oninput="updateSelectedNode('color', this.value)" onchange="saveHistory()" class="w-8 h-8 rounded cursor-pointer border border-slate-700 bg-transparent p-0">
                                 </div>
                             </div>
                         </div>
                         <div>
                             <label class="text-[11px] text-slate-400 block mb-1">所屬群組 (Group)</label>
-                            <select id="propGroup" onchange="updateSelectedNode('group', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
-                                <!-- Options filled dynamically -->
+                            <select id="propGroup" onchange="updateSelectedNode('group', this.value); saveHistory();" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                                <!-- Dynamically filled -->
                             </select>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Content: Relations (Edges & Groups) -->
-            <div id="panel-relations" class="flex-1 overflow-y-auto p-4 hidden space-y-6">
-                <!-- Edges Manager -->
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-route mr-1"></i>節點連線</span>
-                        <button onclick="addEdge()" class="text-amber-400 hover:text-amber-300 text-xs flex items-center px-2 py-1 bg-amber-400/10 rounded">
-                            <i class="fa-solid fa-plus mr-1"></i>新增
-                        </button>
+                <!-- Relations Tab -->
+                <div id="panel-relations" class="hidden space-y-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">連線管理</h3>
+                            <button onclick="addEdge()" class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded shadow-sm">+ 新增</button>
+                        </div>
+                        <div id="edgeList" class="space-y-2"></div>
                     </div>
-                    <div id="edgesList" class="space-y-2"></div>
+                    
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">群組管理</h3>
+                        </div>
+                        <div id="groupList" class="space-y-2"></div>
+                    </div>
                 </div>
 
-                <!-- Groups Manager -->
-                <div class="pt-4 border-t border-slate-700">
-                    <span class="text-xs font-bold text-emerald-400 mb-2 block"><i class="fa-solid fa-layer-group mr-1"></i>群組管理</span>
-                    <div id="groupsList" class="space-y-2"></div>
-                </div>
-            </div>
-
-            <!-- Content: Code (JSON Data) -->
-            <div id="panel-code" class="flex-1 overflow-hidden p-4 hidden flex-col">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs text-slate-400 font-medium">即時數據規範 (JSON)</span>
-                    <button onclick="applyJsonCode()" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded text-xs font-medium transition">
-                        <i class="fa-solid fa-check mr-1"></i>套用
-                    </button>
-                </div>
-                <textarea id="jsonEditor" class="flex-1 w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-lg border border-slate-700/80 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"></textarea>
             </div>
         </aside>
 
-        <!-- Right Preview Canvas Area -->
-        <main id="canvasViewport" class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden bg-grid-pattern cursor-grab">
-            <!-- Selection Overlay -->
-            <div id="selectionBox" class="absolute border-2 border-blue-500 bg-blue-500/20 hidden pointer-events-none z-40"></div>
-
-            <!-- Canvas Toolbar overlay -->
-            <div class="absolute top-4 right-4 z-30 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
-                <button onclick="zoomCanvas(1.1)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="放大">
-                    <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
-                </button>
-                <span id="zoomLevelDisplay" class="text-[10px] text-slate-400 font-mono w-8 text-center">100%</span>
-                <button onclick="zoomCanvas(0.9)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="縮小">
-                    <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
-                </button>
-                <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
-                <button onclick="resetCanvasView()" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="置中畫面">
-                    <i class="fa-solid fa-compress text-sm"></i>
-                </button>
-                <button id="gridToggleBtn" onclick="toggleGridBackground()" class="p-1.5 text-blue-400 hover:text-white hover:bg-slate-800 rounded transition" title="切換網格">
-                    <i class="fa-solid fa-border-all text-sm"></i>
+        <!-- Right Canvas Area -->
+        <main class="flex-1 relative overflow-hidden bg-slate-950 grid-bg" id="canvasContainer">
+            
+            <!-- Canvas Actions (Floating) -->
+            <div class="absolute top-4 right-4 z-20 flex space-x-2">
+                <div class="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-lg p-1 flex shadow-lg">
+                    <button onclick="zoomCanvas(-0.2)" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded hover:bg-slate-800 transition"><i class="fa-solid fa-minus text-xs"></i></button>
+                    <div class="w-12 flex items-center justify-center text-xs font-bold text-slate-300" id="zoomLevel">100%</div>
+                    <button onclick="zoomCanvas(0.2)" class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded hover:bg-slate-800 transition"><i class="fa-solid fa-plus text-xs"></i></button>
+                </div>
+                <button onclick="centerView()" class="bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-400 hover:text-white w-10 h-10 rounded-lg shadow-lg flex items-center justify-center transition" title="置中畫面">
+                    <i class="fa-solid fa-expand"></i>
                 </button>
             </div>
 
-            <!-- Absolute SVG Container (Transform is applied here for Zoom/Pan) -->
-            <div id="svgContainer" class="canvas-container absolute top-0 left-0 w-full h-full">
-                <!-- SVG dynamically injected here -->
+            <!-- Viewport -->
+            <div id="canvasViewport" class="w-full h-full cursor-grab origin-top-left absolute top-0 left-0">
+                <!-- SVG Engine -->
+                <div id="svgContainer" class="w-full h-full pointer-events-none"></div>
             </div>
+            
+            <!-- Selection Box -->
+            <div id="selectionBox"></div>
 
-            <!-- Floating Toast Notification -->
-            <div id="toast" class="absolute bottom-6 right-6 bg-slate-800/95 border border-blue-500/50 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
-                <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
-                <span id="toastMsg" class="text-xs font-medium">訊息標題</span>
-            </div>
         </main>
     </div>
 
-    <!-- Export Options Modal (Hidden by default) -->
-    <div id="exportModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[400px] overflow-hidden transform scale-95 transition-transform duration-200" id="exportModalContent">
-            <div class="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
-                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-download text-blue-400 mr-2"></i>匯出工作流圖表</h3>
-                <button onclick="closeExportModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+    <!-- Export Modal -->
+    <div id="exportModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-[400px] overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <h2 class="text-sm font-bold text-slate-100"><i class="fa-solid fa-download text-blue-400 mr-2"></i>匯出圖表</h2>
+                <button onclick="closeExportModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
-            <div class="p-5 space-y-5">
-                <!-- Format -->
+            <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-2">檔案格式</label>
+                    <label class="text-xs text-slate-400 block mb-2">匯出格式</label>
                     <div class="flex space-x-2">
-                        <button id="expFmtPng" onclick="setExportFmt('png')" class="flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition"><i class="fa-solid fa-image mr-1.5"></i>高畫質 PNG</button>
-                        <button id="expFmtSvg" onclick="setExportFmt('svg')" class="flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition"><i class="fa-solid fa-vector-square mr-1.5"></i>向量 SVG</button>
+                        <button onclick="setExportFormat('svg')" id="btnFmtSvg" class="flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-sm font-bold transition">SVG (向量)</button>
+                        <button onclick="setExportFormat('png')" id="btnFmtPng" class="flex-1 py-2 rounded border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 text-sm font-bold transition">PNG (圖片)</button>
                     </div>
                 </div>
-
-                <!-- Area -->
                 <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-2">匯出範圍</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition">
-                            <input type="radio" name="expArea" value="autofit" checked class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
-                            <div>
-                                <div class="text-sm font-medium text-slate-200">全圖自動裁切 (Auto Fit)</div>
-                                <div class="text-[10px] text-slate-500">自動包圍所有節點，去除多餘空白</div>
-                            </div>
-                        </label>
-                        <label class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition">
-                            <input type="radio" name="expArea" value="viewport" class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
-                            <div>
-                                <div class="text-sm font-medium text-slate-200">目前畫面範圍 (Viewport)</div>
-                                <div class="text-[10px] text-slate-500">僅匯出目前主視窗能看見的區域（包含縮放）</div>
-                            </div>
-                        </label>
-                        <label id="labelCustomArea" class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition opacity-50">
-                            <input type="radio" name="expArea" id="radioCustomArea" value="custom" disabled class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
-                            <div>
-                                <div class="text-sm font-medium text-slate-200">自訂框選區域 (Custom)</div>
-                                <div class="text-[10px] text-slate-500">請使用上方「框選匯出」按鈕選取範圍</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Background -->
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-2">背景樣式</label>
-                    <select id="expBg" class="w-full bg-slate-900 px-3 py-2 rounded-lg border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-                        <option value="transparent">透明背景 (Transparent)</option>
-                        <option value="theme">套用目前主題顏色 (Theme Base)</option>
+                    <label class="text-xs text-slate-400 block mb-2">匯出範圍</label>
+                    <select id="exportArea" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none">
+                        <option value="auto">自動裁切 (包含所有節點)</option>
+                        <option value="viewport">目前可視範圍</option>
+                        <option value="custom" id="optCustomArea" disabled>自訂框選區域 (需先使用框選工具)</option>
                     </select>
                 </div>
             </div>
-
-            <div class="px-5 py-4 bg-slate-900/50 border-t border-slate-700 flex justify-end space-x-3">
-                <button onclick="closeExportModal()" class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition">取消</button>
-                <button onclick="confirmExport()" class="px-5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition">確認下載</button>
+            <div class="px-5 py-4 border-t border-slate-800 bg-slate-950 flex justify-end space-x-3">
+                <button onclick="closeExportModal()" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200">取消</button>
+                <button onclick="executeExport()" class="px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white rounded shadow-md">確認下載</button>
             </div>
         </div>
     </div>
 
-    <!-- Hidden Canvas for PNG Export -->
-    <canvas id="exportCanvas" class="hidden"></canvas>
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-slate-200 px-4 py-2 rounded shadow-xl border border-slate-700 text-sm font-medium z-50 hidden"></div>
 
     <script>
-        const NODE_W = 200;
-        const NODE_H = 72;
-
-        const PRESETS = {
-            aiml: {
-                theme: 'tech',
-                subgraphs: [
-                    { id: 'sg1', label: '資料處理與特徵工程', color: '#0ea5e9' },
-                    { id: 'sg2', label: '模型訓練階段', color: '#10b981' }
-                ],
-                nodes: [
-                    { id: 'n1', label: 'Raw Data Source', sub: 'SQL & S3 Bucket', shape: 'database', icon: 'fa-database', group: 'sg1', color: '#64748b', x: 100, y: 150 },
-                    { id: 'n2', label: 'Data Cleaning', sub: 'Deduplication', shape: 'rect', icon: 'fa-filter', group: 'sg1', color: '#0ea5e9', x: 350, y: 150 },
-                    { id: 'n3', label: 'Vector Embeddings', sub: 'Feature Extractor', shape: 'pill', icon: 'fa-microchip', group: 'sg1', color: '#0ea5e9', x: 600, y: 150 },
-                    { id: 'n4', label: 'Transformer Model', sub: 'GPU Cluster', shape: 'rect', icon: 'fa-brain', group: 'sg2', color: '#10b981', x: 600, y: 350 },
-                    { id: 'n5', label: 'Validation Check', sub: 'Accuracy > 95%?', shape: 'diamond', icon: 'fa-code-branch', group: 'sg2', color: '#f59e0b', x: 850, y: 350 },
-                    { id: 'n6', label: 'REST API Endpoint', sub: 'Production Server', shape: 'cloud', icon: 'fa-cloud-arrow-up', group: '', color: '#8b5cf6', x: 1100, y: 350 }
-                ],
-                edges: [
-                    { from: 'n1', to: 'n2', label: 'Ingest', style: 'solid' },
-                    { from: 'n2', to: 'n3', label: 'Cleaned', style: 'solid' },
-                    { from: 'n3', to: 'n4', label: 'Tensors', style: 'solid' },
-                    { from: 'n4', to: 'n5', label: 'Evaluate', style: 'solid' },
-                    { from: 'n5', to: 'n6', label: 'Pass', style: 'solid' },
-                    { from: 'n5', to: 'n4', label: 'Retry', style: 'dashed' }
-                ]
-            },
-            microservices: {
-                theme: 'tech',
-                subgraphs: [
-                    { id: 'sg1', label: 'API Gateway & Security', color: '#06b6d4' },
-                    { id: 'sg2', label: 'Backend Microservices', color: '#a855f7' }
-                ],
-                nodes: [
-                    { id: 'n1', label: 'Client Application', sub: 'Web / Mobile', shape: 'pill', icon: 'fa-mobile-screen', group: '', color: '#0ea5e9', x: 100, y: 250 },
-                    { id: 'n2', label: 'API Gateway', sub: 'Nginx / Kong', shape: 'hexagon', icon: 'fa-shield-halved', group: 'sg1', color: '#06b6d4', x: 400, y: 250 },
-                    { id: 'n3', label: 'Auth Service', sub: 'OAuth2 JWT', shape: 'rect', icon: 'fa-key', group: 'sg1', color: '#06b6d4', x: 400, y: 100 },
-                    { id: 'n4', label: 'User Service', sub: 'Node.js', shape: 'rect', icon: 'fa-user-gear', group: 'sg2', color: '#a855f7', x: 750, y: 150 },
-                    { id: 'n5', label: 'Order Service', sub: 'Go Microservice', shape: 'rect', icon: 'fa-cart-shopping', group: 'sg2', color: '#a855f7', x: 750, y: 350 },
-                    { id: 'n6', label: 'Shared Database', sub: 'PostgreSQL Cluster', shape: 'database', icon: 'fa-database', group: '', color: '#f43f5e', x: 1050, y: 250 }
-                ],
-                edges: [
-                    { from: 'n1', to: 'n2', label: 'HTTPS Request', style: 'solid' },
-                    { from: 'n2', to: 'n3', label: 'Validate Token', style: 'dashed' },
-                    { from: 'n2', to: 'n4', label: 'Route /api/user', style: 'solid' },
-                    { from: 'n2', to: 'n5', label: 'Route /api/order', style: 'solid' },
-                    { from: 'n4', to: 'n6', label: 'Read/Write', style: 'solid' },
-                    { from: 'n5', to: 'n6', label: 'Transactions', style: 'solid' }
-                ]
-            },
-            blank: {
-                theme: 'academic',
-                subgraphs: [],
-                nodes: [],
-                edges: []
-            }
+        // --- Core State ---
+        let state = {
+            theme: 'academic',
+            nodes: [],
+            edges: [],
+            subgraphs: []
         };
 
-        const THEMES = {
-            academic: {
-                bg: '#ffffff', text: '#1e293b', textSub: '#64748b', nodeBg: '#f8fafc', nodeBorder: '#cbd5e1', edgeColor: '#475569', edgeText: '#334155', groupBg: '#f1f5f9', groupBorder: '#94a3b8', shadow: 'rgba(15, 23, 42, 0.08)'
-            },
-            tech: {
-                bg: '#0f172a', text: '#f8fafc', textSub: '#94a3b8', nodeBg: '#1e293b', nodeBorder: '#334155', edgeColor: '#38bdf8', edgeText: '#7dd3fc', groupBg: '#1e293b40', groupBorder: '#38bdf860', shadow: 'rgba(56, 189, 248, 0.15)'
-            },
-            pastel: {
-                bg: '#fafaf9', text: '#292524', textSub: '#78716c', nodeBg: '#ffffff', nodeBorder: '#e7e5e4', edgeColor: '#a8a29e', edgeText: '#57534e', groupBg: '#f5f5f4', groupBorder: '#d6d3d1', shadow: 'rgba(0, 0, 0, 0.04)'
-            },
-            vibrant: {
-                bg: '#090d16', text: '#ffffff', textSub: '#a1a1aa', nodeBg: '#18181b', nodeBorder: '#27272a', edgeColor: '#f43f5e', edgeText: '#fb7185', groupBg: '#27272a30', groupBorder: '#f43f5e50', shadow: 'rgba(244, 63, 94, 0.2)'
-            }
-        };
-
-        // Application State
-        let state = JSON.parse(JSON.stringify(PRESETS.aiml));
-        let selectedNodeId = null;
-        let activeTab = 'modules';
-        let isShowGrid = true;
-        
-        // Canvas Transform State
-        let canvasZoom = 1.0;
-        let panX = 0;
-        let panY = 0;
+        // UI & History State
+        let activeTab = 'library';
+        let isShowIcons = true;
+        let undoStack = [], redoStack = [];
+        const MAX_HISTORY = 50;
 
         // Interaction State
-        let isDraggingCanvas = false;
-        let isDraggingNode = false;
-        let dragStartX = 0;
-        let dragStartY = 0;
-        let nodeDragOffsetX = 0;
-        let nodeDragOffsetY = 0;
+        let panX = 0, panY = 0, canvasZoom = 1;
+        let isDraggingCanvas = false, dragStartX = 0, dragStartY = 0;
+        let isDraggingNode = false, selectedNodeId = null;
+        let nodeDragOffsetX = 0, nodeDragOffsetY = 0;
         
-        // Export State
-        let selectedExportFormat = 'png';
-
-        // Custom Selection State
-        let appMode = 'drag'; // 'drag' or 'select'
-        let isSelectingArea = false;
-        let selectStartX = 0;
-        let selectStartY = 0;
+        let appMode = 'drag'; // 'drag' | 'select'
+        let isSelectingArea = false, selectStartX = 0, selectStartY = 0;
         let customExportBox = null;
 
-        // Native SVG paths for common icons (Standalone & PNG safe)
+        const NODE_W = 160;
+        const NODE_H = 60;
+
+        // --- Theme Configurations ---
+        const THEMES = {
+            academic: { bg: '#ffffff', grid: '#f0f0f0', nodeBg: '#ffffff', nodeBorder: '#334155', text: '#0f172a', textSub: '#64748b', line: '#475569', groupBg: '#f8fafc', groupBorder: '#cbd5e1' },
+            tech: { bg: '#0f172a', grid: '#1e293b', nodeBg: '#1e293b', nodeBorder: '#3b82f6', text: '#f1f5f9', textSub: '#94a3b8', line: '#60a5fa', groupBg: '#0f172a', groupBorder: '#334155' },
+            pastel: { bg: '#fdfbfb', grid: '#f3f4f6', nodeBg: '#ffffff', nodeBorder: '#e2e8f0', text: '#374151', textSub: '#9ca3af', line: '#94a3b8', groupBg: '#fff', groupBorder: '#e5e7eb' }
+        };
+
+        // Fallback SVG Paths for Icons (No HTML/ForeignObject needed)
         const SVG_ICONS = {
-            'fa-database': 'M12 2C6.48 2 2 4.24 2 7v10c0 2.76 4.48 5 10 5s10-2.24 10-5V7c0-2.76-4.48-5-10-5zm0 18c-4.41 0-8-1.79-8-4v-2.26c1.88 1.41 4.7 2.26 8 2.26s6.12-.85 8-2.26V16c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4V7.74C5.88 9.15 8.7 10 12 10s6.12-.85 8-2.26V10c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4s3.59-4 8-4 8 1.79 8 4-3.59 4-8 4z',
-            'fa-cloud': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z',
-            'fa-cube': 'M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zM19 15.91v-6.7l-6 3.38v6.71l6-3.38z',
-            'fa-filter': 'M3 4c0-.55.45-1 1-1h16c.55 0 1 .45 1 1 0 .21-.07.42-.19.58L14 13v6c0 .38-.2.72-.51.89l-3 1.5c-.39.2-.87.05-1.07-.34-.08-.16-.12-.34-.12-.55v-7.5L3.19 4.58C3.07 4.42 3 4.21 3 4z',
-            'fa-microchip': 'M8 4h8v16H8z M4 6h2v2H4z M4 10h2v2H4z M4 14h2v2H4z M18 6h2v2h-2z M18 10h2v2h-2z M18 14h2v2h-2z',
-            'fa-brain': 'M12 3c-2.76 0-5 2.24-5 5 0 .58.11 1.13.3 1.63C5.55 10.3 4 12.46 4 15c0 3.31 2.69 6 6 6 1.15 0 2.22-.32 3.14-.88.28.02.56.05.86.05 3.31 0 6-2.69 6-6 0-1.84-.83-3.47-2.14-4.57.1-.47.14-.95.14-1.43 0-2.76-2.24-5-5-5-.97 0-1.88.28-2.65.77C13.56 3.28 12.8 3 12 3z',
-            'fa-code-branch': 'M17 4c-1.66 0-3 1.34-3 3 0 1.31.83 2.44 2 2.83v2.34c0 1.54-1.14 2.91-2.67 3.09C11.51 15.47 10 14.1 10 12.33V6.5C10 4.01 7.99 2 5.5 2S1 4.01 1 6.5v8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3c0-1.31-.83-2.44-2-2.83v-5.34c0-1.54 1.14-2.91 2.67-3.09C9.49 8.53 11 9.9 11 11.67v5.83c0 2.49 2.01 4.5 4.5 4.5s4.5-2.01 4.5-4.5v-8c1.66 0 3-1.34 3-3s-1.34-3-3-3z',
-            'fa-cloud-arrow-up': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z',
-            'fa-mobile-screen': 'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4h10v14H7V4zm5 16c-.83 0-1.5-.67-1.5-1.5S11.17 17 12 17s1.5.67 1.5 1.5S12.83 20 12 20z',
-            'fa-shield-halved': 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z',
-            'fa-key': 'M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
-            'fa-user-gear': 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 7c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm-6 4c.22-.72 3.31-2 6-2 2.7 0 5.8 1.29 6 2H6zm16-4v-1h2v-2h-2V9h-2v2h-2v2h2v1h2z',
-            'fa-cart-shopping': 'M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z',
+            'fa-database': 'M12 2C6.48 2 2 4.24 2 7v10c0 2.76 4.48 5 10 5s10-2.24 10-5V7c0-2.76-4.48-5-10-5zm0 18c-4.42 0-8-1.79-8-4v-2.26c2.08 1.4 5.25 2.26 8 2.26s5.92-.86 8-2.26V16c0 2.21-3.58 4-8 4zm0-6c-4.42 0-8-1.79-8-4V7.74c2.08 1.4 5.25 2.26 8 2.26s5.92-.86 8-2.26V10c0 2.21-3.58 4-8 4zm0-6c-4.42 0-8-1.79-8-4s3.58-4 8-4 8 1.79 8 4-3.58 4-8 4z',
+            'fa-brain': 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
+            'fa-server': 'M2 4c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V4zm2 14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v4z',
             'default': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z'
         };
 
-        window.onload = function() {
-            setupCanvasInteractions();
-            document.getElementById('themeSelect').value = state.theme;
-            switchSidebarTab('modules');
-            renderDiagram();
-            updateRelationsPanel();
-            centerView();
+        // --- Initialization & History ---
+        window.onload = () => {
+            loadTemplate('ml'); // Auto load template, this pushes initial history
+            setupInteractions();
+            document.addEventListener('keydown', handleKeyboard);
         };
 
-        function switchSidebarTab(tabName) {
-            activeTab = tabName;
-            const tabs = ['modules', 'properties', 'relations', 'code'];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                const panel = document.getElementById(`panel-${t}`);
-                if (t === tabName) {
-                    btn.className = "flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition";
-                    panel.classList.remove('hidden');
-                    if(t==='properties' || t==='code') panel.classList.add('flex');
-                } else {
-                    btn.className = "flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition";
-                    panel.classList.add('hidden');
-                    panel.classList.remove('flex');
-                }
-            });
-
-            if (tabName === 'properties') refreshPropertiesPanel();
-            if (tabName === 'relations') updateRelationsPanel();
-            if (tabName === 'code') document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+        function saveHistory() {
+            const stateStr = JSON.stringify(state);
+            if (undoStack.length > 0 && undoStack[undoStack.length - 1] === stateStr) return; // Prevent dupes
+            undoStack.push(stateStr);
+            if (undoStack.length > MAX_HISTORY) undoStack.shift();
+            redoStack = [];
+            updateToolbarUI();
         }
 
-        function setMode(m) {
-            appMode = m;
-            document.getElementById('modeDrag').className = m === 'drag' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
-            document.getElementById('modeSelect').className = m === 'select' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
-            
-            const vp = document.getElementById('canvasViewport');
-            if (m === 'select') {
-                vp.classList.remove('cursor-grab', 'cursor-grabbing');
-                vp.classList.add('cursor-crosshair');
-            } else {
-                vp.classList.remove('cursor-crosshair');
-                vp.classList.add('cursor-grab');
+        function undo() {
+            if (undoStack.length <= 1) return;
+            redoStack.push(undoStack.pop());
+            state = JSON.parse(undoStack[undoStack.length - 1]);
+            updateAllUI();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            const next = redoStack.pop();
+            undoStack.push(next);
+            state = JSON.parse(next);
+            updateAllUI();
+        }
+
+        function handleKeyboard(e) {
+            if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedNodeId) { e.preventDefault(); deleteSelectedNode(); }
             }
         }
 
-        // --- Viewport & Drag/Drop Logic ---
-        function setupCanvasInteractions() {
-            const viewport = document.getElementById('canvasViewport');
+        function updateAllUI() {
+            renderDiagram();
+            if (activeTab === 'properties') refreshPropertiesPanel();
+            if (activeTab === 'relations') updateRelationsPanel();
+            updateToolbarUI();
+        }
 
-            viewport.addEventListener('mousedown', (e) => {
-                // Ignore if clicked on UI overlays
-                if(e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+        function updateToolbarUI() {
+            document.getElementById('btnUndo').disabled = undoStack.length <= 1;
+            document.getElementById('btnRedo').disabled = redoStack.length === 0;
+            document.getElementById('themeSelect').value = state.theme;
+        }
 
+        // --- Canvas Navigation & Dragging ---
+        function getMousePositionInSVG(e) {
+            const vp = document.getElementById('canvasViewport');
+            const rect = vp.getBoundingClientRect();
+            return {
+                x: (e.clientX - rect.left - panX) / canvasZoom,
+                y: (e.clientY - rect.top - panY) / canvasZoom
+            };
+        }
+
+        function setupInteractions() {
+            const vp = document.getElementById('canvasViewport');
+
+            vp.addEventListener('mousedown', (e) => {
                 if (appMode === 'select') {
+                    // Export Area Selection
                     isSelectingArea = true;
-                    const rect = viewport.getBoundingClientRect();
-                    selectStartX = e.clientX - rect.left;
-                    selectStartY = e.clientY - rect.top;
+                    selectStartX = e.clientX;
+                    selectStartY = e.clientY;
                     const sb = document.getElementById('selectionBox');
+                    sb.style.display = 'block';
                     sb.style.left = selectStartX + 'px';
                     sb.style.top = selectStartY + 'px';
                     sb.style.width = '0px';
                     sb.style.height = '0px';
-                    sb.classList.remove('hidden');
                     return;
                 }
 
-                const nodeGroup = e.target.closest('.node-group');
-                
-                if (nodeGroup) {
-                    // Start Node Drag
+                const nodeElem = e.target.closest('.node-group');
+                if (nodeElem) {
                     isDraggingNode = true;
-                    const nodeId = nodeGroup.getAttribute('data-id');
-                    selectNode(nodeId);
-
-                    const node = state.nodes.find(n => n.id === nodeId);
-                    const pt = getMousePositionInSVG(e);
+                    selectedNodeId = nodeElem.getAttribute('data-id');
                     
+                    const pt = getMousePositionInSVG(e);
+                    const node = state.nodes.find(n => n.id === selectedNodeId);
                     nodeDragOffsetX = pt.x - node.x;
                     nodeDragOffsetY = pt.y - node.y;
                     
-                    viewport.classList.remove('cursor-grab');
-                    viewport.classList.add('cursor-move');
-                    e.stopPropagation(); // prevent canvas pan
+                    switchTab('properties');
+                    refreshPropertiesPanel();
+                    renderDiagram(); // Highlight
                 } else {
-                    // Start Canvas Pan
                     isDraggingCanvas = true;
                     dragStartX = e.clientX - panX;
                     dragStartY = e.clientY - panY;
-                    viewport.classList.remove('cursor-grab');
-                    viewport.classList.add('cursor-grabbing');
-                    
-                    // Deselect node if clicked on empty space
+                    vp.classList.remove('cursor-grab');
+                    vp.classList.add('cursor-grabbing');
                     selectNode(null);
                 }
             });
 
             window.addEventListener('mousemove', (e) => {
                 if (isSelectingArea) {
-                    const rect = viewport.getBoundingClientRect();
-                    const currX = e.clientX - rect.left;
-                    const currY = e.clientY - rect.top;
                     const sb = document.getElementById('selectionBox');
-                    sb.style.left = Math.min(selectStartX, currX) + 'px';
-                    sb.style.top = Math.min(selectStartY, currY) + 'px';
-                    sb.style.width = Math.abs(currX - selectStartX) + 'px';
-                    sb.style.height = Math.abs(currY - selectStartY) + 'px';
+                    sb.style.left = Math.min(selectStartX, e.clientX) + 'px';
+                    sb.style.top = Math.min(selectStartY, e.clientY) + 'px';
+                    sb.style.width = Math.abs(e.clientX - selectStartX) + 'px';
+                    sb.style.height = Math.abs(e.clientY - selectStartY) + 'px';
                     return;
                 }
 
-                if (isDraggingNode && selectedNodeId) {
-                    // --- 新增功能：拖曳結束時偵測是否移入任何群組 ---
-                    const node = state.nodes.find(n => n.id === selectedNodeId);
-                    if (node) {
-                        const dropZones = getGroupDropZones(selectedNodeId);
-                        const nodeCX = node.x + NODE_W / 2;
-                        const nodeCY = node.y + NODE_H / 2;
-                        
-                        let targetGroup = '';
-                        // 反向遍歷（後蓋上的圖層優先判斷）
-                        for (let i = state.subgraphs.length - 1; i >= 0; i--) {
-                            const gid = state.subgraphs[i].id;
-                            const z = dropZones[gid];
-                            if (nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
-                                targetGroup = gid;
-                                break;
-                            }
-                        }
-                        
-                        // 若目標群組改變，則更新並提示
-                        if (node.group !== targetGroup) {
-                            node.group = targetGroup;
-                            showToast(targetGroup ? '已自動吸附至群組' : '已移出群組');
-                            if (activeTab === 'properties') refreshPropertiesPanel();
-                            renderDiagram(); // 重新計算外框
-                        }
-                    }
+                if (isDraggingCanvas) {
+                    panX = e.clientX - dragStartX;
+                    panY = e.clientY - dragStartY;
+                    updateCanvasTransform();
                 }
 
-                isDraggingNode = false;
-                isDraggingCanvas = false;
-                const viewport = document.getElementById('canvasViewport');
-                viewport.classList.remove('cursor-grabbing', 'cursor-move');
-                viewport.classList.add('cursor-grab');
-                
-                if(activeTab === 'code') {
-                    document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+                if (isDraggingNode && selectedNodeId) {
+                    const pt = getMousePositionInSVG(e);
+                    const node = state.nodes.find(n => n.id === selectedNodeId);
+                    if (node) {
+                        node.x = Math.round((pt.x - nodeDragOffsetX) / 10) * 10;
+                        node.y = Math.round((pt.y - nodeDragOffsetY) / 10) * 10;
+                        renderDiagram();
+                    }
                 }
             });
 
@@ -622,100 +437,92 @@
                 if (isSelectingArea) {
                     isSelectingArea = false;
                     const sb = document.getElementById('selectionBox');
-                    sb.classList.add('hidden');
+                    sb.style.display = 'none';
                     
-                    const rect = viewport.getBoundingClientRect();
-                    const endX = e.clientX - rect.left;
-                    const endY = e.clientY - rect.top;
+                    // Calculate relative coords
+                    const vpRect = document.getElementById('canvasViewport').getBoundingClientRect();
+                    const rx1 = (Math.min(selectStartX, e.clientX) - vpRect.left - panX) / canvasZoom;
+                    const ry1 = (Math.min(selectStartY, e.clientY) - vpRect.top - panY) / canvasZoom;
+                    const rx2 = (Math.max(selectStartX, e.clientX) - vpRect.left - panX) / canvasZoom;
+                    const ry2 = (Math.max(selectStartY, e.clientY) - vpRect.top - panY) / canvasZoom;
                     
-                    const minX = Math.min(selectStartX, endX);
-                    const minY = Math.min(selectStartY, endY);
-                    const w = Math.abs(endX - selectStartX);
-                    const h = Math.abs(endY - selectStartY);
-
-                    // Must select a large enough box to count
-                    if (w > 20 && h > 20) {
-                        const pt1 = { x: (minX - panX)/canvasZoom, y: (minY - panY)/canvasZoom };
-                        const pt2 = { x: (minX + w - panX)/canvasZoom, y: (minY + h - panY)/canvasZoom };
-                        customExportBox = { x: pt1.x, y: pt1.y, w: pt2.x - pt1.x, h: pt2.y - pt1.y };
-                        
-                        document.getElementById('radioCustomArea').disabled = false;
-                        document.getElementById('radioCustomArea').checked = true;
-                        document.getElementById('labelCustomArea').classList.remove('opacity-50');
+                    if (rx2 - rx1 > 50 && ry2 - ry1 > 50) {
+                        customExportBox = { x: rx1, y: ry1, w: rx2 - rx1, h: ry2 - ry1 };
+                        setMode('drag'); // Auto revert mode
                         openExportModal();
-                        setMode('drag'); // Auto switch back to drag
                     }
                     return;
                 }
 
                 if (isDraggingNode && selectedNodeId) {
-                    // --- 修正：解綁太過靈敏，現在只允許「移入新群組」，若拖曳到空白處則保留原群組 ---
                     const node = state.nodes.find(n => n.id === selectedNodeId);
                     if (node) {
-                        const dropZones = getGroupDropZones(selectedNodeId);
-                        const nodeCX = node.x + NODE_W / 2;
-                        const nodeCY = node.y + NODE_H / 2;
-                        
+                        // Check if dropped inside a NEW group
+                        const nodeCX = node.x + (NODE_W / 2);
+                        const nodeCY = node.y + (NODE_H / 2);
                         let droppedInGroup = null;
-                        for (let i = state.subgraphs.length - 1; i >= 0; i--) {
-                            const gid = state.subgraphs[i].id;
-                            const z = dropZones[gid];
-                            if (nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
-                                droppedInGroup = gid;
-                                break;
+
+                        state.subgraphs.forEach(g => {
+                            const gb = getGroupBoundingBox(g.id);
+                            if (nodeCX >= gb.x && nodeCX <= gb.x + gb.w && nodeCY >= gb.y && nodeCY <= gb.y + gb.h) {
+                                droppedInGroup = g.id;
                             }
-                        }
-                        
+                        });
+
+                        // ONLY bind to group if it's a valid new group. Do not unbind if dropped in blank space.
                         if (droppedInGroup && node.group !== droppedInGroup) {
                             node.group = droppedInGroup;
                             showToast('已自動吸附至群組');
-                            if (activeTab === 'properties') refreshPropertiesPanel();
-                            renderDiagram();
+                            refreshPropertiesPanel();
                         }
+                        saveHistory();
                     }
                 }
 
                 isDraggingNode = false;
+                if (isDraggingCanvas) {
+                    isDraggingCanvas = false;
+                    vp.classList.add('cursor-grab');
+                    vp.classList.remove('cursor-grabbing');
+                }
             });
 
-            // Allow zooming with wheel
-            viewport.addEventListener('wheel', (e) => {
+            vp.addEventListener('wheel', (e) => {
                 e.preventDefault();
-                if (e.deltaY < 0) {
-                    zoomCanvas(1.1);
-                } else {
-                    zoomCanvas(0.9);
-                }
-            }, { passive: false });
+                zoomCanvas(e.deltaY > 0 ? -0.1 : 0.1, e.clientX, e.clientY);
+            });
+        }
+
+        function zoomCanvas(delta, mx = null, my = null) {
+            const oldZoom = canvasZoom;
+            canvasZoom = Math.max(0.2, Math.min(3, canvasZoom + delta));
+            
+            const vpRect = document.getElementById('canvasViewport').getBoundingClientRect();
+            const cx = mx !== null ? (mx - vpRect.left) : (vpRect.width / 2);
+            const cy = my !== null ? (my - vpRect.top) : (vpRect.height / 2);
+            
+            panX = cx - (cx - panX) * (canvasZoom / oldZoom);
+            panY = cy - (cy - panY) * (canvasZoom / oldZoom);
+            
+            updateCanvasTransform();
+            document.getElementById('zoomLevel').innerText = Math.round(canvasZoom * 100) + '%';
         }
 
         function updateCanvasTransform() {
-            const container = document.getElementById('svgContainer');
-            container.style.transform = `translate(${panX}px, ${panY}px) scale(${canvasZoom})`;
-            document.getElementById('zoomLevelDisplay').innerText = Math.round(canvasZoom * 100) + '%';
-        }
-
-        function zoomCanvas(factor) {
-            const viewport = document.getElementById('canvasViewport');
-            const rect = viewport.getBoundingClientRect();
-            // Center of viewport relative to canvas
-            const cx = (rect.width / 2 - panX) / canvasZoom;
-            const cy = (rect.height / 2 - panY) / canvasZoom;
-
-            canvasZoom *= factor;
-            // Clamp zoom
-            if(canvasZoom < 0.2) canvasZoom = 0.2;
-            if(canvasZoom > 3.0) canvasZoom = 3.0;
-
-            panX = rect.width / 2 - cx * canvasZoom;
-            panY = rect.height / 2 - cy * canvasZoom;
+            const svg = document.getElementById('svgContainer');
+            svg.style.transform = `translate(${panX}px, ${panY}px) scale(${canvasZoom})`;
+            svg.style.transformOrigin = '0 0';
             
-            updateCanvasTransform();
+            // Sync background grid
+            const container = document.getElementById('canvasContainer');
+            container.style.backgroundPosition = `${panX}px ${panY}px`;
+            container.style.backgroundSize = `${20 * canvasZoom}px ${20 * canvasZoom}px`;
         }
 
         function centerView() {
-            if(state.nodes.length === 0) {
-                resetCanvasView();
+            if (state.nodes.length === 0) {
+                panX = 0; panY = 0; canvasZoom = 1;
+                updateCanvasTransform();
                 return;
             }
             
@@ -727,119 +534,103 @@
                 maxY = Math.max(maxY, n.y + NODE_H);
             });
             
-            const contentW = maxX - minX;
-            const contentH = maxY - minY;
-            const cx = minX + contentW / 2;
-            const cy = minY + contentH / 2;
-            
-            const viewport = document.getElementById('canvasViewport');
-            const viewW = viewport.clientWidth;
-            const viewH = viewport.clientHeight;
-            
-            // Set zoom to fit or 1.0
-            canvasZoom = 1.0;
-            if(contentW > viewW * 0.8 || contentH > viewH * 0.8) {
-                canvasZoom = Math.min((viewW * 0.8) / contentW, (viewH * 0.8) / contentH);
-            }
-            
-            panX = viewW / 2 - cx * canvasZoom;
-            panY = viewH / 2 - cy * canvasZoom;
-            
-            updateCanvasTransform();
-        }
-
-        function resetCanvasView() {
-            canvasZoom = 1.0;
-            panX = 0;
-            panY = 0;
-            updateCanvasTransform();
-        }
-
-        // 取得群組的「吸附偵測範圍」
-        function getGroupDropZones(draggedNodeId) {
-            const zones = {};
-            const pad = 30; // 邊緣容錯與填充
-            const topPad = 50; // 上方標題列空間
-
+            // Consider empty groups
             state.subgraphs.forEach(g => {
-                // 計算時排除正在被拖拽的節點，避免自己的範圍影響判斷
-                const groupNodes = state.nodes.filter(n => n.group === g.id && n.id !== draggedNodeId);
-                
-                if (groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    zones[g.id] = {
-                        minX: gMinX - pad - 20,
-                        minY: gMinY - topPad - 20,
-                        maxX: gMaxX + pad + 20,
-                        maxY: gMaxY + pad + 20
-                    };
-                } else {
-                    // 空群組的虛擬範圍
-                    const gx = (g.x || 100) - pad;
-                    const gy = (g.y || 100) - topPad;
-                    zones[g.id] = {
-                        minX: gx - 20, minY: gy - 20, maxX: gx + 300 + 20, maxY: gy + 200 + 20
-                    };
+                const gNodes = state.nodes.filter(n => n.group === g.id);
+                if (gNodes.length === 0) {
+                    minX = Math.min(minX, g.x); minY = Math.min(minY, g.y);
+                    maxX = Math.max(maxX, g.x + 300); maxY = Math.max(maxY, g.y + 200);
                 }
             });
-            return zones;
+
+            const vp = document.getElementById('canvasViewport').getBoundingClientRect();
+            const contentW = maxX - minX + 100; // padding
+            const contentH = maxY - minY + 100;
+            
+            canvasZoom = Math.min(1, Math.min(vp.width / contentW, vp.height / contentH));
+            panX = (vp.width - (maxX - minX) * canvasZoom) / 2 - (minX * canvasZoom);
+            panY = (vp.height - (maxY - minY) * canvasZoom) / 2 - (minY * canvasZoom);
+            
+            updateCanvasTransform();
+            document.getElementById('zoomLevel').innerText = Math.round(canvasZoom * 100) + '%';
         }
 
-        function toggleGridBackground() {
-            const vp = document.getElementById('canvasViewport');
-            const btn = document.getElementById('gridToggleBtn');
-            isShowGrid = !isShowGrid;
-            if (isShowGrid) {
-                vp.classList.add('bg-grid-pattern');
-                btn.classList.add('text-blue-400');
-                btn.classList.remove('text-slate-300');
+        // --- Core UI & Logic ---
+        function setMode(mode) {
+            appMode = mode;
+            document.getElementById('modeDrag').className = mode === 'drag' ? 'px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm' : 'px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs font-bold transition';
+            document.getElementById('modeSelect').className = mode === 'select' ? 'px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm' : 'px-3 py-1 rounded-md text-slate-400 hover:text-white text-xs font-bold transition';
+            
+            if (mode === 'select') {
+                showToast('請在畫布上按住左鍵拉出藍色範圍來匯出');
+                document.getElementById('canvasViewport').classList.remove('cursor-grab', 'cursor-grabbing');
+                document.getElementById('canvasViewport').classList.add('cursor-crosshair');
             } else {
-                vp.classList.remove('bg-grid-pattern');
-                btn.classList.remove('text-blue-400');
-                btn.classList.add('text-slate-300');
+                document.getElementById('canvasViewport').classList.remove('cursor-crosshair');
+                document.getElementById('canvasViewport').classList.add('cursor-grab');
             }
+        }
+
+        function toggleIcons() {
+            isShowIcons = !isShowIcons;
+            const btn = document.getElementById('btnToggleIcons');
+            if (isShowIcons) {
+                btn.classList.add('text-blue-400');
+                btn.classList.remove('text-slate-400');
+            } else {
+                btn.classList.remove('text-blue-400');
+                btn.classList.add('text-slate-400');
+            }
+            renderDiagram();
+        }
+
+        function changeTheme(t) {
+            state.theme = t;
+            saveHistory();
+            renderDiagram();
+        }
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            ['library', 'properties', 'relations'].forEach(id => {
+                document.getElementById(`tab-${id}`).className = 'flex-1 py-3 text-xs font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent';
+                document.getElementById(`panel-${id}`).style.display = 'none';
+            });
+            document.getElementById(`tab-${tabId}`).className = 'flex-1 py-3 text-xs font-bold text-blue-400 border-b-2 border-blue-500';
+            document.getElementById(`panel-${tabId}`).style.display = 'block';
+            
+            if (tabId === 'relations') updateRelationsPanel();
         }
 
         function selectNode(id) {
             selectedNodeId = id;
-            renderDiagram(); // update visual selection ring
-            
-            if (id && activeTab !== 'properties') {
-                switchSidebarTab('properties');
-            } else if (id && activeTab === 'properties') {
+            if(id) {
+                switchTab('properties');
                 refreshPropertiesPanel();
-            } else if (!id && activeTab === 'properties') {
-                refreshPropertiesPanel();
+            } else {
+                document.getElementById('emptyProperties').classList.remove('hidden');
+                document.getElementById('nodeProperties').classList.add('hidden');
             }
+            renderDiagram();
         }
 
-        function addNodeToCenter(shape) {
-            const vp = document.getElementById('canvasViewport');
-            // Calculate center of current viewport mapped to SVG coords
-            const centerPt = {
-                x: (vp.clientWidth/2 - panX) / canvasZoom - NODE_W/2,
-                y: (vp.clientHeight/2 - panY) / canvasZoom - NODE_H/2
+        // Add Nodes & Groups
+        function addNode(shape) {
+            const vpRect = document.getElementById('canvasViewport').getBoundingClientRect();
+            // Create in the center of current view
+            const cx = (vpRect.width / 2 - panX) / canvasZoom;
+            const cy = (vpRect.height / 2 - panY) / canvasZoom;
+
+            const nId = 'n_' + Date.now().toString().slice(-4);
+            const n = {
+                id: nId, label: 'New Node', sub: '', icon: 'fa-server',
+                shape: shape, color: '#3b82f6', group: '',
+                x: Math.round(cx / 10) * 10 - (NODE_W/2),
+                y: Math.round(cy / 10) * 10 - (NODE_H/2)
             };
-            
-            const newId = 'n_' + Date.now().toString().slice(-4);
-            const newNode = {
-                id: newId,
-                label: '新節點',
-                sub: '',
-                shape: shape,
-                icon: shape === 'database' ? 'fa-database' : (shape === 'cloud' ? 'fa-cloud' : 'fa-cube'),
-                group: '',
-                color: '#3b82f6',
-                x: Math.round(centerPt.x / 10) * 10,
-                y: Math.round(centerPt.y / 10) * 10
-            };
-            
-            state.nodes.push(newNode);
-            selectNode(newId);
+            state.nodes.push(n);
+            saveHistory();
+            selectNode(nId);
             showToast('已新增組件');
         }
 
@@ -848,630 +639,381 @@
             state.nodes = state.nodes.filter(n => n.id !== selectedNodeId);
             state.edges = state.edges.filter(e => e.from !== selectedNodeId && e.to !== selectedNodeId);
             selectedNodeId = null;
-            
-            renderDiagram();
-            refreshPropertiesPanel();
+            saveHistory();
+            selectNode(null);
             updateRelationsPanel();
             showToast('已刪除節點');
         }
 
-        function refreshPropertiesPanel() {
-            const msg = document.getElementById('noSelectionMsg');
-            const editor = document.getElementById('nodePropertiesEditor');
+        function addGroup() {
+            const vpRect = document.getElementById('canvasViewport').getBoundingClientRect();
+            const cx = (vpRect.width / 2 - panX) / canvasZoom;
+            const cy = (vpRect.height / 2 - panY) / canvasZoom;
+
+            const gId = 'sg_' + Date.now().toString().slice(-4);
+            state.subgraphs.push({
+                id: gId, label: '新群組', color: '#10b981',
+                x: Math.round(cx / 10) * 10 - 150,
+                y: Math.round(cy / 10) * 10 - 100
+            });
+            saveHistory();
+            if(activeTab === 'relations') updateRelationsPanel();
+            if(selectedNodeId) refreshPropertiesPanel();
+            renderDiagram();
+            showToast('新增了空群組框，請在節點屬性中綁定至此群組');
+        }
+
+        // --- SVG Rendering Engine ---
+        function getGroupBoundingBox(gid) {
+            const gNodes = state.nodes.filter(n => n.group === gid);
+            const gData = state.subgraphs.find(g => g.id === gid);
             
-            if (!selectedNodeId) {
-                msg.classList.remove('hidden');
-                editor.classList.add('hidden');
-                return;
+            if (gNodes.length === 0) {
+                return { x: gData.x || 0, y: gData.y || 0, w: 300, h: 200, isEmpty: true };
             }
             
-            const node = state.nodes.find(n => n.id === selectedNodeId);
-            if(!node) return;
-            
-            msg.classList.add('hidden');
-            editor.classList.remove('hidden');
-            
-            document.getElementById('propLabel').value = node.label;
-            document.getElementById('propSub').value = node.sub;
-            document.getElementById('propIcon').value = node.icon;
-            document.getElementById('propColor').value = node.color;
-            
-            // Build group options dynamically
-            const groupSelect = document.getElementById('propGroup');
-            groupSelect.innerHTML = `<option value="">(無群組)</option>`;
-            state.subgraphs.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.id;
-                opt.text = g.label;
-                opt.selected = (node.group === g.id);
-                groupSelect.appendChild(opt);
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            gNodes.forEach(n => {
+                minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + NODE_H);
             });
+            return { x: minX - 30, y: minY - 45, w: (maxX - minX) + 60, h: (maxY - minY) + 75, isEmpty: false };
+        }
+
+        function renderNodeShape(shape, w, h, bg, border) {
+            const bWidth = 2;
+            switch(shape) {
+                case 'capsule':
+                    return `<rect x="0" y="0" width="${w}" height="${h}" rx="${h/2}" fill="${bg}" stroke="${border}" stroke-width="${bWidth}"/>`;
+                case 'diamond':
+                    return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${bg}" stroke="${border}" stroke-width="${bWidth}"/>`;
+                case 'database':
+                    return `
+                        <path d="M0,12 C0,4 ${w},4 ${w},12 L${w},${h-12} C${w},${h-4} 0,${h-4} 0,${h-12} Z" fill="${bg}" stroke="${border}" stroke-width="${bWidth}"/>
+                        <path d="M0,12 C0,20 ${w},20 ${w},12" fill="none" stroke="${border}" stroke-width="${bWidth}"/>
+                    `;
+                case 'hexagon':
+                    return `<polygon points="15,0 ${w-15},0 ${w},${h/2} ${w-15},${h} 15,${h} 0,${h/2}" fill="${bg}" stroke="${border}" stroke-width="${bWidth}"/>`;
+                default: // rect
+                    return `<rect x="0" y="0" width="${w}" height="${h}" rx="6" fill="${bg}" stroke="${border}" stroke-width="${bWidth}"/>`;
+            }
+        }
+
+        function renderDiagram() {
+            const t = THEMES[state.theme];
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="overflow:visible;">
+                <defs>
+                    <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="${t.line}" />
+                    </marker>
+                    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.1"/>
+                    </filter>
+                </defs>
+                <style>
+                    text { font-family: 'Inter', Arial, sans-serif; }
+                    .node-group { cursor: move; }
+                    .node-group.node-selected > * { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.7)); stroke: #3b82f6 !important; stroke-width: 3px !important; }
+                </style>
+                <g id="diagramContent">`;
+
+            // Draw Groups
+            state.subgraphs.forEach(g => {
+                const box = getGroupBoundingBox(g.id);
+                const gColor = g.color || '#94a3b8';
+                
+                svg += `
+                    <rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="12" fill="${gColor}" fill-opacity="0.05" stroke="${gColor}" stroke-width="2" stroke-dasharray="6,6"/>
+                    <rect x="${box.x}" y="${box.y}" width="${box.w}" height="28" fill="${gColor}" fill-opacity="0.15" rx="12" clip-path="inset(0 0 14px 0)"/>
+                    <text x="${box.x + 12}" y="${box.y + 19}" font-size="12" font-weight="bold" fill="${gColor}">${g.label}</text>
+                `;
+
+                if (box.isEmpty) {
+                    svg += `<text x="${box.x + box.w/2}" y="${box.y + box.h/2}" font-size="12" fill="${gColor}" opacity="0.6" text-anchor="middle">空群組：請在節點「屬性」中指派</text>`;
+                }
+            });
+
+            // Draw Edges
+            state.edges.forEach(e => {
+                const n1 = state.nodes.find(n => n.id === e.from);
+                const n2 = state.nodes.find(n => n.id === e.to);
+                if (!n1 || !n2) return;
+
+                const c1 = {x: n1.x + NODE_W/2, y: n1.y + NODE_H/2};
+                const c2 = {x: n2.x + NODE_W/2, y: n2.y + NODE_H/2};
+                
+                // Curve calculation
+                const dist = Math.abs(c2.x - c1.x);
+                let pathD = `M ${c1.x} ${c1.y}`;
+                if (c2.x > c1.x + NODE_W && Math.abs(c2.y - c1.y) < 100) { // L to R curve
+                    pathD += ` C ${c1.x + dist*0.4} ${c1.y}, ${c2.x - dist*0.4} ${c2.y}, ${c2.x} ${c2.y}`;
+                } else if (c2.y > c1.y + NODE_H && Math.abs(c2.x - c1.x) < 100) { // T to B curve
+                    const distY = Math.abs(c2.y - c1.y);
+                    pathD += ` C ${c1.x} ${c1.y + distY*0.4}, ${c2.x} ${c2.y - distY*0.4}, ${c2.x} ${c2.y}`;
+                } else {
+                    pathD += ` L ${c2.x} ${c2.y}`; // Line
+                }
+
+                const sDash = e.style === 'dashed' ? 'stroke-dasharray="5,5"' : '';
+                svg += `<path d="${pathD}" fill="none" stroke="${t.line}" stroke-width="2" ${sDash} marker-end="url(#arrowHead)"/>`;
+                
+                if (e.label) {
+                    const midX = (c1.x + c2.x) / 2;
+                    const midY = (c1.y + c2.y) / 2;
+                    svg += `
+                        <rect x="${midX - 30}" y="${midY - 10}" width="60" height="20" fill="${t.bg}" rx="4" stroke="${t.line}" stroke-width="1"/>
+                        <text x="${midX}" y="${midY + 4}" font-size="10" fill="${t.text}" text-anchor="middle">${e.label}</text>
+                    `;
+                }
+            });
+
+            // Draw Nodes
+            state.nodes.forEach(n => {
+                const isSelected = selectedNodeId === n.id;
+                const sClass = isSelected ? 'node-selected' : '';
+                const iColor = n.color || '#3b82f6';
+                
+                let iconKey = (n.icon && n.icon.startsWith('fa-')) ? n.icon : ('fa-' + n.icon);
+                let svgPath = SVG_ICONS[iconKey] || SVG_ICONS['default'];
+
+                let content = '';
+                if (isShowIcons) {
+                    content = `
+                        <rect x="14" y="14" width="32" height="32" rx="6" fill="${iColor}20" />
+                        <svg x="18" y="18" width="24" height="24" viewBox="0 0 24 24" fill="${iColor}">
+                            <path d="${svgPath}" />
+                        </svg>
+                        <text x="56" y="${n.sub ? 28 : 35}" font-size="13" font-weight="bold" fill="${t.text}">${n.label}</text>
+                        ${n.sub ? `<text x="56" y="44" font-size="10" fill="${t.textSub}">${n.sub}</text>` : ''}
+                    `;
+                } else {
+                    // Left align text when no icon
+                    content = `
+                        <text x="20" y="${n.sub ? 28 : 35}" font-size="14" font-weight="bold" fill="${t.text}">${n.label}</text>
+                        ${n.sub ? `<text x="20" y="46" font-size="11" fill="${t.textSub}">${n.sub}</text>` : ''}
+                    `;
+                }
+
+                svg += `
+                    <g transform="translate(${n.x}, ${n.y})" class="node-group ${sClass}" data-id="${n.id}" filter="url(#dropShadow)">
+                        ${renderNodeShape(n.shape, NODE_W, NODE_H, t.nodeBg, iColor)}
+                        ${content}
+                    </g>
+                `;
+            });
+
+            svg += `</g></svg>`;
+            document.getElementById('svgContainer').innerHTML = svg;
+        }
+
+        // --- Export Logic ---
+        let currentExportFormat = 'svg';
+
+        function openExportModal() {
+            document.getElementById('exportModal').classList.remove('hidden');
+            document.getElementById('exportModal').classList.add('flex');
+            
+            const areaSel = document.getElementById('exportArea');
+            if (customExportBox) {
+                document.getElementById('optCustomArea').disabled = false;
+                areaSel.value = 'custom';
+            } else {
+                document.getElementById('optCustomArea').disabled = true;
+                areaSel.value = 'auto';
+            }
+        }
+        function closeExportModal() {
+            document.getElementById('exportModal').classList.add('hidden');
+            document.getElementById('exportModal').classList.remove('flex');
+        }
+        function setExportFormat(fmt) {
+            currentExportFormat = fmt;
+            document.getElementById('btnFmtSvg').className = fmt === 'svg' ? 'flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-sm font-bold transition' : 'flex-1 py-2 rounded border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 text-sm font-bold transition';
+            document.getElementById('btnFmtPng').className = fmt === 'png' ? 'flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-sm font-bold transition' : 'flex-1 py-2 rounded border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200 text-sm font-bold transition';
+        }
+
+        function executeExport() {
+            const areaType = document.getElementById('exportArea').value;
+            const svgElem = document.querySelector('#svgContainer svg');
+            let exportBox = { x: 0, y: 0, w: 0, h: 0 };
+
+            if (areaType === 'auto') {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                state.nodes.forEach(n => {
+                    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+                    maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + NODE_H);
+                });
+                state.subgraphs.forEach(g => {
+                    const gb = getGroupBoundingBox(g.id);
+                    minX = Math.min(minX, gb.x); minY = Math.min(minY, gb.y);
+                    maxX = Math.max(maxX, gb.x + gb.w); maxY = Math.max(maxY, gb.y + gb.h);
+                });
+                if(minX === Infinity) { minX = 0; minY = 0; maxX = 500; maxY = 500; }
+                exportBox = { x: minX - 50, y: minY - 50, w: (maxX - minX) + 100, h: (maxY - minY) + 100 };
+            } else if (areaType === 'viewport') {
+                const vp = document.getElementById('canvasViewport').getBoundingClientRect();
+                exportBox = { x: -panX/canvasZoom, y: -panY/canvasZoom, w: vp.width/canvasZoom, h: vp.height/canvasZoom };
+            } else if (areaType === 'custom' && customExportBox) {
+                exportBox = customExportBox;
+            }
+
+            // Clone SVG for export manipulation
+            const clone = svgElem.cloneNode(true);
+            clone.setAttribute('viewBox', `${exportBox.x} ${exportBox.y} ${exportBox.w} ${exportBox.h}`);
+            clone.setAttribute('width', exportBox.w);
+            clone.setAttribute('height', exportBox.h);
+            
+            // Add Background
+            const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            bgRect.setAttribute('x', exportBox.x); bgRect.setAttribute('y', exportBox.y);
+            bgRect.setAttribute('width', exportBox.w); bgRect.setAttribute('height', exportBox.h);
+            bgRect.setAttribute('fill', THEMES[state.theme].bg);
+            clone.insertBefore(bgRect, clone.firstChild);
+
+            // Hide UI states
+            clone.querySelectorAll('.node-selected').forEach(el => el.classList.remove('node-selected'));
+
+            const svgData = new XMLSerializer().serializeToString(clone);
+
+            if (currentExportFormat === 'svg') {
+                const blob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'workflow.svg';
+                link.click();
+            } else {
+                // PNG Export using standard canvas via Image
+                const canvas = document.createElement('canvas');
+                const scale = 2; // High Res
+                canvas.width = exportBox.w * scale;
+                canvas.height = exportBox.h * scale;
+                const ctx = canvas.getContext('2d');
+                
+                const img = new Image();
+                img.onload = () => {
+                    ctx.fillStyle = THEMES[state.theme].bg;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const a = document.createElement('a');
+                    a.download = 'workflow.png';
+                    a.href = canvas.toDataURL('image/png');
+                    a.click();
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            }
+
+            closeExportModal();
+            showToast('圖表匯出成功！');
+        }
+
+        // --- Templates & Panels ---
+        const PRESETS = {
+            empty: { theme: 'tech', nodes: [], edges: [], subgraphs: [] },
+            ml: {
+                theme: 'tech',
+                subgraphs: [
+                    { id: 'g1', label: 'Data Pipeline', color: '#10b981', x: 50, y: 50 },
+                    { id: 'g2', label: 'Training & Eval', color: '#8b5cf6', x: 450, y: 50 }
+                ],
+                nodes: [
+                    { id: 'n1', label: 'Raw Data', sub: 'S3 Bucket', icon: 'fa-database', shape: 'database', color: '#3b82f6', group: 'g1', x: 100, y: 120 },
+                    { id: 'n2', label: 'Preprocessing', sub: 'Spark', icon: 'fa-server', shape: 'rect', color: '#10b981', group: 'g1', x: 100, y: 250 },
+                    { id: 'n3', label: 'Model Train', sub: 'PyTorch', icon: 'fa-brain', shape: 'capsule', color: '#8b5cf6', group: 'g2', x: 500, y: 120 },
+                    { id: 'n4', label: 'Eval Metric', sub: 'Accuracy', icon: 'fa-server', shape: 'diamond', color: '#f59e0b', group: 'g2', x: 500, y: 250 }
+                ],
+                edges: [
+                    { from: 'n1', to: 'n2', label: 'Batch' },
+                    { from: 'n2', to: 'n3', label: 'Features' },
+                    { from: 'n3', to: 'n4', label: 'Weights' }
+                ]
+            }
+        };
+
+        function loadTemplate(key) {
+            state = JSON.parse(JSON.stringify(PRESETS[key] || PRESETS.empty));
+            saveHistory();
+            selectNode(null);
+            setTimeout(centerView, 100);
+        }
+
+        function refreshPropertiesPanel() {
+            if(!selectedNodeId) return;
+            document.getElementById('emptyProperties').classList.add('hidden');
+            document.getElementById('nodeProperties').classList.remove('hidden');
+            
+            const n = state.nodes.find(x => x.id === selectedNodeId);
+            document.getElementById('propLabel').value = n.label;
+            document.getElementById('propSub').value = n.sub;
+            document.getElementById('propIcon').value = n.icon;
+            document.getElementById('propColor').value = n.color;
+            
+            const gSelect = document.getElementById('propGroup');
+            gSelect.innerHTML = `<option value="">(無群組)</option>` + 
+                state.subgraphs.map(g => `<option value="${g.id}" ${n.group===g.id?'selected':''}>${g.label}</option>`).join('');
         }
 
         function updateSelectedNode(key, val) {
             if(!selectedNodeId) return;
-            const node = state.nodes.find(n => n.id === selectedNodeId);
-            if(node) {
-                node[key] = val;
-                renderDiagram();
-            }
+            const n = state.nodes.find(x => x.id === selectedNodeId);
+            n[key] = val;
+            renderDiagram(); // History is saved via onchange attribute in HTML
         }
 
         function updateRelationsPanel() {
-            // Render Edges
-            const edgesContainer = document.getElementById('edgesList');
-            edgesContainer.innerHTML = '';
-            
-            if(state.edges.length === 0) {
-                edgesContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有連線。</div>`;
-            }
-            
-            state.edges.forEach((e, idx) => {
-                const item = document.createElement('div');
-                item.className = 'bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
-
-                let nodeOptionsFrom = '', nodeOptionsTo = '';
-                state.nodes.forEach(n => {
-                    nodeOptionsFrom += `<option value="${n.id}" ${e.from === n.id ? 'selected' : ''}>${n.label}</option>`;
-                    nodeOptionsTo += `<option value="${n.id}" ${e.to === n.id ? 'selected' : ''}>${n.label}</option>`;
-                });
-
-                item.innerHTML = `
+            // Update Edges
+            const eHTML = state.edges.map((e, idx) => `
+                <div class="bg-slate-950 p-2 rounded border border-slate-800 space-y-2">
                     <div class="flex items-center space-x-2">
-                        <select onchange="updateEdge(${idx}, 'from', this.value)" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
-                            ${nodeOptionsFrom}
+                        <select onchange="state.edges[${idx}].from=this.value; renderDiagram(); saveHistory();" class="flex-1 bg-slate-900 text-xs text-slate-200 border border-slate-700 rounded p-1">
+                            ${state.nodes.map(n => `<option value="${n.id}" ${e.from===n.id?'selected':''}>${n.label}</option>`).join('')}
                         </select>
-                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
-                        <select onchange="updateEdge(${idx}, 'to', this.value)" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
-                            ${nodeOptionsTo}
+                        <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+                        <select onchange="state.edges[${idx}].to=this.value; renderDiagram(); saveHistory();" class="flex-1 bg-slate-900 text-xs text-slate-200 border border-slate-700 rounded p-1">
+                            ${state.nodes.map(n => `<option value="${n.id}" ${e.to===n.id?'selected':''}>${n.label}</option>`).join('')}
                         </select>
-                        <button onclick="removeEdge(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="state.edges.splice(${idx},1); updateRelationsPanel(); renderDiagram(); saveHistory();" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value)" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
-                        <select onchange="updateEdge(${idx}, 'style', this.value)" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
-                            <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
-                            <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
-                        </select>
-                    </div>
-                `;
-                edgesContainer.appendChild(item);
-            });
+                </div>
+            `).join('') || '<p class="text-xs text-slate-500">尚無連線</p>';
+            document.getElementById('edgeList').innerHTML = eHTML;
 
-            // Render Groups
-            const groupsContainer = document.getElementById('groupsList');
-            groupsContainer.innerHTML = '';
-            
-            if(state.subgraphs.length === 0) {
-                groupsContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有群組。</div>`;
-            }
-            
-            state.subgraphs.forEach((g, idx) => {
-                const item = document.createElement('div');
-                item.className = 'bg-slate-900/50 p-2 rounded-lg border border-slate-700/60 flex items-center space-x-2 text-xs';
-                item.innerHTML = `
-                    <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0">
-                    <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value)" class="flex-1 bg-slate-950 px-2 py-1.5 rounded border border-slate-700 text-slate-200">
-                    <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
-                `;
-                groupsContainer.appendChild(item);
-            });
+            // Update Groups
+            const gHTML = state.subgraphs.map((g, idx) => `
+                <div class="bg-slate-950 p-2 rounded border border-slate-800 flex items-center space-x-2">
+                    <input type="color" value="${g.color}" onchange="state.subgraphs[${idx}].color=this.value; renderDiagram(); saveHistory();" class="w-6 h-6 rounded p-0 border border-slate-700 bg-transparent">
+                    <input type="text" value="${g.label}" onchange="state.subgraphs[${idx}].label=this.value; renderDiagram(); saveHistory();" class="flex-1 bg-slate-900 text-xs text-slate-200 border border-slate-700 rounded px-2 py-1">
+                    <button onclick="deleteGroup(${idx})" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-500">尚無群組</p>';
+            document.getElementById('groupList').innerHTML = gHTML;
         }
 
         function addEdge() {
-            if (state.nodes.length < 2) {
-                showToast('需要至少 2 個節點才能建立連線', 'warning');
-                return;
-            }
-            state.edges.push({ from: state.nodes[0].id, to: state.nodes[1].id, label: '', style: 'solid' });
+            if (state.nodes.length < 2) return showToast('請先新增至少兩個節點');
+            state.edges.push({ from: state.nodes[0].id, to: state.nodes[1].id, label: '' });
+            saveHistory();
             updateRelationsPanel();
             renderDiagram();
         }
 
-        function updateEdge(idx, key, val) {
-            state.edges[idx][key] = val;
-            renderDiagram();
-        }
-        function removeEdge(idx) {
-            state.edges.splice(idx, 1);
-            updateRelationsPanel();
-            renderDiagram();
-        }
-        
-        function addGroup() {
-            const vp = document.getElementById('canvasViewport');
-            // 抓取當前畫布中心點
-            const centerPt = {
-                x: (vp.clientWidth/2 - panX) / canvasZoom,
-                y: (vp.clientHeight/2 - panY) / canvasZoom
-            };
-            
-            const newId = 'sg_' + Date.now().toString().slice(-4);
-            state.subgraphs.push({ 
-                id: newId, 
-                label: '新群組區域', 
-                color: '#10b981',
-                x: centerPt.x - 150, // 預設空群組 X
-                y: centerPt.y - 100  // 預設空群組 Y
-            });
-            updateRelationsPanel();
-            if(selectedNodeId) refreshPropertiesPanel(); // update group dropdown
-            renderDiagram();
-            showToast('已新增群組！請點選節點修改「所屬群組」');
-        }
-        function updateGroup(idx, key, val) {
-            state.subgraphs[idx][key] = val;
-            renderDiagram();
-        }
-        function removeGroup(idx) {
-            const id = state.subgraphs[idx].id;
+        function deleteGroup(idx) {
+            const gid = state.subgraphs[idx].id;
             state.subgraphs.splice(idx, 1);
-            state.nodes.forEach(n => { if (n.group === id) n.group = ''; });
+            state.nodes.forEach(n => { if (n.group === gid) n.group = ''; });
+            saveHistory();
             updateRelationsPanel();
-            if(selectedNodeId) refreshPropertiesPanel();
+            refreshPropertiesPanel();
             renderDiagram();
         }
 
-        function renderNodeShape(shape, w, h, fill, border) {
-            if (shape === 'pill') {
-                const rx = h / 2;
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
-            } else if (shape === 'diamond') {
-                return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
-            } else if (shape === 'database') {
-                return `
-                    <g>
-                        <path d="M 0 12 C 0 0, ${w} 0, ${w} 12 L ${w} ${h-12} C ${w} ${h}, 0 ${h}, 0 ${h-12} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
-                        <ellipse cx="${w/2}" cy="12" rx="${w/2}" ry="8" fill="${fill}" stroke="${border}" stroke-width="2" />
-                        <path d="M 0 26 C 0 34, ${w} 34, ${w} 26" fill="none" stroke="${border}" stroke-width="1.5" stroke-dasharray="3 2" />
-                    </g>
-                `;
-            } else if (shape === 'cloud') {
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="22" fill="${fill}" stroke="${border}" stroke-width="2" stroke-dasharray="6 3" />`;
-            } else if (shape === 'hexagon') {
-                const p = 20;
-                return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
-            } else {
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${border}" stroke-width="2" />`;
-            }
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+            el.classList.add('toast-enter');
+            setTimeout(() => { el.classList.add('hidden'); el.classList.remove('toast-enter'); }, 3000);
         }
 
-        // Compute direct bezier curves based on relative positions
-        function computeEdgePath(n1, n2) {
-            const cx1 = n1.x + NODE_W/2;
-            const cy1 = n1.y + NODE_H/2;
-            const cx2 = n2.x + NODE_W/2;
-            const cy2 = n2.y + NODE_H/2;
-            
-            const dx = Math.abs(cx2 - cx1);
-            const dy = Math.abs(cy2 - cy1);
-            
-            let d = "";
-            // Use horizontal curves if horizontal distance > vertical distance
-            if(dx > dy) {
-                const controlOffset = dx * 0.4;
-                d = `M ${cx1} ${cy1} C ${cx1 + (cx2>cx1?controlOffset:-controlOffset)} ${cy1}, ${cx2 - (cx2>cx1?controlOffset:-controlOffset)} ${cy2}, ${cx2} ${cy2}`;
-            } else {
-                const controlOffset = dy * 0.4;
-                d = `M ${cx1} ${cy1} C ${cx1} ${cy1 + (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2 - (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2}`;
-            }
-            
-            return {
-                d: d,
-                midX: (cx1 + cx2) / 2,
-                midY: (cy1 + cy2) / 2
-            };
-        }
-
-        function renderDiagram() {
-            const theme = THEMES[state.theme] || THEMES.academic;
-            
-            // Calc dynamic bounding box for SVG canvas size
-            let minX = 0, minY = 0, maxX = 800, maxY = 600;
-            state.nodes.forEach(n => {
-                minX = Math.min(minX, n.x - 100);
-                minY = Math.min(minY, n.y - 100);
-                maxX = Math.max(maxX, n.x + NODE_W + 100);
-                maxY = Math.max(maxY, n.y + NODE_H + 100);
-            });
-            const svgW = Math.max(2000, maxX);
-            const svgH = Math.max(2000, maxY);
-
-            let svgHtml = `
-                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="overflow: visible; display:block;">
-                    <defs>
-                        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
-                        </marker>
-                        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
-                        </filter>
-                        <!-- Inline CSS to preserve styling on Export -->
-                        <style>
-                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
-                            @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
-                            text { font-family: 'Inter', sans-serif; }
-                        </style>
-                    </defs>
-
-                    <!-- Background for PNG export -->
-                    <rect width="100%" height="100%" fill="transparent" id="exportBg" />
-
-                    <g id="groupsLayer">
-            `;
-
-            // Draw Subgraphs dynamically based on node positions
-            state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
-                let gx, gy, gw, gh;
-                const pad = 24;
-                const topPad = 40;
-                
-                if(groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x);
-                        gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W);
-                        gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    
-                    gx = gMinX - pad;
-                    gy = gMinY - topPad;
-                    gw = (gMaxX - gMinX) + pad*2;
-                    gh = (gMaxY - gMinY) + pad + topPad;
-                    
-                    // 記錄最後的位置，以免群組清空時找不到座標
-                    g.x = gx + pad; 
-                    g.y = gy + topPad;
-                } else {
-                    // 空群組佔位符位置與大小
-                    gx = (g.x || 100) - pad;
-                    gy = (g.y || 100) - topPad;
-                    gw = 300;
-                    gh = 200;
-                }
-                    
-                svgHtml += `
-                    <g transform="translate(${gx}, ${gy})">
-                        <rect width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
-                        <text x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
-                        ${groupNodes.length === 0 ? `<text x="${gw/2}" y="${gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：請在節點「屬性」中指派至此群組</text>` : ''}
-                    </g>
-                `;
-            });
-
-            svgHtml += `</g><g id="edgesLayer">`;
-
-            // Draw Edges
-            state.edges.forEach(e => {
-                const nodeA = state.nodes.find(n => n.id === e.from);
-                const nodeB = state.nodes.find(n => n.id === e.to);
-                
-                if (nodeA && nodeB) {
-                    const pathData = computeEdgePath(nodeA, nodeB);
-                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
-
-                    svgHtml += `
-                        <g>
-                            <path d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2.5" ${strokeDash} marker-end="url(#arrow)" />
-                    `;
-
-                    if (e.label) {
-                        const labelLen = e.label.length;
-                        const boxW = Math.max(50, labelLen * 9 + 16);
-                        svgHtml += `
-                            <rect x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="1" opacity="0.95" />
-                            <text x="${pathData.midX}" y="${pathData.midY + 4}" fill="${theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle">${e.label}</text>
-                        `;
-                    }
-                    svgHtml += `</g>`;
-                }
-            });
-
-            svgHtml += `</g><g id="nodesLayer">`;
-
-            // Draw Nodes
-            state.nodes.forEach(n => {
-                const nodeBorder = n.color || theme.nodeBorder;
-                const isSelected = selectedNodeId === n.id;
-                const selectedClass = isSelected ? 'node-selected' : '';
-                const iconColor = n.color || '#3b82f6';
-                
-                let iconPath = SVG_ICONS['default'];
-                if (n.icon) {
-                    const iconKey = n.icon.startsWith('fa-') ? n.icon : 'fa-' + n.icon;
-                    if (SVG_ICONS[iconKey]) iconPath = SVG_ICONS[iconKey];
-                }
-
-                // 完全摒棄 foreignObject，採用 100% 乾淨原生的 SVG 向量文字與圖示 (Native Vector Path & Text)
-                // 完美解決匯出 PNG 破圖以及 SVG 文字消失的問題
-                svgHtml += `
-                    <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
-                        ${renderNodeShape(n.shape, NODE_W, NODE_H, theme.nodeBg, nodeBorder)}
-                        
-                        <rect x="16" y="18" width="36" height="36" rx="8" fill="${iconColor}20" />
-                        <svg x="22" y="24" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
-                            <path d="${iconPath}" />
-                        </svg>
-                        
-                        <text x="66" y="${n.sub ? 34 : 42}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${theme.text}">${n.label}</text>
-                        ${n.sub ? `<text x="66" y="52" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
-                    </g>
-                `;
-            });
-
-            svgHtml += `</g></svg>`;
-
-            const container = document.getElementById('svgContainer');
-            container.innerHTML = svgHtml;
-        }
-
-        function loadPreset(key) {
-            if (PRESETS[key]) {
-                state = JSON.parse(JSON.stringify(PRESETS[key]));
-                document.getElementById('themeSelect').value = state.theme;
-                selectNode(null); // clear selection
-                renderDiagram();
-                updateRelationsPanel();
-                centerView(); // Recenter view on new preset
-                showToast('已載入範本');
-            }
-        }
-
-        function changeTheme(themeKey) {
-            state.theme = themeKey;
-            renderDiagram();
-            showToast('主題切換成功');
-        }
-
-        function applyJsonCode() {
-            try {
-                state = JSON.parse(document.getElementById('jsonEditor').value);
-                selectNode(null);
-                renderDiagram();
-                updateRelationsPanel();
-                showToast('JSON 規格更新成功！');
-            } catch (err) {
-                showToast('JSON 格式錯誤：' + err.message, 'error');
-            }
-        }
-
-        function copySVGCode() {
-            const svgEl = document.getElementById('workflowSvg');
-            if (!svgEl) return;
-            const svgCode = svgEl.outerHTML.replace('<rect width="100%" height="100%" fill="transparent" id="exportBg" />', '');
-            
-            navigator.clipboard.writeText(svgCode).then(() => {
-                showToast('SVG 碼已複製到剪貼簿！');
-            }).catch(() => {
-                // Fallback
-                const temp = document.createElement('textarea');
-                temp.value = svgCode;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand('copy');
-                document.body.removeChild(temp);
-                showToast('SVG 碼已複製到剪貼簿！');
-            });
-        }
-
-        // --- Export Modal Controllers ---
-        function openExportModal() {
-            const modal = document.getElementById('exportModal');
-            const content = document.getElementById('exportModalContent');
-            modal.classList.remove('hidden');
-            // Trigger animation
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                content.classList.remove('scale-95');
-            }, 10);
-        }
-
-        function closeExportModal() {
-            const modal = document.getElementById('exportModal');
-            const content = document.getElementById('exportModalContent');
-            modal.classList.add('opacity-0');
-            content.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
-        }
-
-        function setExportFmt(fmt) {
-            selectedExportFormat = fmt;
-            const btnPng = document.getElementById('expFmtPng');
-            const btnSvg = document.getElementById('expFmtSvg');
-            
-            if (fmt === 'png') {
-                btnPng.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
-                btnSvg.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
-            } else {
-                btnSvg.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
-                btnPng.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
-            }
-        }
-
-        function confirmExport() {
-            const area = document.querySelector('input[name="expArea"]:checked').value;
-            const bg = document.getElementById('expBg').value;
-            
-            closeExportModal();
-            executeExport(selectedExportFormat, area, bg);
-        }
-
-        function executeExport(format, area, bgSetting) {
-            const originalSvg = document.getElementById('workflowSvg');
-            if (!originalSvg) return;
-
-            // Clear selection purely for export rendering
-            const oldSelectedId = selectedNodeId;
-            if (oldSelectedId) {
-                selectedNodeId = null;
-                renderDiagram(); 
-            }
-
-            // Short timeout to ensure DOM updates applied
-            setTimeout(() => {
-                const svgToExport = document.getElementById('workflowSvg').cloneNode(true);
-                const theme = THEMES[state.theme] || THEMES.academic;
-                const bgColor = bgSetting === 'theme' ? theme.bg : 'transparent';
-                
-                // Set Export Background
-                const bgRect = svgToExport.querySelector('#exportBg');
-                if (bgRect) {
-                    bgRect.setAttribute('fill', bgColor);
-                }
-
-                // Calculate Area ViewBox
-                let exportW, exportH, viewBoxStr;
-                if (area === 'autofit') {
-                    const bbox = getNodesBoundingBox();
-                    const pad = 50;
-                    exportW = bbox.w + pad * 2;
-                    exportH = bbox.h + pad * 2;
-                    viewBoxStr = `${bbox.x - pad} ${bbox.y - pad} ${exportW} ${exportH}`;
-                } else if (area === 'custom' && customExportBox) {
-                    exportW = customExportBox.w;
-                    exportH = customExportBox.h;
-                    viewBoxStr = `${customExportBox.x} ${customExportBox.y} ${exportW} ${exportH}`;
-                } else {
-                    // Viewport Area
-                    const vp = document.getElementById('canvasViewport');
-                    const viewW = vp.clientWidth;
-                    const viewH = vp.clientHeight;
-                    exportW = viewW / canvasZoom;
-                    exportH = viewH / canvasZoom;
-                    viewBoxStr = `${-panX/canvasZoom} ${-panY/canvasZoom} ${exportW} ${exportH}`;
-                }
-
-                // Apply to Clone
-                svgToExport.setAttribute('viewBox', viewBoxStr);
-                svgToExport.setAttribute('width', exportW);
-                svgToExport.setAttribute('height', exportH);
-                // Ensure proper XML namespaces for standalone usage
-                svgToExport.setAttribute('xmlns', "http://www.w3.org/2000/svg");
-
-                const svgData = new XMLSerializer().serializeToString(svgToExport);
-
-                if (format === 'svg') {
-                    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `workflow-${Date.now()}.svg`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    showToast('向量 SVG 下載完成！');
-                    restoreSelection();
-                } 
-                else if (format === 'png') {
-                    showToast('正在生成高解析度 PNG...', 'success');
-                    
-                    // 完全採用 Native HTML5 Canvas，捨棄極不穩定的 html-to-image 套件
-                    const canvas = document.getElementById('exportCanvas');
-                    canvas.width = exportW * 2; // Retina (2x 解析度)
-                    canvas.height = exportH * 2;
-                    const ctx = canvas.getContext('2d');
-                    
-                    if (bgColor !== 'transparent') {
-                        ctx.fillStyle = bgColor;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    }
-
-                    // 將 SVG 資料安全編碼以供 Image() 載入
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(svgBlob);
-                    
-                    const img = new Image();
-                    img.crossOrigin = "Anonymous";
-                    img.onload = function() {
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        URL.revokeObjectURL(url);
-                        
-                        try {
-                            const pngDataUrl = canvas.toDataURL('image/png');
-                            const a = document.createElement('a');
-                            a.href = pngDataUrl;
-                            a.download = `workflow-${Date.now()}.png`;
-                            a.click();
-                            showToast('高解析度 PNG 匯出完成！');
-                        } catch (err) {
-                            console.error(err);
-                            showToast('PNG 轉換發生問題，請嘗試下載 SVG', 'error');
-                        }
-                        restoreSelection();
-                    };
-                    img.onerror = function(err) {
-                        console.error('Image load error:', err);
-                        showToast('圖像渲染失敗，請改用 SVG 格式下載', 'error');
-                        restoreSelection();
-                    };
-                    img.src = url;
-                }
-            }, 50);
-
-            function restoreSelection() {
-                if (oldSelectedId) {
-                    selectedNodeId = oldSelectedId;
-                    renderDiagram();
-                }
-            }
-        }
-
-        function getNodesBoundingBox() {
-            if (state.nodes.length === 0) return {x:0, y:0, w:800, h:600};
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            state.nodes.forEach(n => {
-                minX = Math.min(minX, n.x);
-                minY = Math.min(minY, n.y);
-                maxX = Math.max(maxX, n.x + NODE_W);
-                maxY = Math.max(maxY, n.y + NODE_H);
-            });
-            // Include subgroups bounds
-            state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
-                if(groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    minX = Math.min(minX, gMinX - 24);
-                    minY = Math.min(minY, gMinY - 40);
-                    maxX = Math.max(maxX, gMaxX + 24);
-                    maxY = Math.max(maxY, gMaxY + 24);
-                } else {
-                    // 計算空群組邊界，防止匯出時被裁切
-                    const gx = (g.x || 100) - 24;
-                    const gy = (g.y || 100) - 40;
-                    minX = Math.min(minX, gx);
-                    minY = Math.min(minY, gy);
-                    maxX = Math.max(maxX, gx + 300);
-                    maxY = Math.max(maxY, gy + 200);
-                }
-            });
-            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-        }
-
-        function showToast(msg, type = 'success') {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMsg');
-            const toastIcon = document.getElementById('toastIcon');
-
-            toastMsg.innerText = msg;
-            toastIcon.className = type === 'error' ? 'fa-solid fa-circle-xmark text-red-400' : 
-                                  type === 'warning' ? 'fa-solid fa-triangle-exclamation text-amber-400' : 
-                                  'fa-solid fa-circle-check text-emerald-400';
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
     </script>
 </body>
 </html>
