@@ -10,8 +10,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- HTML-to-Image for flawless PNG exports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -649,6 +647,72 @@
                 }
             });
 
+            // Fast local DOM updates during node drag (avoids re-building entire SVG)
+            function updateDraggedNodeDOM(nodeId, nx, ny) {
+                const nodeEl = document.querySelector(`.node-group[data-id="${nodeId}"]`);
+                if (nodeEl) {
+                    nodeEl.setAttribute('transform', `translate(${nx}, ${ny})`);
+                }
+
+                const nodeMap = new Map();
+                state.nodes.forEach(n => nodeMap.set(n.id, n));
+                const draggedNode = nodeMap.get(nodeId);
+
+                // Update affected edges
+                state.edges.forEach((e, idx) => {
+                    if (e.from === nodeId || e.to === nodeId) {
+                        const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
+                        if (edgeEl) {
+                            const n1 = nodeMap.get(e.from);
+                            const n2 = nodeMap.get(e.to);
+                            if (n1 && n2) {
+                                const pathData = computeEdgePath(n1, n2);
+                                const pathEl = edgeEl.querySelector('.edge-path');
+                                if (pathEl) pathEl.setAttribute('d', pathData.d);
+                                
+                                const labelBg = edgeEl.querySelector('.edge-label-bg');
+                                const labelText = edgeEl.querySelector('.edge-label-text');
+                                if (labelBg && labelText) {
+                                    const labelLen = (e.label || '').length;
+                                    const boxW = Math.max(50, labelLen * 9 + 16);
+                                    labelBg.setAttribute('x', pathData.midX - boxW/2);
+                                    labelBg.setAttribute('y', pathData.midY - 12);
+                                    labelText.setAttribute('x', pathData.midX);
+                                    labelText.setAttribute('y', pathData.midY + 4);
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Update affected group bounds if this node is in a group
+                if (draggedNode && draggedNode.group) {
+                    const groupEl = document.querySelector(`[data-group-id="${draggedNode.group}"]`);
+                    if (groupEl) {
+                        const gNodes = state.nodes.filter(n => n.group === draggedNode.group);
+                        if (gNodes.length > 0) {
+                            let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
+                            gNodes.forEach(n => {
+                                gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
+                                gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
+                            });
+                            const pad = 24; const topPad = 40;
+                            const gx = gMinX - pad; const gy = gMinY - topPad;
+                            const gw = (gMaxX - gMinX) + pad*2; const gh = (gMaxY - gMinY) + pad + topPad;
+                            groupEl.setAttribute('transform', `translate(${gx}, ${gy})`);
+                            const rectEl = groupEl.querySelector('.group-rect');
+                            if (rectEl) {
+                                rectEl.setAttribute('width', gw);
+                                rectEl.setAttribute('height', gh);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let dragRafId = null;
+            let panRafId = null;
+
             window.addEventListener('mousemove', (e) => {
                 if (isSelectingArea) {
                     const rect = viewport.getBoundingClientRect();
@@ -669,16 +733,31 @@
                         // Grid snapping (10px)
                         node.x = Math.round((pt.x - nodeDragOffsetX) / 10) * 10;
                         node.y = Math.round((pt.y - nodeDragOffsetY) / 10) * 10;
-                        renderDiagram();
+                        
+                        // Performance: Use rAF + selective DOM update instead of full innerHTML re-render
+                        if (!dragRafId) {
+                            dragRafId = requestAnimationFrame(() => {
+                                updateDraggedNodeDOM(selectedNodeId, node.x, node.y);
+                                dragRafId = null;
+                            });
+                        }
                     }
                 } else if (isDraggingCanvas) {
                     panX = e.clientX - dragStartX;
                     panY = e.clientY - dragStartY;
-                    updateCanvasTransform();
+                    if (!panRafId) {
+                        panRafId = requestAnimationFrame(() => {
+                            updateCanvasTransform();
+                            panRafId = null;
+                        });
+                    }
                 }
             });
 
             window.addEventListener('mouseup', (e) => {
+                if (dragRafId) { cancelAnimationFrame(dragRafId); dragRafId = null; }
+                if (panRafId) { cancelAnimationFrame(panRafId); panRafId = null; }
+
                 if (isSelectingArea) {
                     isSelectingArea = false;
                     const sb = document.getElementById('selectionBox');
@@ -728,6 +807,9 @@
                             node.group = droppedInGroup;
                             showToast('已自動吸附至群組');
                             if (activeTab === 'properties') refreshPropertiesPanel();
+                            renderDiagram();
+                        } else {
+                            // Ensure final state is aligned cleanly
                             renderDiagram();
                         }
                     }
@@ -1118,11 +1200,21 @@
         function renderDiagram() {
             const theme = THEMES[state.theme] || THEMES.academic;
             
+            // Build lookup maps for O(1) queries
+            const nodeMap = new Map();
+            const groupNodesMap = new Map();
+            state.subgraphs.forEach(g => groupNodesMap.set(g.id, []));
+
             let minX = 0, minY = 0, maxX = 800, maxY = 600;
             state.nodes.forEach(n => {
+                nodeMap.set(n.id, n);
+                if (n.group && groupNodesMap.has(n.group)) {
+                    groupNodesMap.get(n.group).push(n);
+                }
                 minX = Math.min(minX, n.x - 100); minY = Math.min(minY, n.y - 100);
                 maxX = Math.max(maxX, n.x + NODE_W + 100); maxY = Math.max(maxY, n.y + NODE_H + 100);
             });
+
             const svgW = Math.max(2000, maxX);
             const svgH = Math.max(2000, maxY);
 
@@ -1135,22 +1227,17 @@
                         <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
                             <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
                         </filter>
-                        <style>
-                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
-                            @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
-                            text { font-family: 'Inter', sans-serif; }
-                        </style>
                     </defs>
                     <rect width="100%" height="100%" fill="transparent" id="exportBg" />
                     <g id="groupsLayer">
             `;
 
             state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
+                const groupNodes = groupNodesMap.get(g.id) || [];
                 let gx, gy, gw, gh;
                 const pad = 24; const topPad = 40;
                 
-                if(groupNodes.length > 0) {
+                if (groupNodes.length > 0) {
                     let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
                     groupNodes.forEach(n => {
                         gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
@@ -1167,35 +1254,35 @@
                 }
                     
                 svgHtml += `
-                    <g transform="translate(${gx}, ${gy})">
-                        <rect width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
-                        <text x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
-                        ${groupNodes.length === 0 ? `<text x="${gw/2}" y="${gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：請在節點「屬性」中指派至此群組</text>` : ''}
+                    <g data-group-id="${g.id}" transform="translate(${gx}, ${gy})">
+                        <rect class="group-rect" width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
+                        <text class="group-title" x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
+                        ${groupNodes.length === 0 ? `<text class="group-empty-hint" x="${gw/2}" y="${gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：請在節點「屬性」中指派至此群組</text>` : ''}
                     </g>
                 `;
             });
 
             svgHtml += `</g><g id="edgesLayer">`;
 
-            state.edges.forEach(e => {
-                const nodeA = state.nodes.find(n => n.id === e.from);
-                const nodeB = state.nodes.find(n => n.id === e.to);
+            state.edges.forEach((e, idx) => {
+                const nodeA = nodeMap.get(e.from);
+                const nodeB = nodeMap.get(e.to);
                 
                 if (nodeA && nodeB) {
                     const pathData = computeEdgePath(nodeA, nodeB);
                     const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
 
                     svgHtml += `
-                        <g>
-                            <path d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2.5" ${strokeDash} marker-end="url(#arrow)" />
+                        <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}">
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2.5" ${strokeDash} marker-end="url(#arrow)" />
                     `;
 
                     if (e.label) {
                         const labelLen = e.label.length;
                         const boxW = Math.max(50, labelLen * 9 + 16);
                         svgHtml += `
-                            <rect x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="1" opacity="0.95" />
-                            <text x="${pathData.midX}" y="${pathData.midY + 4}" fill="${theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle">${e.label}</text>
+                            <rect class="edge-label-bg" x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="1" opacity="0.95" />
+                            <text class="edge-label-text" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle">${e.label}</text>
                         `;
                     }
                     svgHtml += `</g>`;
