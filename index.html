@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Figure SVG Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for UI & Node icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        /* Canvas pattern background */
+        .bg-grid-pattern {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+        }
+        .dark .bg-grid-pattern {
+            background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden">
+
+    <!-- Navigation / Header Bar -->
+    <header class="h-16 bg-slate-800 border-b border-slate-700/80 px-4 flex items-center justify-between z-10 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-diagram-project text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white leading-tight">Workflow Figure SVG Generator</h1>
+                <p class="text-xs text-slate-400">專業學術與技術流程圖生成器</p>
+            </div>
+        </div>
+
+        <!-- Controls Toolbar -->
+        <div class="flex items-center space-x-3">
+            <!-- Preset Selector -->
+            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
+                <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>範本:</span>
+                <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
+                    <option value="aiml">AI / ML 管線流程 (AI Pipeline)</option>
+                    <option value="microservices">微服務架構 (Microservices)</option>
+                    <option value="decision">決策條件分支 (Decision Workflow)</option>
+                    <option value="milestone">多階段專案里程碑 (Milestones)</option>
+                </select>
+            </div>
+
+            <!-- Theme Selector -->
+            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
+                <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-palette mr-1"></i>主題:</span>
+                <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
+                    <option value="academic">Academic Clean (學術論文)</option>
+                    <option value="tech">Tech Dark (科技暗黑)</option>
+                    <option value="pastel">Pastel Modern (柔和粉彩)</option>
+                    <option value="vibrant">Vibrant Flow (鮮明流程)</option>
+                </select>
+            </div>
+
+            <!-- Layout Orientation -->
+            <div class="flex items-center bg-slate-900/60 p-1 rounded-lg border border-slate-700 space-x-1">
+                <button id="btnOrientLR" onclick="setOrientation('LR')" class="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white" title="從左至右 (L-R)">
+                    <i class="fa-solid fa-arrow-right-long mr-1"></i>橫向
+                </button>
+                <button id="btnOrientTB" onclick="setOrientation('TB')" class="px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white" title="從上至下 (T-B)">
+                    <i class="fa-solid fa-arrow-down-long mr-1"></i>縱向
+                </button>
+            </div>
+
+            <div class="h-6 w-[1px] bg-slate-700 mx-1"></div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center space-x-2">
+                <button onclick="copySVGCode()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
+                    <i class="fa-regular fa-copy mr-1.5"></i>複製 SVG
+                </button>
+                <button onclick="exportPNG()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
+                    <i class="fa-regular fa-file-image mr-1.5"></i>匯出 PNG
+                </button>
+                <button onclick="exportSVG()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-download mr-1.5"></i>下載 SVG
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar Controls -->
+        <aside class="w-96 bg-slate-800/90 border-r border-slate-700/80 flex flex-col shrink-0">
+            <!-- Sidebar Tabs -->
+            <div class="flex border-b border-slate-700 bg-slate-900/40">
+                <button id="tabBtnVisual" onclick="switchTab('visual')" class="flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-sliders"></i><span>視覺化編輯</span>
+                </button>
+                <button id="tabBtnCode" onclick="switchTab('code')" class="flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-code"></i><span>JSON 碼編輯</span>
+                </button>
+            </div>
+
+            <!-- Tab Content 1: Visual Editor -->
+            <div id="tabContentVisual" class="flex-1 overflow-y-auto p-4 space-y-6">
+                <!-- Group Boxes Section -->
+                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-layer-group text-blue-400 mr-1.5"></i>群組 / 泳道 (Subgraphs)
+                        </h3>
+                        <button onclick="addGroup()" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
+                            <i class="fa-solid fa-plus mr-1"></i>新增群組
+                        </button>
+                    </div>
+                    <div id="groupsList" class="space-y-2">
+                        <!-- Group items dynamic render -->
+                    </div>
+                </div>
+
+                <!-- Nodes Section -->
+                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-cubes text-emerald-400 mr-1.5"></i>節點管理 (Nodes)
+                        </h3>
+                        <button onclick="addNode()" class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
+                            <i class="fa-solid fa-plus mr-1"></i>新增節點
+                        </button>
+                    </div>
+                    <div id="nodesList" class="space-y-3">
+                        <!-- Node items dynamic render -->
+                    </div>
+                </div>
+
+                <!-- Connections/Edges Section -->
+                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-route text-amber-400 mr-1.5"></i>連線管理 (Edges)
+                        </h3>
+                        <button onclick="addEdge()" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border border-amber-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
+                            <i class="fa-solid fa-plus mr-1"></i>新增連線
+                        </button>
+                    </div>
+                    <div id="edgesList" class="space-y-3">
+                        <!-- Edge items dynamic render -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content 2: JSON Code Editor -->
+            <div id="tabContentCode" class="flex-1 overflow-hidden p-4 flex-col hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-400 font-medium">即時數據規範 (JSON)</span>
+                    <button onclick="applyJsonCode()" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded text-xs font-medium transition">
+                        <i class="fa-solid fa-check mr-1"></i>套用變更
+                    </button>
+                </div>
+                <textarea id="jsonEditor" class="flex-1 w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-lg border border-slate-700/80 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"></textarea>
+            </div>
+        </aside>
+
+        <!-- Right Preview Canvas Area -->
+        <main class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden">
+            <!-- Canvas Toolbar overlay -->
+            <div class="absolute top-4 right-4 z-10 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
+                <button onclick="zoomCanvas(1.1)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="放大">
+                    <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+                </button>
+                <button onclick="zoomCanvas(0.9)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="縮小">
+                    <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
+                </button>
+                <button onclick="resetCanvasView()" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="重置視圖">
+                    <i class="fa-solid fa-rotate text-sm"></i>
+                </button>
+                <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
+                <button id="gridToggleBtn" onclick="toggleGridBackground()" class="px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 rounded transition flex items-center">
+                    <i class="fa-solid fa-border-all mr-1.5 text-blue-400"></i>網格底圖
+                </button>
+            </div>
+
+            <!-- Interactive Canvas Container -->
+            <div id="canvasViewport" class="flex-1 w-full h-full bg-grid-pattern overflow-auto flex items-center justify-center p-8 cursor-grab active:cursor-grabbing">
+                <div id="svgContainer" class="transition-transform duration-100 transform origin-center">
+                    <!-- Dynamic SVG inserted here -->
+                </div>
+            </div>
+
+            <!-- Floating Toast Notification -->
+            <div id="toast" class="absolute bottom-6 right-6 bg-slate-800/95 border border-blue-500/50 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+                <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+                <span id="toastMsg" class="text-xs font-medium">訊息標題</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden Canvas for PNG Export -->
+    <canvas id="exportCanvas" class="hidden"></canvas>
+
+    <script>
+        // Preset Data Configurations
+        const PRESETS = {
+            aiml: {
+                orientation: 'LR',
+                theme: 'academic',
+                subgraphs: [
+                    { id: 'sg1', label: '1. 資料預處理 (Data Prep)', color: '#3b82f6' },
+                    { id: 'sg2', label: '2. 模型訓練與評估 (Model & Eval)', color: '#10b981' }
+                ],
+                nodes: [
+                    { id: 'n1', label: 'Raw Data Source', sub: 'SQL & S3 Bucket', shape: 'database', icon: 'fa-database', group: 'sg1', color: '#64748b' },
+                    { id: 'n2', label: 'Data Cleaning', sub: 'Deduplication & Scaling', shape: 'rect', icon: 'fa-filter', group: 'sg1', color: '#3b82f6' },
+                    { id: 'n3', label: 'Feature Extraction', sub: 'Embeddings / Vector', shape: 'pill', icon: 'fa-microchip', group: 'sg1', color: '#3b82f6' },
+                    { id: 'n4', label: 'Transformer Model', sub: 'PyTorch / GPU Cluster', shape: 'rect', icon: 'fa-brain', group: 'sg2', color: '#10b981' },
+                    { id: 'n5', label: 'Validation Check', sub: 'Accuracy > 95%?', shape: 'diamond', icon: 'fa-code-branch', group: 'sg2', color: '#f59e0b' },
+                    { id: 'n6', label: 'Model Deployment', sub: 'REST API Service', shape: 'cloud', icon: 'fa-cloud-arrow-up', group: '', color: '#8b5cf6' }
+                ],
+                edges: [
+                    { from: 'n1', to: 'n2', label: 'Ingest', style: 'solid', lineType: 'curved' },
+                    { from: 'n2', to: 'n3', label: 'Cleaned', style: 'solid', lineType: 'curved' },
+                    { from: 'n3', to: 'n4', label: 'Tensors', style: 'solid', lineType: 'curved' },
+                    { from: 'n4', to: 'n5', label: 'Evaluate', style: 'solid', lineType: 'curved' },
+                    { from: 'n5', to: 'n6', label: 'Pass', style: 'solid', lineType: 'curved' },
+                    { from: 'n5', to: 'n4', label: 'Retry / Tune', style: 'dashed', lineType: 'curved' }
+                ]
+            },
+            microservices: {
+                orientation: 'LR',
+                theme: 'tech',
+                subgraphs: [
+                    { id: 'sg1', label: 'API Gateway & Auth', color: '#06b6d4' },
+                    { id: 'sg2', label: 'Core Microservices', color: '#a855f7' }
+                ],
+                nodes: [
+                    { id: 'n1', label: 'Client App', sub: 'Web / Mobile', shape: 'pill', icon: 'fa-mobile-screen', group: '', color: '#0ea5e9' },
+                    { id: 'n2', label: 'API Gateway', sub: 'Kong / Nginx', shape: 'hexagon', icon: 'fa-shield-halved', group: 'sg1', color: '#06b6d4' },
+                    { id: 'n3', label: 'Auth Service', sub: 'OAuth2 / JWT', shape: 'rect', icon: 'fa-key', group: 'sg1', color: '#06b6d4' },
+                    { id: 'n4', label: 'User Service', sub: 'Node.js Cluster', shape: 'rect', icon: 'fa-user-gear', group: 'sg2', color: '#a855f7' },
+                    { id: 'n5', label: 'Order Service', sub: 'Go Microservice', shape: 'rect', icon: 'fa-cart-shopping', group: 'sg2', color: '#a855f7' },
+                    { id: 'n6', label: 'PostgreSQL DB', sub: 'Primary Instance', shape: 'database', icon: 'fa-database', group: '', color: '#f43f5e' }
+                ],
+                edges: [
+                    { from: 'n1', to: 'n2', label: 'HTTPS', style: 'solid', lineType: 'ortho' },
+                    { from: 'n2', to: 'n3', label: 'Verify', style: 'dashed', lineType: 'ortho' },
+                    { from: 'n2', to: 'n4', label: 'Route /user', style: 'solid', lineType: 'ortho' },
+                    { from: 'n2', to: 'n5', label: 'Route /order', style: 'solid', lineType: 'ortho' },
+                    { from: 'n4', to: 'n6', label: 'Query', style: 'solid', lineType: 'ortho' },
+                    { from: 'n5', to: 'n6', label: 'Transact', style: 'solid', lineType: 'ortho' }
+                ]
+            },
+            decision: {
+                orientation: 'TB',
+                theme: 'vibrant',
+                subgraphs: [],
+                nodes: [
+                    { id: 'n1', label: 'User Request', sub: 'Submit Form', shape: 'pill', icon: 'fa-paper-plane', group: '', color: '#3b82f6' },
+                    { id: 'n2', label: 'Format Validation', sub: 'Check Required Fields', shape: 'diamond', icon: 'fa-clipboard-check', group: '', color: '#f59e0b' },
+                    { id: 'n3', label: 'Process Payment', sub: 'Stripe Gateway', shape: 'rect', icon: 'fa-credit-card', group: '', color: '#10b981' },
+                    { id: 'n4', label: 'Return Error', sub: '400 Bad Request', shape: 'rect', icon: 'fa-triangle-exclamation', group: '', color: '#ef4444' },
+                    { id: 'n5', label: 'Send Confirmation', sub: 'Email & SMS', shape: 'pill', icon: 'fa-envelope-circle-check', group: '', color: '#8b5cf6' }
+                ],
+                edges: [
+                    { from: 'n1', to: 'n2', label: '', style: 'solid', lineType: 'curved' },
+                    { from: 'n2', to: 'n3', label: 'Valid', style: 'solid', lineType: 'curved' },
+                    { from: 'n2', to: 'n4', label: 'Invalid', style: 'dashed', lineType: 'curved' },
+                    { from: 'n3', to: 'n5', label: 'Success', style: 'solid', lineType: 'curved' }
+                ]
+            },
+            milestone: {
+                orientation: 'LR',
+                theme: 'pastel',
+                subgraphs: [
+                    { id: 'sg1', label: 'Phase 1: Discovery', color: '#ec4899' },
+                    { id: 'sg2', label: 'Phase 2: Execution', color: '#6366f1' }
+                ],
+                nodes: [
+                    { id: 'n1', label: 'Requirement Specs', sub: 'Q1 Kickoff', shape: 'rect', icon: 'fa-file-lines', group: 'sg1', color: '#ec4899' },
+                    { id: 'n2', label: 'UI/UX Prototype', sub: 'Figma Review', shape: 'rect', icon: 'fa-pen-ruler', group: 'sg1', color: '#ec4899' },
+                    { id: 'n3', label: 'Alpha Build', sub: 'Internal Testing', shape: 'hexagon', icon: 'fa-vial', group: 'sg2', color: '#6366f1' },
+                    { id: 'n4', label: 'Beta Release', sub: 'Public Launch', shape: 'pill', icon: 'fa-rocket', group: 'sg2', color: '#6366f1' }
+                ],
+                edges: [
+                    { from: 'n1', to: 'n2', label: 'Approval', style: 'solid', lineType: 'curved' },
+                    { from: 'n2', to: 'n3', label: 'Handoff', style: 'solid', lineType: 'curved' },
+                    { from: 'n3', to: 'n4', label: 'QA Pass', style: 'solid', lineType: 'curved' }
+                ]
+            }
+        };
+
+        // Current State
+        let state = JSON.parse(JSON.stringify(PRESETS.aiml));
+        let canvasZoom = 1.0;
+        let isShowGrid = true;
+
+        // Theme Palette Configurations
+        const THEMES = {
+            academic: {
+                bg: '#ffffff',
+                text: '#1e293b',
+                textSub: '#64748b',
+                nodeBg: '#f8fafc',
+                nodeBorder: '#cbd5e1',
+                edgeColor: '#475569',
+                edgeText: '#475569',
+                groupBg: '#f1f5f9',
+                groupBorder: '#94a3b8',
+                shadow: 'rgba(15, 23, 42, 0.05)'
+            },
+            tech: {
+                bg: '#0f172a',
+                text: '#f8fafc',
+                textSub: '#94a3b8',
+                nodeBg: '#1e293b',
+                nodeBorder: '#334155',
+                edgeColor: '#38bdf8',
+                edgeText: '#7dd3fc',
+                groupBg: '#1e293b40',
+                groupBorder: '#38bdf860',
+                shadow: 'rgba(56, 189, 248, 0.15)'
+            },
+            pastel: {
+                bg: '#fafaf9',
+                text: '#292524',
+                textSub: '#78716c',
+                nodeBg: '#ffffff',
+                nodeBorder: '#e7e5e4',
+                edgeColor: '#a8a29e',
+                edgeText: '#57534e',
+                groupBg: '#f5f5f4',
+                groupBorder: '#d6d3d1',
+                shadow: 'rgba(0, 0, 0, 0.04)'
+            },
+            vibrant: {
+                bg: '#090d16',
+                text: '#ffffff',
+                textSub: '#a1a1aa',
+                nodeBg: '#18181b',
+                nodeBorder: '#27272a',
+                edgeColor: '#f43f5e',
+                edgeText: '#fb7185',
+                groupBg: '#27272a30',
+                groupBorder: '#f43f5e50',
+                shadow: 'rgba(244, 63, 94, 0.2)'
+            }
+        };
+
+        window.onload = function() {
+            renderUIControls();
+            renderDiagram();
+        };
+
+        function switchTab(tab) {
+            const visualBtn = document.getElementById('tabBtnVisual');
+            const codeBtn = document.getElementById('tabBtnCode');
+            const visualContent = document.getElementById('tabContentVisual');
+            const codeContent = document.getElementById('tabContentCode');
+
+            if (tab === 'visual') {
+                visualBtn.className = "flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5";
+                codeBtn.className = "flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5";
+                visualContent.classList.remove('hidden');
+                codeContent.classList.add('hidden');
+                codeContent.classList.remove('flex');
+            } else {
+                codeBtn.className = "flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5";
+                visualBtn.className = "flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5";
+                codeContent.classList.remove('hidden');
+                codeContent.classList.add('flex');
+                visualContent.classList.add('hidden');
+
+                // Update JSON text
+                document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+            }
+        }
+
+        function loadPreset(key) {
+            if (PRESETS[key]) {
+                state = JSON.parse(JSON.stringify(PRESETS[key]));
+                document.getElementById('themeSelect').value = state.theme;
+                updateOrientationButtons();
+                renderUIControls();
+                renderDiagram();
+                showToast('已載入範本: ' + key.toUpperCase());
+            }
+        }
+
+        function changeTheme(themeKey) {
+            state.theme = themeKey;
+            renderDiagram();
+            showToast('已切換主題風格');
+        }
+
+        function setOrientation(orient) {
+            state.orientation = orient;
+            updateOrientationButtons();
+            renderDiagram();
+            showToast(`方向調整為: ${orient === 'LR' ? '橫向 (L-R)' : '縱向 (T-B)'}`);
+        }
+
+        function updateOrientationButtons() {
+            const btnLR = document.getElementById('btnOrientLR');
+            const btnTB = document.getElementById('btnOrientTB');
+            if (state.orientation === 'LR') {
+                btnLR.className = "px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white";
+                btnTB.className = "px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white";
+            } else {
+                btnTB.className = "px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white";
+                btnLR.className = "px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white";
+            }
+        }
+
+        function renderUIControls() {
+            // Render Groups List
+            const groupsContainer = document.getElementById('groupsList');
+            groupsContainer.innerHTML = '';
+            state.subgraphs.forEach((g, idx) => {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-800/80 p-2 rounded-lg border border-slate-700/60 flex items-center space-x-2 text-xs';
+                item.innerHTML = `
+                    <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value)" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent">
+                    <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
+                    <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                `;
+                groupsContainer.appendChild(item);
+            });
+
+            // Render Nodes List
+            const nodesContainer = document.getElementById('nodesList');
+            nodesContainer.innerHTML = '';
+            state.nodes.forEach((n, idx) => {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+                
+                // Group options
+                let groupOptions = `<option value="">(無群組/獨立)</option>`;
+                state.subgraphs.forEach(g => {
+                    groupOptions += `<option value="${g.id}" ${n.group === g.id ? 'selected' : ''}>${g.label}</option>`;
+                });
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <input type="color" value="${n.color}" onchange="updateNode(${idx}, 'color', this.value)" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent">
+                        <input type="text" value="${n.label}" placeholder="節點標題" onchange="updateNode(${idx}, 'label', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-100 font-semibold focus:outline-none focus:border-blue-500">
+                        <button onclick="removeNode(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" value="${n.sub}" placeholder="副標題 (選填)" onchange="updateNode(${idx}, 'sub', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                        <select onchange="updateNode(${idx}, 'shape', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="rect" ${n.shape === 'rect' ? 'selected' : ''}>矩形 (Rect)</option>
+                            <option value="pill" ${n.shape === 'pill' ? 'selected' : ''}>膠囊 (Pill)</option>
+                            <option value="diamond" ${n.shape === 'diamond' ? 'selected' : ''}>菱形 (Diamond)</option>
+                            <option value="database" ${n.shape === 'database' ? 'selected' : ''}>資料庫 (Database)</option>
+                            <option value="cloud" ${n.shape === 'cloud' ? 'selected' : ''}>雲端 (Cloud)</option>
+                            <option value="hexagon" ${n.shape === 'hexagon' ? 'selected' : ''}>六角形 (Hexagon)</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" value="${n.icon}" placeholder="Icon (如 fa-brain)" onchange="updateNode(${idx}, 'icon', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                        <select onchange="updateNode(${idx}, 'group', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                            ${groupOptions}
+                        </select>
+                    </div>
+                `;
+                nodesContainer.appendChild(item);
+            });
+
+            // Render Edges List
+            const edgesContainer = document.getElementById('edgesList');
+            edgesContainer.innerHTML = '';
+            state.edges.forEach((e, idx) => {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+
+                let nodeOptionsFrom = '', nodeOptionsTo = '';
+                state.nodes.forEach(n => {
+                    nodeOptionsFrom += `<option value="${n.id}" ${e.from === n.id ? 'selected' : ''}>${n.label}</option>`;
+                    nodeOptionsTo += `<option value="${n.id}" ${e.to === n.id ? 'selected' : ''}>${n.label}</option>`;
+                });
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <select onchange="updateEdge(${idx}, 'from', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
+                            ${nodeOptionsFrom}
+                        </select>
+                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
+                        <select onchange="updateEdge(${idx}, 'to', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
+                            ${nodeOptionsTo}
+                        </select>
+                        <button onclick="removeEdge(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                        <select onchange="updateEdge(${idx}, 'style', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線 (Solid)</option>
+                            <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線 (Dashed)</option>
+                        </select>
+                    </div>
+                `;
+                edgesContainer.appendChild(item);
+            });
+        }
+
+        function addGroup() {
+            const newId = 'sg_' + Date.now().toString().slice(-4);
+            state.subgraphs.push({ id: newId, label: '新群組', color: '#3b82f6' });
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function updateGroup(idx, key, val) {
+            state.subgraphs[idx][key] = val;
+            renderDiagram();
+        }
+
+        function removeGroup(idx) {
+            const id = state.subgraphs[idx].id;
+            state.subgraphs.splice(idx, 1);
+            // reset nodes in this group
+            state.nodes.forEach(n => { if (n.group === id) n.group = ''; });
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function addNode() {
+            const newId = 'n_' + Date.now().toString().slice(-4);
+            state.nodes.push({ id: newId, label: '新流程節點', sub: '副標題說明', shape: 'rect', icon: 'fa-cube', group: '', color: '#3b82f6' });
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function updateNode(idx, key, val) {
+            state.nodes[idx][key] = val;
+            renderDiagram();
+        }
+
+        function removeNode(idx) {
+            const id = state.nodes[idx].id;
+            state.nodes.splice(idx, 1);
+            // remove edges connected to this node
+            state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function addEdge() {
+            if (state.nodes.length < 2) {
+                showToast('需要至少 2 個節點才能建立連線！', 'warning');
+                return;
+            }
+            state.edges.push({
+                from: state.nodes[0].id,
+                to: state.nodes[1].id,
+                label: '',
+                style: 'solid',
+                lineType: 'curved'
+            });
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function updateEdge(idx, key, val) {
+            state.edges[idx][key] = val;
+            renderDiagram();
+        }
+
+        function removeEdge(idx) {
+            state.edges.splice(idx, 1);
+            renderUIControls();
+            renderDiagram();
+        }
+
+        function applyJsonCode() {
+            try {
+                const parsed = JSON.parse(document.getElementById('jsonEditor').value);
+                state = parsed;
+                renderUIControls();
+                renderDiagram();
+                showToast('JSON 規格更新成功！');
+            } catch (err) {
+                showToast('JSON 格式不合法：' + err.message, 'error');
+            }
+        }
+
+        /**
+         * Auto Layout engine calculating node ranks and (X, Y) coordinates
+         */
+        function calculateLayout() {
+            const isLR = state.orientation === 'LR';
+            const nodeWidth = 180;
+            const nodeHeight = 70;
+            const gapX = isLR ? 100 : 120;
+            const gapY = isLR ? 60 : 80;
+            const padding = 35;
+
+            // Compute rank for each node (Topological / step rank)
+            const inDegree = {};
+            const adj = {};
+            state.nodes.forEach(n => {
+                inDegree[n.id] = 0;
+                adj[n.id] = [];
+            });
+
+            state.edges.forEach(e => {
+                if (adj[e.from] && inDegree[e.to] !== undefined) {
+                    adj[e.from].push(e.to);
+                    inDegree[e.to]++;
+                }
+            });
+
+            // Queue for topological sorting and level assignment
+            const ranks = {};
+            const queue = [];
+
+            state.nodes.forEach(n => {
+                if (inDegree[n.id] === 0) {
+                    ranks[n.id] = 0;
+                    queue.push(n.id);
+                }
+            });
+
+            // If cycle or floating nodes, assign rank fallback
+            let head = 0;
+            while(head < queue.length) {
+                const u = queue[head++];
+                const r = ranks[u];
+                adj[u].forEach(v => {
+                    ranks[v] = Math.max(ranks[v] || 0, r + 1);
+                    inDegree[v]--;
+                    if (inDegree[v] === 0) {
+                        queue.push(v);
+                    }
+                });
+            }
+
+            // Assign ranks to any remaining nodes
+            state.nodes.forEach(n => {
+                if (ranks[n.id] === undefined) {
+                    ranks[n.id] = 0;
+                }
+            });
+
+            // Group nodes by rank
+            const rankMap = {};
+            state.nodes.forEach(n => {
+                const r = ranks[n.id];
+                if (!rankMap[r]) rankMap[r] = [];
+                rankMap[r].push(n);
+            });
+
+            // Compute Coordinates
+            const positions = {};
+            const maxRank = Math.max(...Object.keys(rankMap).map(Number));
+
+            for (let r = 0; r <= maxRank; r++) {
+                const nodesInRank = rankMap[r] || [];
+                nodesInRank.forEach((n, idx) => {
+                    if (isLR) {
+                        positions[n.id] = {
+                            x: padding + r * (nodeWidth + gapX),
+                            y: padding + idx * (nodeHeight + gapY),
+                            width: nodeWidth,
+                            height: nodeHeight
+                        };
+                    } else {
+                        positions[n.id] = {
+                            x: padding + idx * (nodeWidth + gapX),
+                            y: padding + r * (nodeHeight + gapY),
+                            width: nodeWidth,
+                            height: nodeHeight
+                        };
+                    }
+                });
+            }
+
+            // Compute Group Bounding Boxes
+            const groupBounds = {};
+            state.subgraphs.forEach(g => {
+                const groupNodes = state.nodes.filter(n => n.group === g.id);
+                if (groupNodes.length > 0) {
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                    groupNodes.forEach(n => {
+                        const pos = positions[n.id];
+                        minX = Math.min(minX, pos.x);
+                        minY = Math.min(minY, pos.y);
+                        maxX = Math.max(maxX, pos.x + pos.width);
+                        maxY = Math.max(maxY, pos.y + pos.height);
+                    });
+
+                    const padG = 20;
+                    groupBounds[g.id] = {
+                        x: minX - padG,
+                        y: minY - padG - 25, // extra top for label
+                        width: maxX - minX + padG * 2,
+                        height: maxY - minY + padG * 2 + 25,
+                        label: g.label,
+                        color: g.color
+                    };
+                }
+            });
+
+            // Calculate total diagram dimensions
+            let totalW = 0, totalH = 0;
+            Object.values(positions).forEach(p => {
+                totalW = Math.max(totalW, p.x + p.width + padding * 2);
+                totalH = Math.max(totalH, p.y + p.height + padding * 2);
+            });
+            Object.values(groupBounds).forEach(b => {
+                totalW = Math.max(totalW, b.x + b.width + padding * 2);
+                totalH = Math.max(totalH, b.y + b.height + padding * 2);
+            });
+
+            return { positions, groupBounds, totalW, totalH };
+        }
+
+        /**
+         * SVG Shape generator helper
+         */
+        function renderNodeShape(shape, w, h, fill, border) {
+            if (shape === 'pill') {
+                const rx = h / 2;
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'diamond') {
+                return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'database') {
+                return `
+                    <path d="M 0 10 C 0 0, ${w} 0, ${w} 10 L ${w} ${h-10} C ${w} ${h}, 0 ${h}, 0 ${h-10} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
+                    <path d="M 0 10 C 0 20, ${w} 20, ${w} 10" fill="none" stroke="${border}" stroke-width="2" />
+                    <path d="M 0 25 C 0 35, ${w} 35, ${w} 25" fill="none" stroke="${border}" stroke-width="1.5" stroke-dasharray="3 2" />
+                `;
+            } else if (shape === 'cloud') {
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="20" fill="${fill}" stroke="${border}" stroke-width="2" stroke-dasharray="6 3" />`;
+            } else if (shape === 'hexagon') {
+                const p = 18;
+                return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else {
+                // rect default
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="12" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            }
+        }
+
+        /**
+         * Curve path calculation between two nodes
+         */
+        function computeEdgePath(posA, posB, isLR) {
+            let startX, startY, endX, endY;
+
+            if (isLR) {
+                startX = posA.x + posA.width;
+                startY = posA.y + posA.height / 2;
+                endX = posB.x;
+                endY = posB.y + posB.height / 2;
+
+                const dx = (endX - startX) * 0.5;
+                return {
+                    d: `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`,
+                    midX: (startX + endX) / 2,
+                    midY: (startY + endY) / 2
+                };
+            } else {
+                startX = posA.x + posA.width / 2;
+                startY = posA.y + posA.height;
+                endX = posB.x + posB.width / 2;
+                endY = posB.y;
+
+                const dy = (endY - startY) * 0.5;
+                return {
+                    d: `M ${startX} ${startY} C ${startX} ${startY + dy}, ${endX} ${endY - dy}, ${endX} ${endY}`,
+                    midX: (startX + endX) / 2,
+                    midY: (startY + endY) / 2
+                };
+            }
+        }
+
+        /**
+         * Main render SVG function
+         */
+        function renderDiagram() {
+            const theme = THEMES[state.theme] || THEMES.academic;
+            const layout = calculateLayout();
+            const isLR = state.orientation === 'LR';
+
+            let svgHtml = `
+                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${layout.totalW}" height="${layout.totalH}" viewBox="0 0 ${layout.totalW} ${layout.totalH}">
+                    <defs>
+                        <!-- Arrowhead Marker -->
+                        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
+                        </marker>
+                        <!-- Shadow Filter -->
+                        <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+                            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
+                        </filter>
+                    </defs>
+
+                    <!-- Background -->
+                    <rect width="100%" height="100%" fill="${theme.bg}" rx="16" />
+
+                    <!-- Subgraph Group Boxes -->
+                    <g id="groupsLayer">
+            `;
+
+            // Draw Subgraphs
+            Object.values(layout.groupBounds).forEach(g => {
+                svgHtml += `
+                    <g transform="translate(${g.x}, ${g.y})">
+                        <rect width="${g.width}" height="${g.height}" rx="14" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
+                        <text x="14" y="20" fill="${g.color || theme.text}" font-size="11" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.5">${g.label}</text>
+                    </g>
+                `;
+            });
+
+            svgHtml += `</g><g id="edgesLayer">`;
+
+            // Draw Edges
+            state.edges.forEach(e => {
+                const posA = layout.positions[e.from];
+                const posB = layout.positions[e.to];
+                if (posA && posB) {
+                    const pathData = computeEdgePath(posA, posB, isLR);
+                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="5 4"' : '';
+
+                    svgHtml += `
+                        <g>
+                            <path d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2" ${strokeDash} marker-end="url(#arrow)" />
+                    `;
+
+                    if (e.label) {
+                        svgHtml += `
+                            <rect x="${pathData.midX - 25}" y="${pathData.midY - 10}" width="50" height="18" rx="4" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="0.8" opacity="0.9" />
+                            <text x="${pathData.midX}" y="${pathData.midY + 3}" fill="${theme.edgeText}" font-size="9" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">${e.label}</text>
+                        `;
+                    }
+
+                    svgHtml += `</g>`;
+                }
+            });
+
+            svgHtml += `</g><g id="nodesLayer">`;
+
+            // Draw Nodes
+            state.nodes.forEach(n => {
+                const pos = layout.positions[n.id];
+                if (pos) {
+                    const nodeBorder = n.color || theme.nodeBorder;
+
+                    svgHtml += `
+                        <g transform="translate(${pos.x}, ${pos.y})" filter="url(#dropShadow)" class="cursor-pointer">
+                            ${renderNodeShape(n.shape, pos.width, pos.height, theme.nodeBg, nodeBorder)}
+                            
+                            <!-- Accent Left Stripe -->
+                            <rect x="0" y="12" width="4" height="${pos.height - 24}" rx="2" fill="${n.color || '#3b82f6'}" />
+
+                            <!-- Title Text -->
+                            <text x="16" y="${n.sub ? 30 : 40}" fill="${theme.text}" font-size="12" font-weight="700" font-family="Inter, sans-serif">${n.label}</text>
+                            
+                            <!-- Subtitle Text -->
+                            ${n.sub ? `<text x="16" y="48" fill="${theme.textSub}" font-size="10" font-family="Inter, sans-serif">${n.sub}</text>` : ''}
+                        </g>
+                    `;
+                }
+            });
+
+            svgHtml += `</g></svg>`;
+
+            const container = document.getElementById('svgContainer');
+            container.innerHTML = svgHtml;
+        }
+
+        function zoomCanvas(factor) {
+            canvasZoom *= factor;
+            canvasZoom = Math.max(0.4, Math.min(2.5, canvasZoom));
+            document.getElementById('svgContainer').style.transform = `scale(${canvasZoom})`;
+        }
+
+        function resetCanvasView() {
+            canvasZoom = 1.0;
+            document.getElementById('svgContainer').style.transform = `scale(1.0)`;
+        }
+
+        function toggleGridBackground() {
+            const vp = document.getElementById('canvasViewport');
+            const btn = document.getElementById('gridToggleBtn');
+            isShowGrid = !isShowGrid;
+            if (isShowGrid) {
+                vp.classList.add('bg-grid-pattern');
+                btn.classList.add('text-slate-300');
+            } else {
+                vp.classList.remove('bg-grid-pattern');
+                btn.classList.remove('text-slate-300');
+            }
+        }
+
+        function copySVGCode() {
+            const svgEl = document.getElementById('workflowSvg');
+            if (!svgEl) return;
+            const svgCode = svgEl.outerHTML;
+            
+            // Temporary textarea copy for strict sandbox compatibility
+            const temp = document.createElement('textarea');
+            temp.value = svgCode;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+
+            showToast('SVG 碼已複製到剪貼簿！');
+        }
+
+        function exportSVG() {
+            const svgEl = document.getElementById('workflowSvg');
+            if (!svgEl) return;
+            const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `workflow-figure-${Date.now()}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('SVG 檔案下載完成！');
+        }
+
+        function exportPNG() {
+            const svgEl = document.getElementById('workflowSvg');
+            if (!svgEl) return;
+
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const canvas = document.getElementById('exportCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            img.onload = function() {
+                const scale = 2; // 2x high resolution
+                canvas.width = svgEl.getAttribute('width') * scale;
+                canvas.height = svgEl.getAttribute('height') * scale;
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 0, 0);
+
+                const pngUrl = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = pngUrl;
+                a.download = `workflow-figure-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('高解析度 PNG 匯出完成！');
+            };
+
+            img.src = url;
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-xmark text-red-400';
+            } else if (type === 'warning') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
