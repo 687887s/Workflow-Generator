@@ -18,44 +18,36 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        brand: {
-                            50: '#f0f7ff',
-                            100: '#e0effe',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                        }
+                        brand: { 50: '#f0f7ff', 500: '#3b82f6', 600: '#2563eb' }
                     }
                 }
             }
         }
     </script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Custom scrollbars */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.05);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 0, 0, 0.3);
-        }
-        /* Canvas pattern background */
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
         .bg-grid-pattern {
             background-size: 24px 24px;
             background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
         }
         .dark .bg-grid-pattern {
             background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+        }
+        .canvas-container {
+            user-select: none;
+            will-change: transform;
+            transform-origin: 0 0; /* Changed for absolute coordinate system */
+        }
+        /* SVG Node transition for smooth selection ring */
+        .node-group { transition: filter 0.2s; }
+        .node-selected rect, .node-selected polygon, .node-selected path {
+            stroke: #3b82f6 !important;
+            stroke-width: 3px !important;
+            filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
         }
     </style>
 </head>
@@ -68,48 +60,34 @@
                 <i class="fa-solid fa-diagram-project text-xl"></i>
             </div>
             <div>
-                <h1 class="text-base font-bold text-white leading-tight">Workflow Figure SVG Generator</h1>
-                <p class="text-xs text-slate-400">專業學術與技術流程圖生成器</p>
+                <h1 class="text-base font-bold text-white leading-tight">Workflow Figure Builder</h1>
+                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器</p>
             </div>
         </div>
 
         <!-- Controls Toolbar -->
         <div class="flex items-center space-x-3">
-            <!-- Preset Selector -->
             <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
                 <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>範本:</span>
                 <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
-                    <option value="aiml">AI / ML 管線流程 (AI Pipeline)</option>
-                    <option value="microservices">微服務架構 (Microservices)</option>
-                    <option value="decision">決策條件分支 (Decision Workflow)</option>
-                    <option value="milestone">多階段專案里程碑 (Milestones)</option>
+                    <option value="aiml">AI / ML 管線流程</option>
+                    <option value="microservices">微服務架構</option>
+                    <option value="blank">空白畫布</option>
                 </select>
             </div>
 
-            <!-- Theme Selector -->
             <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
                 <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-palette mr-1"></i>主題:</span>
                 <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
-                    <option value="academic">Academic Clean (學術論文)</option>
-                    <option value="tech">Tech Dark (科技暗黑)</option>
-                    <option value="pastel">Pastel Modern (柔和粉彩)</option>
-                    <option value="vibrant">Vibrant Flow (鮮明流程)</option>
+                    <option value="academic">Academic Clean (學術)</option>
+                    <option value="tech">Tech Dark (科技)</option>
+                    <option value="pastel">Pastel Modern (粉彩)</option>
+                    <option value="vibrant">Vibrant Flow (鮮明)</option>
                 </select>
-            </div>
-
-            <!-- Layout Orientation -->
-            <div class="flex items-center bg-slate-900/60 p-1 rounded-lg border border-slate-700 space-x-1">
-                <button id="btnOrientLR" onclick="setOrientation('LR')" class="px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white" title="從左至右 (L-R)">
-                    <i class="fa-solid fa-arrow-right-long mr-1"></i>橫向
-                </button>
-                <button id="btnOrientTB" onclick="setOrientation('TB')" class="px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white" title="從上至下 (T-B)">
-                    <i class="fa-solid fa-arrow-down-long mr-1"></i>縱向
-                </button>
             </div>
 
             <div class="h-6 w-[1px] bg-slate-700 mx-1"></div>
 
-            <!-- Action Buttons -->
             <div class="flex items-center space-x-2">
                 <button onclick="copySVGCode()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
                     <i class="fa-regular fa-copy mr-1.5"></i>複製 SVG
@@ -125,73 +103,136 @@
     </header>
 
     <!-- Main Content Area -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden relative">
         <!-- Sidebar Controls -->
-        <aside class="w-96 bg-slate-800/90 border-r border-slate-700/80 flex flex-col shrink-0">
+        <aside class="w-80 bg-slate-800/95 border-r border-slate-700/80 flex flex-col shrink-0 z-20 shadow-xl">
             <!-- Sidebar Tabs -->
-            <div class="flex border-b border-slate-700 bg-slate-900/40">
-                <button id="tabBtnVisual" onclick="switchTab('visual')" class="flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-sliders"></i><span>視覺化編輯</span>
+            <div class="flex border-b border-slate-700 bg-slate-900/60">
+                <button onclick="switchSidebarTab('modules')" id="tab-modules" class="flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition">
+                    <i class="fa-solid fa-shapes mr-1.5"></i>組件庫
                 </button>
-                <button id="tabBtnCode" onclick="switchTab('code')" class="flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5">
-                    <i class="fa-solid fa-code"></i><span>JSON 碼編輯</span>
+                <button onclick="switchSidebarTab('properties')" id="tab-properties" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
+                    <i class="fa-solid fa-sliders mr-1.5"></i>屬性
+                </button>
+                <button onclick="switchSidebarTab('relations')" id="tab-relations" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
+                    <i class="fa-solid fa-link mr-1.5"></i>關聯
+                </button>
+                <button onclick="switchSidebarTab('code')" id="tab-code" class="flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition">
+                    <i class="fa-solid fa-code mr-1.5"></i>數據
                 </button>
             </div>
 
-            <!-- Tab Content 1: Visual Editor -->
-            <div id="tabContentVisual" class="flex-1 overflow-y-auto p-4 space-y-6">
-                <!-- Group Boxes Section -->
-                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
-                            <i class="fa-solid fa-layer-group text-blue-400 mr-1.5"></i>群組 / 泳道 (Subgraphs)
-                        </h3>
-                        <button onclick="addGroup()" class="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
-                            <i class="fa-solid fa-plus mr-1"></i>新增群組
-                        </button>
-                    </div>
-                    <div id="groupsList" class="space-y-2">
-                        <!-- Group items dynamic render -->
-                    </div>
+            <!-- Content: Modules (Add Nodes) -->
+            <div id="panel-modules" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="text-xs text-slate-400 mb-2">點擊以新增模塊到畫布中央</div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="addNodeToCenter('rect')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <div class="w-12 h-8 border-2 border-slate-500 rounded group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">一般矩形</span>
+                    </button>
+                    <button onclick="addNodeToCenter('pill')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <div class="w-12 h-8 border-2 border-slate-500 rounded-full group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">膠囊節點</span>
+                    </button>
+                    <button onclick="addNodeToCenter('database')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <i class="fa-solid fa-database text-2xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">資料庫</span>
+                    </button>
+                    <button onclick="addNodeToCenter('cloud')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <i class="fa-solid fa-cloud text-2xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">雲端服務</span>
+                    </button>
+                    <button onclick="addNodeToCenter('diamond')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <div class="w-8 h-8 border-2 border-slate-500 rotate-45 group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">決策菱形</span>
+                    </button>
+                    <button onclick="addNodeToCenter('hexagon')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
+                        <i class="fa-regular fa-circle-stop text-2xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">六角節點</span>
+                    </button>
                 </div>
-
-                <!-- Nodes Section -->
-                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
-                            <i class="fa-solid fa-cubes text-emerald-400 mr-1.5"></i>節點管理 (Nodes)
-                        </h3>
-                        <button onclick="addNode()" class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
-                            <i class="fa-solid fa-plus mr-1"></i>新增節點
-                        </button>
-                    </div>
-                    <div id="nodesList" class="space-y-3">
-                        <!-- Node items dynamic render -->
-                    </div>
+                
+                <div class="pt-4 border-t border-slate-700 mt-4">
+                    <div class="text-xs text-slate-400 mb-2">背景群組 (泳道)</div>
+                    <button onclick="addGroup()" class="w-full bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-lg p-3 flex items-center justify-center space-x-2 transition text-slate-300 group">
+                        <i class="fa-solid fa-layer-group text-slate-500 group-hover:text-emerald-400"></i>
+                        <span class="text-xs">新增群組包圍盒</span>
+                    </button>
                 </div>
+            </div>
 
-                <!-- Connections/Edges Section -->
-                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/70">
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center">
-                            <i class="fa-solid fa-route text-amber-400 mr-1.5"></i>連線管理 (Edges)
-                        </h3>
-                        <button onclick="addEdge()" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border border-amber-500/30 px-2 py-0.5 rounded text-xs font-medium transition">
-                            <i class="fa-solid fa-plus mr-1"></i>新增連線
+            <!-- Content: Properties (Edit selected node) -->
+            <div id="panel-properties" class="flex-1 overflow-y-auto p-4 hidden flex-col">
+                <div id="noSelectionMsg" class="flex-1 flex items-center justify-center text-slate-500 text-xs text-center px-4">
+                    請在畫布上點選任何節點，<br>即可在此處編輯其屬性。
+                </div>
+                
+                <div id="nodePropertiesEditor" class="hidden space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-blue-400"><i class="fa-solid fa-cube mr-1"></i>編輯節點</span>
+                        <button onclick="deleteSelectedNode()" class="text-red-400 hover:text-red-300 text-xs flex items-center px-2 py-1 bg-red-400/10 rounded">
+                            <i class="fa-solid fa-trash mr-1"></i>刪除
                         </button>
                     </div>
-                    <div id="edgesList" class="space-y-3">
-                        <!-- Edge items dynamic render -->
+
+                    <div class="space-y-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">主標題 (Label)</label>
+                            <input type="text" id="propLabel" oninput="updateSelectedNode('label', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">副標題 (Sub)</label>
+                            <input type="text" id="propSub" oninput="updateSelectedNode('sub', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[11px] text-slate-400 block mb-1">圖示 (Icon)</label>
+                                <input type="text" id="propIcon" placeholder="fa-brain" oninput="updateSelectedNode('icon', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 block mb-1">主題色 (Color)</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="color" id="propColor" oninput="updateSelectedNode('color', this.value)" class="w-8 h-8 rounded cursor-pointer border border-slate-700 bg-transparent p-0">
+                                    <button onclick="document.getElementById('propColor').value='#3b82f6'; updateSelectedNode('color', '#3b82f6');" class="text-[10px] text-slate-400 hover:text-white">重置</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 block mb-1">所屬群組 (Group)</label>
+                            <select id="propGroup" onchange="updateSelectedNode('group', this.value)" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                                <!-- Options filled dynamically -->
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Tab Content 2: JSON Code Editor -->
-            <div id="tabContentCode" class="flex-1 overflow-hidden p-4 flex-col hidden">
+            <!-- Content: Relations (Edges & Groups) -->
+            <div id="panel-relations" class="flex-1 overflow-y-auto p-4 hidden space-y-6">
+                <!-- Edges Manager -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-route mr-1"></i>節點連線</span>
+                        <button onclick="addEdge()" class="text-amber-400 hover:text-amber-300 text-xs flex items-center px-2 py-1 bg-amber-400/10 rounded">
+                            <i class="fa-solid fa-plus mr-1"></i>新增
+                        </button>
+                    </div>
+                    <div id="edgesList" class="space-y-2"></div>
+                </div>
+
+                <!-- Groups Manager -->
+                <div class="pt-4 border-t border-slate-700">
+                    <span class="text-xs font-bold text-emerald-400 mb-2 block"><i class="fa-solid fa-layer-group mr-1"></i>群組管理</span>
+                    <div id="groupsList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Content: Code (JSON Data) -->
+            <div id="panel-code" class="flex-1 overflow-hidden p-4 hidden flex-col">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-xs text-slate-400 font-medium">即時數據規範 (JSON)</span>
                     <button onclick="applyJsonCode()" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded text-xs font-medium transition">
-                        <i class="fa-solid fa-check mr-1"></i>套用變更
+                        <i class="fa-solid fa-check mr-1"></i>套用
                     </button>
                 </div>
                 <textarea id="jsonEditor" class="flex-1 w-full bg-slate-950 font-mono text-xs text-slate-200 p-3 rounded-lg border border-slate-700/80 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"></textarea>
@@ -199,29 +240,28 @@
         </aside>
 
         <!-- Right Preview Canvas Area -->
-        <main class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden">
+        <main id="canvasViewport" class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden bg-grid-pattern cursor-grab">
             <!-- Canvas Toolbar overlay -->
-            <div class="absolute top-4 right-4 z-10 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
+            <div class="absolute top-4 right-4 z-30 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
                 <button onclick="zoomCanvas(1.1)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="放大">
                     <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
                 </button>
+                <span id="zoomLevelDisplay" class="text-[10px] text-slate-400 font-mono w-8 text-center">100%</span>
                 <button onclick="zoomCanvas(0.9)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="縮小">
                     <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
                 </button>
-                <button onclick="resetCanvasView()" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="重置視圖">
-                    <i class="fa-solid fa-rotate text-sm"></i>
-                </button>
                 <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
-                <button id="gridToggleBtn" onclick="toggleGridBackground()" class="px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 rounded transition flex items-center">
-                    <i class="fa-solid fa-border-all mr-1.5 text-blue-400"></i>網格底圖
+                <button onclick="resetCanvasView()" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="置中畫面">
+                    <i class="fa-solid fa-compress text-sm"></i>
+                </button>
+                <button id="gridToggleBtn" onclick="toggleGridBackground()" class="p-1.5 text-blue-400 hover:text-white hover:bg-slate-800 rounded transition" title="切換網格">
+                    <i class="fa-solid fa-border-all text-sm"></i>
                 </button>
             </div>
 
-            <!-- Interactive Canvas Container -->
-            <div id="canvasViewport" class="flex-1 w-full h-full bg-grid-pattern overflow-auto flex items-center justify-center p-8 cursor-grab active:cursor-grabbing">
-                <div id="svgContainer" class="transition-transform duration-100 transform origin-center">
-                    <!-- Dynamic SVG inserted here -->
-                </div>
+            <!-- Absolute SVG Container (Transform is applied here for Zoom/Pan) -->
+            <div id="svgContainer" class="canvas-container absolute top-0 left-0 w-full h-full">
+                <!-- SVG dynamically injected here -->
             </div>
 
             <!-- Floating Toast Notification -->
@@ -236,278 +276,412 @@
     <canvas id="exportCanvas" class="hidden"></canvas>
 
     <script>
-        // Preset Data Configurations
+        const NODE_W = 200;
+        const NODE_H = 72;
+
         const PRESETS = {
             aiml: {
-                orientation: 'LR',
-                theme: 'academic',
+                theme: 'tech',
                 subgraphs: [
-                    { id: 'sg1', label: '1. 資料預處理 (Data Prep)', color: '#3b82f6' },
-                    { id: 'sg2', label: '2. 模型訓練與評估 (Model & Eval)', color: '#10b981' }
+                    { id: 'sg1', label: '資料處理與特徵工程', color: '#0ea5e9' },
+                    { id: 'sg2', label: '模型訓練階段', color: '#10b981' }
                 ],
                 nodes: [
-                    { id: 'n1', label: 'Raw Data Source', sub: 'SQL & S3 Bucket', shape: 'database', icon: 'fa-database', group: 'sg1', color: '#64748b' },
-                    { id: 'n2', label: 'Data Cleaning', sub: 'Deduplication & Scaling', shape: 'rect', icon: 'fa-filter', group: 'sg1', color: '#3b82f6' },
-                    { id: 'n3', label: 'Feature Extraction', sub: 'Embeddings / Vector', shape: 'pill', icon: 'fa-microchip', group: 'sg1', color: '#3b82f6' },
-                    { id: 'n4', label: 'Transformer Model', sub: 'PyTorch / GPU Cluster', shape: 'rect', icon: 'fa-brain', group: 'sg2', color: '#10b981' },
-                    { id: 'n5', label: 'Validation Check', sub: 'Accuracy > 95%?', shape: 'diamond', icon: 'fa-code-branch', group: 'sg2', color: '#f59e0b' },
-                    { id: 'n6', label: 'Model Deployment', sub: 'REST API Service', shape: 'cloud', icon: 'fa-cloud-arrow-up', group: '', color: '#8b5cf6' }
+                    { id: 'n1', label: 'Raw Data Source', sub: 'SQL & S3 Bucket', shape: 'database', icon: 'fa-database', group: 'sg1', color: '#64748b', x: 100, y: 150 },
+                    { id: 'n2', label: 'Data Cleaning', sub: 'Deduplication', shape: 'rect', icon: 'fa-filter', group: 'sg1', color: '#0ea5e9', x: 350, y: 150 },
+                    { id: 'n3', label: 'Vector Embeddings', sub: 'Feature Extractor', shape: 'pill', icon: 'fa-microchip', group: 'sg1', color: '#0ea5e9', x: 600, y: 150 },
+                    { id: 'n4', label: 'Transformer Model', sub: 'GPU Cluster', shape: 'rect', icon: 'fa-brain', group: 'sg2', color: '#10b981', x: 600, y: 350 },
+                    { id: 'n5', label: 'Validation Check', sub: 'Accuracy > 95%?', shape: 'diamond', icon: 'fa-code-branch', group: 'sg2', color: '#f59e0b', x: 850, y: 350 },
+                    { id: 'n6', label: 'REST API Endpoint', sub: 'Production Server', shape: 'cloud', icon: 'fa-cloud-arrow-up', group: '', color: '#8b5cf6', x: 1100, y: 350 }
                 ],
                 edges: [
-                    { from: 'n1', to: 'n2', label: 'Ingest', style: 'solid', lineType: 'curved' },
-                    { from: 'n2', to: 'n3', label: 'Cleaned', style: 'solid', lineType: 'curved' },
-                    { from: 'n3', to: 'n4', label: 'Tensors', style: 'solid', lineType: 'curved' },
-                    { from: 'n4', to: 'n5', label: 'Evaluate', style: 'solid', lineType: 'curved' },
-                    { from: 'n5', to: 'n6', label: 'Pass', style: 'solid', lineType: 'curved' },
-                    { from: 'n5', to: 'n4', label: 'Retry / Tune', style: 'dashed', lineType: 'curved' }
+                    { from: 'n1', to: 'n2', label: 'Ingest', style: 'solid' },
+                    { from: 'n2', to: 'n3', label: 'Cleaned', style: 'solid' },
+                    { from: 'n3', to: 'n4', label: 'Tensors', style: 'solid' },
+                    { from: 'n4', to: 'n5', label: 'Evaluate', style: 'solid' },
+                    { from: 'n5', to: 'n6', label: 'Pass', style: 'solid' },
+                    { from: 'n5', to: 'n4', label: 'Retry', style: 'dashed' }
                 ]
             },
             microservices: {
-                orientation: 'LR',
                 theme: 'tech',
                 subgraphs: [
-                    { id: 'sg1', label: 'API Gateway & Auth', color: '#06b6d4' },
-                    { id: 'sg2', label: 'Core Microservices', color: '#a855f7' }
+                    { id: 'sg1', label: 'API Gateway & Security', color: '#06b6d4' },
+                    { id: 'sg2', label: 'Backend Microservices', color: '#a855f7' }
                 ],
                 nodes: [
-                    { id: 'n1', label: 'Client App', sub: 'Web / Mobile', shape: 'pill', icon: 'fa-mobile-screen', group: '', color: '#0ea5e9' },
-                    { id: 'n2', label: 'API Gateway', sub: 'Kong / Nginx', shape: 'hexagon', icon: 'fa-shield-halved', group: 'sg1', color: '#06b6d4' },
-                    { id: 'n3', label: 'Auth Service', sub: 'OAuth2 / JWT', shape: 'rect', icon: 'fa-key', group: 'sg1', color: '#06b6d4' },
-                    { id: 'n4', label: 'User Service', sub: 'Node.js Cluster', shape: 'rect', icon: 'fa-user-gear', group: 'sg2', color: '#a855f7' },
-                    { id: 'n5', label: 'Order Service', sub: 'Go Microservice', shape: 'rect', icon: 'fa-cart-shopping', group: 'sg2', color: '#a855f7' },
-                    { id: 'n6', label: 'PostgreSQL DB', sub: 'Primary Instance', shape: 'database', icon: 'fa-database', group: '', color: '#f43f5e' }
+                    { id: 'n1', label: 'Client Application', sub: 'Web / Mobile', shape: 'pill', icon: 'fa-mobile-screen', group: '', color: '#0ea5e9', x: 100, y: 250 },
+                    { id: 'n2', label: 'API Gateway', sub: 'Nginx / Kong', shape: 'hexagon', icon: 'fa-shield-halved', group: 'sg1', color: '#06b6d4', x: 400, y: 250 },
+                    { id: 'n3', label: 'Auth Service', sub: 'OAuth2 JWT', shape: 'rect', icon: 'fa-key', group: 'sg1', color: '#06b6d4', x: 400, y: 100 },
+                    { id: 'n4', label: 'User Service', sub: 'Node.js', shape: 'rect', icon: 'fa-user-gear', group: 'sg2', color: '#a855f7', x: 750, y: 150 },
+                    { id: 'n5', label: 'Order Service', sub: 'Go Microservice', shape: 'rect', icon: 'fa-cart-shopping', group: 'sg2', color: '#a855f7', x: 750, y: 350 },
+                    { id: 'n6', label: 'Shared Database', sub: 'PostgreSQL Cluster', shape: 'database', icon: 'fa-database', group: '', color: '#f43f5e', x: 1050, y: 250 }
                 ],
                 edges: [
-                    { from: 'n1', to: 'n2', label: 'HTTPS', style: 'solid', lineType: 'ortho' },
-                    { from: 'n2', to: 'n3', label: 'Verify', style: 'dashed', lineType: 'ortho' },
-                    { from: 'n2', to: 'n4', label: 'Route /user', style: 'solid', lineType: 'ortho' },
-                    { from: 'n2', to: 'n5', label: 'Route /order', style: 'solid', lineType: 'ortho' },
-                    { from: 'n4', to: 'n6', label: 'Query', style: 'solid', lineType: 'ortho' },
-                    { from: 'n5', to: 'n6', label: 'Transact', style: 'solid', lineType: 'ortho' }
+                    { from: 'n1', to: 'n2', label: 'HTTPS Request', style: 'solid' },
+                    { from: 'n2', to: 'n3', label: 'Validate Token', style: 'dashed' },
+                    { from: 'n2', to: 'n4', label: 'Route /api/user', style: 'solid' },
+                    { from: 'n2', to: 'n5', label: 'Route /api/order', style: 'solid' },
+                    { from: 'n4', to: 'n6', label: 'Read/Write', style: 'solid' },
+                    { from: 'n5', to: 'n6', label: 'Transactions', style: 'solid' }
                 ]
             },
-            decision: {
-                orientation: 'TB',
-                theme: 'vibrant',
+            blank: {
+                theme: 'academic',
                 subgraphs: [],
-                nodes: [
-                    { id: 'n1', label: 'User Request', sub: 'Submit Form', shape: 'pill', icon: 'fa-paper-plane', group: '', color: '#3b82f6' },
-                    { id: 'n2', label: 'Format Validation', sub: 'Check Required Fields', shape: 'diamond', icon: 'fa-clipboard-check', group: '', color: '#f59e0b' },
-                    { id: 'n3', label: 'Process Payment', sub: 'Stripe Gateway', shape: 'rect', icon: 'fa-credit-card', group: '', color: '#10b981' },
-                    { id: 'n4', label: 'Return Error', sub: '400 Bad Request', shape: 'rect', icon: 'fa-triangle-exclamation', group: '', color: '#ef4444' },
-                    { id: 'n5', label: 'Send Confirmation', sub: 'Email & SMS', shape: 'pill', icon: 'fa-envelope-circle-check', group: '', color: '#8b5cf6' }
-                ],
-                edges: [
-                    { from: 'n1', to: 'n2', label: '', style: 'solid', lineType: 'curved' },
-                    { from: 'n2', to: 'n3', label: 'Valid', style: 'solid', lineType: 'curved' },
-                    { from: 'n2', to: 'n4', label: 'Invalid', style: 'dashed', lineType: 'curved' },
-                    { from: 'n3', to: 'n5', label: 'Success', style: 'solid', lineType: 'curved' }
-                ]
-            },
-            milestone: {
-                orientation: 'LR',
-                theme: 'pastel',
-                subgraphs: [
-                    { id: 'sg1', label: 'Phase 1: Discovery', color: '#ec4899' },
-                    { id: 'sg2', label: 'Phase 2: Execution', color: '#6366f1' }
-                ],
-                nodes: [
-                    { id: 'n1', label: 'Requirement Specs', sub: 'Q1 Kickoff', shape: 'rect', icon: 'fa-file-lines', group: 'sg1', color: '#ec4899' },
-                    { id: 'n2', label: 'UI/UX Prototype', sub: 'Figma Review', shape: 'rect', icon: 'fa-pen-ruler', group: 'sg1', color: '#ec4899' },
-                    { id: 'n3', label: 'Alpha Build', sub: 'Internal Testing', shape: 'hexagon', icon: 'fa-vial', group: 'sg2', color: '#6366f1' },
-                    { id: 'n4', label: 'Beta Release', sub: 'Public Launch', shape: 'pill', icon: 'fa-rocket', group: 'sg2', color: '#6366f1' }
-                ],
-                edges: [
-                    { from: 'n1', to: 'n2', label: 'Approval', style: 'solid', lineType: 'curved' },
-                    { from: 'n2', to: 'n3', label: 'Handoff', style: 'solid', lineType: 'curved' },
-                    { from: 'n3', to: 'n4', label: 'QA Pass', style: 'solid', lineType: 'curved' }
-                ]
+                nodes: [],
+                edges: []
             }
         };
 
-        // Current State
-        let state = JSON.parse(JSON.stringify(PRESETS.aiml));
-        let canvasZoom = 1.0;
-        let isShowGrid = true;
-
-        // Theme Palette Configurations
         const THEMES = {
             academic: {
-                bg: '#ffffff',
-                text: '#1e293b',
-                textSub: '#64748b',
-                nodeBg: '#f8fafc',
-                nodeBorder: '#cbd5e1',
-                edgeColor: '#475569',
-                edgeText: '#475569',
-                groupBg: '#f1f5f9',
-                groupBorder: '#94a3b8',
-                shadow: 'rgba(15, 23, 42, 0.05)'
+                bg: '#ffffff', text: '#1e293b', textSub: '#64748b', nodeBg: '#f8fafc', nodeBorder: '#cbd5e1', edgeColor: '#475569', edgeText: '#334155', groupBg: '#f1f5f9', groupBorder: '#94a3b8', shadow: 'rgba(15, 23, 42, 0.08)'
             },
             tech: {
-                bg: '#0f172a',
-                text: '#f8fafc',
-                textSub: '#94a3b8',
-                nodeBg: '#1e293b',
-                nodeBorder: '#334155',
-                edgeColor: '#38bdf8',
-                edgeText: '#7dd3fc',
-                groupBg: '#1e293b40',
-                groupBorder: '#38bdf860',
-                shadow: 'rgba(56, 189, 248, 0.15)'
+                bg: '#0f172a', text: '#f8fafc', textSub: '#94a3b8', nodeBg: '#1e293b', nodeBorder: '#334155', edgeColor: '#38bdf8', edgeText: '#7dd3fc', groupBg: '#1e293b40', groupBorder: '#38bdf860', shadow: 'rgba(56, 189, 248, 0.15)'
             },
             pastel: {
-                bg: '#fafaf9',
-                text: '#292524',
-                textSub: '#78716c',
-                nodeBg: '#ffffff',
-                nodeBorder: '#e7e5e4',
-                edgeColor: '#a8a29e',
-                edgeText: '#57534e',
-                groupBg: '#f5f5f4',
-                groupBorder: '#d6d3d1',
-                shadow: 'rgba(0, 0, 0, 0.04)'
+                bg: '#fafaf9', text: '#292524', textSub: '#78716c', nodeBg: '#ffffff', nodeBorder: '#e7e5e4', edgeColor: '#a8a29e', edgeText: '#57534e', groupBg: '#f5f5f4', groupBorder: '#d6d3d1', shadow: 'rgba(0, 0, 0, 0.04)'
             },
             vibrant: {
-                bg: '#090d16',
-                text: '#ffffff',
-                textSub: '#a1a1aa',
-                nodeBg: '#18181b',
-                nodeBorder: '#27272a',
-                edgeColor: '#f43f5e',
-                edgeText: '#fb7185',
-                groupBg: '#27272a30',
-                groupBorder: '#f43f5e50',
-                shadow: 'rgba(244, 63, 94, 0.2)'
+                bg: '#090d16', text: '#ffffff', textSub: '#a1a1aa', nodeBg: '#18181b', nodeBorder: '#27272a', edgeColor: '#f43f5e', edgeText: '#fb7185', groupBg: '#27272a30', groupBorder: '#f43f5e50', shadow: 'rgba(244, 63, 94, 0.2)'
             }
         };
+
+        // Application State
+        let state = JSON.parse(JSON.stringify(PRESETS.aiml));
+        let selectedNodeId = null;
+        let activeTab = 'modules';
+        let isShowGrid = true;
+        
+        // Canvas Transform State
+        let canvasZoom = 1.0;
+        let panX = 0;
+        let panY = 0;
+
+        // Interaction State
+        let isDraggingCanvas = false;
+        let isDraggingNode = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let nodeDragOffsetX = 0;
+        let nodeDragOffsetY = 0;
 
         window.onload = function() {
-            renderUIControls();
+            setupCanvasInteractions();
+            document.getElementById('themeSelect').value = state.theme;
+            switchSidebarTab('modules');
             renderDiagram();
+            updateRelationsPanel();
+            centerView();
         };
 
-        function switchTab(tab) {
-            const visualBtn = document.getElementById('tabBtnVisual');
-            const codeBtn = document.getElementById('tabBtnCode');
-            const visualContent = document.getElementById('tabContentVisual');
-            const codeContent = document.getElementById('tabContentCode');
-
-            if (tab === 'visual') {
-                visualBtn.className = "flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5";
-                codeBtn.className = "flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5";
-                visualContent.classList.remove('hidden');
-                codeContent.classList.add('hidden');
-                codeContent.classList.remove('flex');
-            } else {
-                codeBtn.className = "flex-1 py-2.5 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 flex items-center justify-center space-x-1.5";
-                visualBtn.className = "flex-1 py-2.5 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 flex items-center justify-center space-x-1.5";
-                codeContent.classList.remove('hidden');
-                codeContent.classList.add('flex');
-                visualContent.classList.add('hidden');
-
-                // Update JSON text
-                document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
-            }
-        }
-
-        function loadPreset(key) {
-            if (PRESETS[key]) {
-                state = JSON.parse(JSON.stringify(PRESETS[key]));
-                document.getElementById('themeSelect').value = state.theme;
-                updateOrientationButtons();
-                renderUIControls();
-                renderDiagram();
-                showToast('已載入範本: ' + key.toUpperCase());
-            }
-        }
-
-        function changeTheme(themeKey) {
-            state.theme = themeKey;
-            renderDiagram();
-            showToast('已切換主題風格');
-        }
-
-        function setOrientation(orient) {
-            state.orientation = orient;
-            updateOrientationButtons();
-            renderDiagram();
-            showToast(`方向調整為: ${orient === 'LR' ? '橫向 (L-R)' : '縱向 (T-B)'}`);
-        }
-
-        function updateOrientationButtons() {
-            const btnLR = document.getElementById('btnOrientLR');
-            const btnTB = document.getElementById('btnOrientTB');
-            if (state.orientation === 'LR') {
-                btnLR.className = "px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white";
-                btnTB.className = "px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white";
-            } else {
-                btnTB.className = "px-2 py-1 rounded text-xs font-medium transition-colors bg-blue-600 text-white";
-                btnLR.className = "px-2 py-1 rounded text-xs font-medium transition-colors text-slate-400 hover:text-white";
-            }
-        }
-
-        function renderUIControls() {
-            // Render Groups List
-            const groupsContainer = document.getElementById('groupsList');
-            groupsContainer.innerHTML = '';
-            state.subgraphs.forEach((g, idx) => {
-                const item = document.createElement('div');
-                item.className = 'bg-slate-800/80 p-2 rounded-lg border border-slate-700/60 flex items-center space-x-2 text-xs';
-                item.innerHTML = `
-                    <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value)" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent">
-                    <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
-                    <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
-                `;
-                groupsContainer.appendChild(item);
+        function switchSidebarTab(tabName) {
+            activeTab = tabName;
+            const tabs = ['modules', 'properties', 'relations', 'code'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const panel = document.getElementById(`panel-${t}`);
+                if (t === tabName) {
+                    btn.className = "flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition";
+                    panel.classList.remove('hidden');
+                    if(t==='properties' || t==='code') panel.classList.add('flex');
+                } else {
+                    btn.className = "flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition";
+                    panel.classList.add('hidden');
+                    panel.classList.remove('flex');
+                }
             });
 
-            // Render Nodes List
-            const nodesContainer = document.getElementById('nodesList');
-            nodesContainer.innerHTML = '';
-            state.nodes.forEach((n, idx) => {
-                const item = document.createElement('div');
-                item.className = 'bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+            if (tabName === 'properties') refreshPropertiesPanel();
+            if (tabName === 'relations') updateRelationsPanel();
+            if (tabName === 'code') document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+        }
+
+        // --- Viewport & Drag/Drop Logic ---
+        function setupCanvasInteractions() {
+            const viewport = document.getElementById('canvasViewport');
+
+            viewport.addEventListener('mousedown', (e) => {
+                // Ignore if clicked on UI overlays
+                if(e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+
+                const nodeGroup = e.target.closest('.node-group');
                 
-                // Group options
-                let groupOptions = `<option value="">(無群組/獨立)</option>`;
-                state.subgraphs.forEach(g => {
-                    groupOptions += `<option value="${g.id}" ${n.group === g.id ? 'selected' : ''}>${g.label}</option>`;
-                });
+                if (nodeGroup) {
+                    // Start Node Drag
+                    isDraggingNode = true;
+                    const nodeId = nodeGroup.getAttribute('data-id');
+                    selectNode(nodeId);
 
-                item.innerHTML = `
-                    <div class="flex items-center space-x-2">
-                        <input type="color" value="${n.color}" onchange="updateNode(${idx}, 'color', this.value)" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent">
-                        <input type="text" value="${n.label}" placeholder="節點標題" onchange="updateNode(${idx}, 'label', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-100 font-semibold focus:outline-none focus:border-blue-500">
-                        <button onclick="removeNode(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" value="${n.sub}" placeholder="副標題 (選填)" onchange="updateNode(${idx}, 'sub', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                        <select onchange="updateNode(${idx}, 'shape', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                            <option value="rect" ${n.shape === 'rect' ? 'selected' : ''}>矩形 (Rect)</option>
-                            <option value="pill" ${n.shape === 'pill' ? 'selected' : ''}>膠囊 (Pill)</option>
-                            <option value="diamond" ${n.shape === 'diamond' ? 'selected' : ''}>菱形 (Diamond)</option>
-                            <option value="database" ${n.shape === 'database' ? 'selected' : ''}>資料庫 (Database)</option>
-                            <option value="cloud" ${n.shape === 'cloud' ? 'selected' : ''}>雲端 (Cloud)</option>
-                            <option value="hexagon" ${n.shape === 'hexagon' ? 'selected' : ''}>六角形 (Hexagon)</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" value="${n.icon}" placeholder="Icon (如 fa-brain)" onchange="updateNode(${idx}, 'icon', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                        <select onchange="updateNode(${idx}, 'group', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                            ${groupOptions}
-                        </select>
-                    </div>
-                `;
-                nodesContainer.appendChild(item);
+                    const node = state.nodes.find(n => n.id === nodeId);
+                    const pt = getMousePositionInSVG(e);
+                    
+                    nodeDragOffsetX = pt.x - node.x;
+                    nodeDragOffsetY = pt.y - node.y;
+                    
+                    viewport.classList.remove('cursor-grab');
+                    viewport.classList.add('cursor-move');
+                    e.stopPropagation(); // prevent canvas pan
+                } else {
+                    // Start Canvas Pan
+                    isDraggingCanvas = true;
+                    dragStartX = e.clientX - panX;
+                    dragStartY = e.clientY - panY;
+                    viewport.classList.remove('cursor-grab');
+                    viewport.classList.add('cursor-grabbing');
+                    
+                    // Deselect node if clicked on empty space
+                    selectNode(null);
+                }
             });
 
-            // Render Edges List
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingNode && selectedNodeId) {
+                    const pt = getMousePositionInSVG(e);
+                    const node = state.nodes.find(n => n.id === selectedNodeId);
+                    if(node) {
+                        // Snap to 10px grid logic
+                        let newX = pt.x - nodeDragOffsetX;
+                        let newY = pt.y - nodeDragOffsetY;
+                        node.x = Math.round(newX / 10) * 10;
+                        node.y = Math.round(newY / 10) * 10;
+                        
+                        renderDiagram(); // Rapid re-render for smooth movement
+                    }
+                } else if (isDraggingCanvas) {
+                    panX = e.clientX - dragStartX;
+                    panY = e.clientY - dragStartY;
+                    updateCanvasTransform();
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDraggingNode = false;
+                isDraggingCanvas = false;
+                const viewport = document.getElementById('canvasViewport');
+                viewport.classList.remove('cursor-grabbing', 'cursor-move');
+                viewport.classList.add('cursor-grab');
+                
+                if(activeTab === 'code') {
+                    document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+                }
+            });
+
+            // Wheel zoom
+            viewport.addEventListener('wheel', (e) => {
+                // if not scrolling on canvas directly, ignore (e.g. scrolling in sidebar)
+                if(e.target.closest('aside')) return;
+                
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 1.05 : 0.95;
+                zoomCanvas(delta, e.clientX, e.clientY);
+            }, { passive: false });
+        }
+
+        function getMousePositionInSVG(evt) {
+            // Convert viewport clientX/Y to SVG internal coordinates
+            const viewport = document.getElementById('canvasViewport');
+            const rect = viewport.getBoundingClientRect();
+            
+            // Mouse relative to viewport container
+            const mx = evt.clientX - rect.left;
+            const my = evt.clientY - rect.top;
+            
+            // Apply reverse transform (Pan and Zoom)
+            return {
+                x: (mx - panX) / canvasZoom,
+                y: (my - panY) / canvasZoom
+            };
+        }
+
+        function updateCanvasTransform() {
+            const container = document.getElementById('svgContainer');
+            container.style.transform = `translate(${panX}px, ${panY}px) scale(${canvasZoom})`;
+            document.getElementById('zoomLevelDisplay').innerText = Math.round(canvasZoom * 100) + '%';
+        }
+
+        function zoomCanvas(factor, originX = null, originY = null) {
+            const viewport = document.getElementById('canvasViewport');
+            const rect = viewport.getBoundingClientRect();
+            
+            let ox = originX !== null ? originX - rect.left : rect.width / 2;
+            let oy = originY !== null ? originY - rect.top : rect.height / 2;
+
+            // Math to keep the point under the mouse stationary during zoom
+            const newZoom = Math.max(0.2, Math.min(3.0, canvasZoom * factor));
+            
+            panX = ox - (ox - panX) * (newZoom / canvasZoom);
+            panY = oy - (oy - panY) * (newZoom / canvasZoom);
+            
+            canvasZoom = newZoom;
+            updateCanvasTransform();
+        }
+
+        function centerView() {
+            // Find bounding box of all nodes
+            if(state.nodes.length === 0) {
+                resetCanvasView();
+                return;
+            }
+            
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + NODE_W);
+                maxY = Math.max(maxY, n.y + NODE_H);
+            });
+            
+            const contentW = maxX - minX;
+            const contentH = maxY - minY;
+            const cx = minX + contentW / 2;
+            const cy = minY + contentH / 2;
+            
+            const viewport = document.getElementById('canvasViewport');
+            const viewW = viewport.clientWidth;
+            const viewH = viewport.clientHeight;
+            
+            // Set zoom to fit or 1.0
+            canvasZoom = 1.0;
+            if(contentW > viewW * 0.8 || contentH > viewH * 0.8) {
+                canvasZoom = Math.min((viewW * 0.8) / contentW, (viewH * 0.8) / contentH);
+            }
+            
+            panX = viewW / 2 - cx * canvasZoom;
+            panY = viewH / 2 - cy * canvasZoom;
+            
+            updateCanvasTransform();
+        }
+
+        function resetCanvasView() {
+            canvasZoom = 1.0;
+            panX = 0;
+            panY = 0;
+            updateCanvasTransform();
+        }
+
+        function toggleGridBackground() {
+            const vp = document.getElementById('canvasViewport');
+            const btn = document.getElementById('gridToggleBtn');
+            isShowGrid = !isShowGrid;
+            if (isShowGrid) {
+                vp.classList.add('bg-grid-pattern');
+                btn.classList.add('text-blue-400');
+                btn.classList.remove('text-slate-300');
+            } else {
+                vp.classList.remove('bg-grid-pattern');
+                btn.classList.remove('text-blue-400');
+                btn.classList.add('text-slate-300');
+            }
+        }
+
+        function selectNode(id) {
+            selectedNodeId = id;
+            renderDiagram(); // update visual selection ring
+            
+            if (id && activeTab !== 'properties') {
+                switchSidebarTab('properties');
+            } else if (id && activeTab === 'properties') {
+                refreshPropertiesPanel();
+            } else if (!id && activeTab === 'properties') {
+                refreshPropertiesPanel();
+            }
+        }
+
+        function addNodeToCenter(shape) {
+            const vp = document.getElementById('canvasViewport');
+            // Calculate center of current viewport mapped to SVG coords
+            const centerPt = {
+                x: (vp.clientWidth/2 - panX) / canvasZoom - NODE_W/2,
+                y: (vp.clientHeight/2 - panY) / canvasZoom - NODE_H/2
+            };
+            
+            const newId = 'n_' + Date.now().toString().slice(-4);
+            const newNode = {
+                id: newId,
+                label: '新節點',
+                sub: '',
+                shape: shape,
+                icon: shape === 'database' ? 'fa-database' : (shape === 'cloud' ? 'fa-cloud' : 'fa-cube'),
+                group: '',
+                color: '#3b82f6',
+                x: Math.round(centerPt.x / 10) * 10,
+                y: Math.round(centerPt.y / 10) * 10
+            };
+            
+            state.nodes.push(newNode);
+            selectNode(newId);
+            showToast('已新增組件');
+        }
+
+        function deleteSelectedNode() {
+            if(!selectedNodeId) return;
+            state.nodes = state.nodes.filter(n => n.id !== selectedNodeId);
+            state.edges = state.edges.filter(e => e.from !== selectedNodeId && e.to !== selectedNodeId);
+            selectedNodeId = null;
+            
+            renderDiagram();
+            refreshPropertiesPanel();
+            updateRelationsPanel();
+            showToast('已刪除節點');
+        }
+
+        function refreshPropertiesPanel() {
+            const msg = document.getElementById('noSelectionMsg');
+            const editor = document.getElementById('nodePropertiesEditor');
+            
+            if (!selectedNodeId) {
+                msg.classList.remove('hidden');
+                editor.classList.add('hidden');
+                return;
+            }
+            
+            const node = state.nodes.find(n => n.id === selectedNodeId);
+            if(!node) return;
+            
+            msg.classList.add('hidden');
+            editor.classList.remove('hidden');
+            
+            document.getElementById('propLabel').value = node.label;
+            document.getElementById('propSub').value = node.sub;
+            document.getElementById('propIcon').value = node.icon;
+            document.getElementById('propColor').value = node.color;
+            
+            // Build group options dynamically
+            const groupSelect = document.getElementById('propGroup');
+            groupSelect.innerHTML = `<option value="">(無群組)</option>`;
+            state.subgraphs.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.text = g.label;
+                opt.selected = (node.group === g.id);
+                groupSelect.appendChild(opt);
+            });
+        }
+
+        function updateSelectedNode(key, val) {
+            if(!selectedNodeId) return;
+            const node = state.nodes.find(n => n.id === selectedNodeId);
+            if(node) {
+                node[key] = val;
+                renderDiagram();
+            }
+        }
+
+        function updateRelationsPanel() {
+            // Render Edges
             const edgesContainer = document.getElementById('edgesList');
             edgesContainer.innerHTML = '';
+            
+            if(state.edges.length === 0) {
+                edgesContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有連線。</div>`;
+            }
+            
             state.edges.forEach((e, idx) => {
                 const item = document.createElement('div');
-                item.className = 'bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+                item.className = 'bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
 
                 let nodeOptionsFrom = '', nodeOptionsTo = '';
                 state.nodes.forEach(n => {
@@ -517,82 +691,53 @@
 
                 item.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <select onchange="updateEdge(${idx}, 'from', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
+                        <select onchange="updateEdge(${idx}, 'from', this.value)" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
                             ${nodeOptionsFrom}
                         </select>
                         <i class="fa-solid fa-arrow-right text-slate-500"></i>
-                        <select onchange="updateEdge(${idx}, 'to', this.value)" class="flex-1 bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none focus:border-blue-500">
+                        <select onchange="updateEdge(${idx}, 'to', this.value)" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
                             ${nodeOptionsTo}
                         </select>
                         <button onclick="removeEdge(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                        <select onchange="updateEdge(${idx}, 'style', this.value)" class="bg-slate-900 px-2 py-1 rounded border border-slate-700 text-slate-300 focus:outline-none focus:border-blue-500">
-                            <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線 (Solid)</option>
-                            <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線 (Dashed)</option>
+                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value)" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                        <select onchange="updateEdge(${idx}, 'style', this.value)" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                            <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
+                            <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
                         </select>
                     </div>
                 `;
                 edgesContainer.appendChild(item);
             });
-        }
 
-        function addGroup() {
-            const newId = 'sg_' + Date.now().toString().slice(-4);
-            state.subgraphs.push({ id: newId, label: '新群組', color: '#3b82f6' });
-            renderUIControls();
-            renderDiagram();
-        }
-
-        function updateGroup(idx, key, val) {
-            state.subgraphs[idx][key] = val;
-            renderDiagram();
-        }
-
-        function removeGroup(idx) {
-            const id = state.subgraphs[idx].id;
-            state.subgraphs.splice(idx, 1);
-            // reset nodes in this group
-            state.nodes.forEach(n => { if (n.group === id) n.group = ''; });
-            renderUIControls();
-            renderDiagram();
-        }
-
-        function addNode() {
-            const newId = 'n_' + Date.now().toString().slice(-4);
-            state.nodes.push({ id: newId, label: '新流程節點', sub: '副標題說明', shape: 'rect', icon: 'fa-cube', group: '', color: '#3b82f6' });
-            renderUIControls();
-            renderDiagram();
-        }
-
-        function updateNode(idx, key, val) {
-            state.nodes[idx][key] = val;
-            renderDiagram();
-        }
-
-        function removeNode(idx) {
-            const id = state.nodes[idx].id;
-            state.nodes.splice(idx, 1);
-            // remove edges connected to this node
-            state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
-            renderUIControls();
-            renderDiagram();
+            // Render Groups
+            const groupsContainer = document.getElementById('groupsList');
+            groupsContainer.innerHTML = '';
+            
+            if(state.subgraphs.length === 0) {
+                groupsContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有群組。</div>`;
+            }
+            
+            state.subgraphs.forEach((g, idx) => {
+                const item = document.createElement('div');
+                item.className = 'bg-slate-900/50 p-2 rounded-lg border border-slate-700/60 flex items-center space-x-2 text-xs';
+                item.innerHTML = `
+                    <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value)" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0">
+                    <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value)" class="flex-1 bg-slate-950 px-2 py-1.5 rounded border border-slate-700 text-slate-200">
+                    <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
+                `;
+                groupsContainer.appendChild(item);
+            });
         }
 
         function addEdge() {
             if (state.nodes.length < 2) {
-                showToast('需要至少 2 個節點才能建立連線！', 'warning');
+                showToast('需要至少 2 個節點才能建立連線', 'warning');
                 return;
             }
-            state.edges.push({
-                from: state.nodes[0].id,
-                to: state.nodes[1].id,
-                label: '',
-                style: 'solid',
-                lineType: 'curved'
-            });
-            renderUIControls();
+            state.edges.push({ from: state.nodes[0].id, to: state.nodes[1].id, label: '', style: 'solid' });
+            updateRelationsPanel();
             renderDiagram();
         }
 
@@ -600,159 +745,32 @@
             state.edges[idx][key] = val;
             renderDiagram();
         }
-
         function removeEdge(idx) {
             state.edges.splice(idx, 1);
-            renderUIControls();
+            updateRelationsPanel();
+            renderDiagram();
+        }
+        
+        function addGroup() {
+            const newId = 'sg_' + Date.now().toString().slice(-4);
+            state.subgraphs.push({ id: newId, label: '新群組區域', color: '#3b82f6' });
+            updateRelationsPanel();
+            if(selectedNodeId) refreshPropertiesPanel(); // update group dropdown
+            renderDiagram();
+        }
+        function updateGroup(idx, key, val) {
+            state.subgraphs[idx][key] = val;
+            renderDiagram();
+        }
+        function removeGroup(idx) {
+            const id = state.subgraphs[idx].id;
+            state.subgraphs.splice(idx, 1);
+            state.nodes.forEach(n => { if (n.group === id) n.group = ''; });
+            updateRelationsPanel();
+            if(selectedNodeId) refreshPropertiesPanel();
             renderDiagram();
         }
 
-        function applyJsonCode() {
-            try {
-                const parsed = JSON.parse(document.getElementById('jsonEditor').value);
-                state = parsed;
-                renderUIControls();
-                renderDiagram();
-                showToast('JSON 規格更新成功！');
-            } catch (err) {
-                showToast('JSON 格式不合法：' + err.message, 'error');
-            }
-        }
-
-        /**
-         * Auto Layout engine calculating node ranks and (X, Y) coordinates
-         */
-        function calculateLayout() {
-            const isLR = state.orientation === 'LR';
-            const nodeWidth = 180;
-            const nodeHeight = 70;
-            const gapX = isLR ? 100 : 120;
-            const gapY = isLR ? 60 : 80;
-            const padding = 35;
-
-            // Compute rank for each node (Topological / step rank)
-            const inDegree = {};
-            const adj = {};
-            state.nodes.forEach(n => {
-                inDegree[n.id] = 0;
-                adj[n.id] = [];
-            });
-
-            state.edges.forEach(e => {
-                if (adj[e.from] && inDegree[e.to] !== undefined) {
-                    adj[e.from].push(e.to);
-                    inDegree[e.to]++;
-                }
-            });
-
-            // Queue for topological sorting and level assignment
-            const ranks = {};
-            const queue = [];
-
-            state.nodes.forEach(n => {
-                if (inDegree[n.id] === 0) {
-                    ranks[n.id] = 0;
-                    queue.push(n.id);
-                }
-            });
-
-            // If cycle or floating nodes, assign rank fallback
-            let head = 0;
-            while(head < queue.length) {
-                const u = queue[head++];
-                const r = ranks[u];
-                adj[u].forEach(v => {
-                    ranks[v] = Math.max(ranks[v] || 0, r + 1);
-                    inDegree[v]--;
-                    if (inDegree[v] === 0) {
-                        queue.push(v);
-                    }
-                });
-            }
-
-            // Assign ranks to any remaining nodes
-            state.nodes.forEach(n => {
-                if (ranks[n.id] === undefined) {
-                    ranks[n.id] = 0;
-                }
-            });
-
-            // Group nodes by rank
-            const rankMap = {};
-            state.nodes.forEach(n => {
-                const r = ranks[n.id];
-                if (!rankMap[r]) rankMap[r] = [];
-                rankMap[r].push(n);
-            });
-
-            // Compute Coordinates
-            const positions = {};
-            const maxRank = Math.max(...Object.keys(rankMap).map(Number));
-
-            for (let r = 0; r <= maxRank; r++) {
-                const nodesInRank = rankMap[r] || [];
-                nodesInRank.forEach((n, idx) => {
-                    if (isLR) {
-                        positions[n.id] = {
-                            x: padding + r * (nodeWidth + gapX),
-                            y: padding + idx * (nodeHeight + gapY),
-                            width: nodeWidth,
-                            height: nodeHeight
-                        };
-                    } else {
-                        positions[n.id] = {
-                            x: padding + idx * (nodeWidth + gapX),
-                            y: padding + r * (nodeHeight + gapY),
-                            width: nodeWidth,
-                            height: nodeHeight
-                        };
-                    }
-                });
-            }
-
-            // Compute Group Bounding Boxes
-            const groupBounds = {};
-            state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
-                if (groupNodes.length > 0) {
-                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        const pos = positions[n.id];
-                        minX = Math.min(minX, pos.x);
-                        minY = Math.min(minY, pos.y);
-                        maxX = Math.max(maxX, pos.x + pos.width);
-                        maxY = Math.max(maxY, pos.y + pos.height);
-                    });
-
-                    const padG = 20;
-                    groupBounds[g.id] = {
-                        x: minX - padG,
-                        y: minY - padG - 25, // extra top for label
-                        width: maxX - minX + padG * 2,
-                        height: maxY - minY + padG * 2 + 25,
-                        label: g.label,
-                        color: g.color
-                    };
-                }
-            });
-
-            // Calculate total diagram dimensions
-            let totalW = 0, totalH = 0;
-            Object.values(positions).forEach(p => {
-                totalW = Math.max(totalW, p.x + p.width + padding * 2);
-                totalH = Math.max(totalH, p.y + p.height + padding * 2);
-            });
-            Object.values(groupBounds).forEach(b => {
-                totalW = Math.max(totalW, b.x + b.width + padding * 2);
-                totalH = Math.max(totalH, b.y + b.height + padding * 2);
-            });
-
-            return { positions, groupBounds, totalW, totalH };
-        }
-
-        /**
-         * SVG Shape generator helper
-         */
         function renderNodeShape(shape, w, h, fill, border) {
             if (shape === 'pill') {
                 const rx = h / 2;
@@ -761,114 +779,138 @@
                 return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'database') {
                 return `
-                    <path d="M 0 10 C 0 0, ${w} 0, ${w} 10 L ${w} ${h-10} C ${w} ${h}, 0 ${h}, 0 ${h-10} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
-                    <path d="M 0 10 C 0 20, ${w} 20, ${w} 10" fill="none" stroke="${border}" stroke-width="2" />
-                    <path d="M 0 25 C 0 35, ${w} 35, ${w} 25" fill="none" stroke="${border}" stroke-width="1.5" stroke-dasharray="3 2" />
+                    <g>
+                        <path d="M 0 12 C 0 0, ${w} 0, ${w} 12 L ${w} ${h-12} C ${w} ${h}, 0 ${h}, 0 ${h-12} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
+                        <ellipse cx="${w/2}" cy="12" rx="${w/2}" ry="8" fill="${fill}" stroke="${border}" stroke-width="2" />
+                        <path d="M 0 26 C 0 34, ${w} 34, ${w} 26" fill="none" stroke="${border}" stroke-width="1.5" stroke-dasharray="3 2" />
+                    </g>
                 `;
             } else if (shape === 'cloud') {
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="20" fill="${fill}" stroke="${border}" stroke-width="2" stroke-dasharray="6 3" />`;
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="22" fill="${fill}" stroke="${border}" stroke-width="2" stroke-dasharray="6 3" />`;
             } else if (shape === 'hexagon') {
-                const p = 18;
+                const p = 20;
                 return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else {
-                // rect default
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="12" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             }
         }
 
-        /**
-         * Curve path calculation between two nodes
-         */
-        function computeEdgePath(posA, posB, isLR) {
-            let startX, startY, endX, endY;
-
-            if (isLR) {
-                startX = posA.x + posA.width;
-                startY = posA.y + posA.height / 2;
-                endX = posB.x;
-                endY = posB.y + posB.height / 2;
-
-                const dx = (endX - startX) * 0.5;
-                return {
-                    d: `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`,
-                    midX: (startX + endX) / 2,
-                    midY: (startY + endY) / 2
-                };
+        // Compute direct bezier curves based on relative positions
+        function computeEdgePath(n1, n2) {
+            const cx1 = n1.x + NODE_W/2;
+            const cy1 = n1.y + NODE_H/2;
+            const cx2 = n2.x + NODE_W/2;
+            const cy2 = n2.y + NODE_H/2;
+            
+            const dx = Math.abs(cx2 - cx1);
+            const dy = Math.abs(cy2 - cy1);
+            
+            let d = "";
+            // Use horizontal curves if horizontal distance > vertical distance
+            if(dx > dy) {
+                const controlOffset = dx * 0.4;
+                d = `M ${cx1} ${cy1} C ${cx1 + (cx2>cx1?controlOffset:-controlOffset)} ${cy1}, ${cx2 - (cx2>cx1?controlOffset:-controlOffset)} ${cy2}, ${cx2} ${cy2}`;
             } else {
-                startX = posA.x + posA.width / 2;
-                startY = posA.y + posA.height;
-                endX = posB.x + posB.width / 2;
-                endY = posB.y;
-
-                const dy = (endY - startY) * 0.5;
-                return {
-                    d: `M ${startX} ${startY} C ${startX} ${startY + dy}, ${endX} ${endY - dy}, ${endX} ${endY}`,
-                    midX: (startX + endX) / 2,
-                    midY: (startY + endY) / 2
-                };
+                const controlOffset = dy * 0.4;
+                d = `M ${cx1} ${cy1} C ${cx1} ${cy1 + (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2 - (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2}`;
             }
+            
+            return {
+                d: d,
+                midX: (cx1 + cx2) / 2,
+                midY: (cy1 + cy2) / 2
+            };
         }
 
-        /**
-         * Main render SVG function
-         */
         function renderDiagram() {
             const theme = THEMES[state.theme] || THEMES.academic;
-            const layout = calculateLayout();
-            const isLR = state.orientation === 'LR';
+            
+            // Calc dynamic bounding box for SVG canvas size
+            let minX = 0, minY = 0, maxX = 800, maxY = 600;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x - 100);
+                minY = Math.min(minY, n.y - 100);
+                maxX = Math.max(maxX, n.x + NODE_W + 100);
+                maxY = Math.max(maxY, n.y + NODE_H + 100);
+            });
+            const svgW = Math.max(2000, maxX);
+            const svgH = Math.max(2000, maxY);
 
             let svgHtml = `
-                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${layout.totalW}" height="${layout.totalH}" viewBox="0 0 ${layout.totalW} ${layout.totalH}">
+                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="overflow: visible; display:block;">
                     <defs>
-                        <!-- Arrowhead Marker -->
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
                         </marker>
-                        <!-- Shadow Filter -->
-                        <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+                        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
                             <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
                         </filter>
+                        <!-- Inline CSS to preserve styling on Export -->
+                        <style>
+                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap');
+                            @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+                            text { font-family: 'Inter', sans-serif; }
+                        </style>
                     </defs>
 
-                    <!-- Background -->
-                    <rect width="100%" height="100%" fill="${theme.bg}" rx="16" />
+                    <!-- Background for PNG export -->
+                    <rect width="100%" height="100%" fill="transparent" id="exportBg" />
 
-                    <!-- Subgraph Group Boxes -->
                     <g id="groupsLayer">
             `;
 
-            // Draw Subgraphs
-            Object.values(layout.groupBounds).forEach(g => {
-                svgHtml += `
-                    <g transform="translate(${g.x}, ${g.y})">
-                        <rect width="${g.width}" height="${g.height}" rx="14" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
-                        <text x="14" y="20" fill="${g.color || theme.text}" font-size="11" font-weight="700" font-family="Inter, sans-serif" letter-spacing="0.5">${g.label}</text>
-                    </g>
-                `;
+            // Draw Subgraphs dynamically based on node positions
+            state.subgraphs.forEach(g => {
+                const groupNodes = state.nodes.filter(n => n.group === g.id);
+                if(groupNodes.length > 0) {
+                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
+                    groupNodes.forEach(n => {
+                        gMinX = Math.min(gMinX, n.x);
+                        gMinY = Math.min(gMinY, n.y);
+                        gMaxX = Math.max(gMaxX, n.x + NODE_W);
+                        gMaxY = Math.max(gMaxY, n.y + NODE_H);
+                    });
+                    
+                    const pad = 24;
+                    const topPad = 40;
+                    const gx = gMinX - pad;
+                    const gy = gMinY - topPad;
+                    const gw = (gMaxX - gMinX) + pad*2;
+                    const gh = (gMaxY - gMinY) + pad + topPad;
+                    
+                    svgHtml += `
+                        <g transform="translate(${gx}, ${gy})">
+                            <rect width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
+                            <text x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
+                        </g>
+                    `;
+                }
             });
 
             svgHtml += `</g><g id="edgesLayer">`;
 
             // Draw Edges
             state.edges.forEach(e => {
-                const posA = layout.positions[e.from];
-                const posB = layout.positions[e.to];
-                if (posA && posB) {
-                    const pathData = computeEdgePath(posA, posB, isLR);
-                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="5 4"' : '';
+                const nodeA = state.nodes.find(n => n.id === e.from);
+                const nodeB = state.nodes.find(n => n.id === e.to);
+                
+                if (nodeA && nodeB) {
+                    const pathData = computeEdgePath(nodeA, nodeB);
+                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
 
                     svgHtml += `
                         <g>
-                            <path d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2" ${strokeDash} marker-end="url(#arrow)" />
+                            <path d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2.5" ${strokeDash} marker-end="url(#arrow)" />
                     `;
 
                     if (e.label) {
+                        const labelLen = e.label.length;
+                        const boxW = Math.max(50, labelLen * 9 + 16);
                         svgHtml += `
-                            <rect x="${pathData.midX - 25}" y="${pathData.midY - 10}" width="50" height="18" rx="4" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="0.8" opacity="0.9" />
-                            <text x="${pathData.midX}" y="${pathData.midY + 3}" fill="${theme.edgeText}" font-size="9" font-weight="600" font-family="Inter, sans-serif" text-anchor="middle">${e.label}</text>
+                            <rect x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="1" opacity="0.95" />
+                            <text x="${pathData.midX}" y="${pathData.midY + 4}" fill="${theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle">${e.label}</text>
                         `;
                     }
-
                     svgHtml += `</g>`;
                 }
             });
@@ -877,25 +919,28 @@
 
             // Draw Nodes
             state.nodes.forEach(n => {
-                const pos = layout.positions[n.id];
-                if (pos) {
-                    const nodeBorder = n.color || theme.nodeBorder;
+                const nodeBorder = n.color || theme.nodeBorder;
+                const iconClass = n.icon ? (n.icon.startsWith('fa-') ? n.icon : 'fa-' + n.icon) : 'fa-cube';
+                const isSelected = selectedNodeId === n.id;
+                const selectedClass = isSelected ? 'node-selected' : '';
 
-                    svgHtml += `
-                        <g transform="translate(${pos.x}, ${pos.y})" filter="url(#dropShadow)" class="cursor-pointer">
-                            ${renderNodeShape(n.shape, pos.width, pos.height, theme.nodeBg, nodeBorder)}
-                            
-                            <!-- Accent Left Stripe -->
-                            <rect x="0" y="12" width="4" height="${pos.height - 24}" rx="2" fill="${n.color || '#3b82f6'}" />
-
-                            <!-- Title Text -->
-                            <text x="16" y="${n.sub ? 30 : 40}" fill="${theme.text}" font-size="12" font-weight="700" font-family="Inter, sans-serif">${n.label}</text>
-                            
-                            <!-- Subtitle Text -->
-                            ${n.sub ? `<text x="16" y="48" fill="${theme.textSub}" font-size="10" font-family="Inter, sans-serif">${n.sub}</text>` : ''}
-                        </g>
-                    `;
-                }
+                svgHtml += `
+                    <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
+                        ${renderNodeShape(n.shape, NODE_W, NODE_H, theme.nodeBg, nodeBorder)}
+                        
+                        <foreignObject width="${NODE_W}" height="${NODE_H}" x="0" y="0">
+                            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center px-4 space-x-3 overflow-hidden select-none" style="background:transparent;">
+                                <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-sm" style="background:${n.color || '#3b82f6'}20; color:${n.color || '#3b82f6'}">
+                                    <i class="fa-solid ${iconClass} text-[15px]"></i>
+                                </div>
+                                <div class="flex-1 min-w-0 flex flex-col justify-center h-full pt-0.5">
+                                    <div class="text-[13px] font-bold truncate leading-tight" style="color:${theme.text}">${n.label}</div>
+                                    ${n.sub ? `<div class="text-[10px] truncate leading-tight mt-0.5" style="color:${theme.textSub}">${n.sub}</div>` : ''}
+                                </div>
+                            </div>
+                        </foreignObject>
+                    </g>
+                `;
             });
 
             svgHtml += `</g></svg>`;
@@ -904,50 +949,61 @@
             container.innerHTML = svgHtml;
         }
 
-        function zoomCanvas(factor) {
-            canvasZoom *= factor;
-            canvasZoom = Math.max(0.4, Math.min(2.5, canvasZoom));
-            document.getElementById('svgContainer').style.transform = `scale(${canvasZoom})`;
+        function loadPreset(key) {
+            if (PRESETS[key]) {
+                state = JSON.parse(JSON.stringify(PRESETS[key]));
+                document.getElementById('themeSelect').value = state.theme;
+                selectNode(null); // clear selection
+                renderDiagram();
+                updateRelationsPanel();
+                centerView(); // Recenter view on new preset
+                showToast('已載入範本');
+            }
         }
 
-        function resetCanvasView() {
-            canvasZoom = 1.0;
-            document.getElementById('svgContainer').style.transform = `scale(1.0)`;
+        function changeTheme(themeKey) {
+            state.theme = themeKey;
+            renderDiagram();
+            showToast('主題切換成功');
         }
 
-        function toggleGridBackground() {
-            const vp = document.getElementById('canvasViewport');
-            const btn = document.getElementById('gridToggleBtn');
-            isShowGrid = !isShowGrid;
-            if (isShowGrid) {
-                vp.classList.add('bg-grid-pattern');
-                btn.classList.add('text-slate-300');
-            } else {
-                vp.classList.remove('bg-grid-pattern');
-                btn.classList.remove('text-slate-300');
+        function applyJsonCode() {
+            try {
+                state = JSON.parse(document.getElementById('jsonEditor').value);
+                selectNode(null);
+                renderDiagram();
+                updateRelationsPanel();
+                showToast('JSON 規格更新成功！');
+            } catch (err) {
+                showToast('JSON 格式錯誤：' + err.message, 'error');
             }
         }
 
         function copySVGCode() {
             const svgEl = document.getElementById('workflowSvg');
             if (!svgEl) return;
-            const svgCode = svgEl.outerHTML;
+            const svgCode = svgEl.outerHTML.replace('<rect width="100%" height="100%" fill="transparent" id="exportBg" />', '');
             
-            // Temporary textarea copy for strict sandbox compatibility
-            const temp = document.createElement('textarea');
-            temp.value = svgCode;
-            document.body.appendChild(temp);
-            temp.select();
-            document.execCommand('copy');
-            document.body.removeChild(temp);
-
-            showToast('SVG 碼已複製到剪貼簿！');
+            navigator.clipboard.writeText(svgCode).then(() => {
+                showToast('SVG 碼已複製到剪貼簿！');
+            }).catch(() => {
+                // Fallback
+                const temp = document.createElement('textarea');
+                temp.value = svgCode;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+                showToast('SVG 碼已複製到剪貼簿！');
+            });
         }
 
         function exportSVG() {
             const svgEl = document.getElementById('workflowSvg');
             if (!svgEl) return;
-            const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+            // Clean up transparent bg for svg export
+            const exportData = svgEl.outerHTML.replace('<rect width="100%" height="100%" fill="transparent" id="exportBg" />', '');
+            const blob = new Blob([exportData], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -963,33 +1019,94 @@
             const svgEl = document.getElementById('workflowSvg');
             if (!svgEl) return;
 
-            const svgData = new XMLSerializer().serializeToString(svgEl);
-            const canvas = document.getElementById('exportCanvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
+            // Temporarily set a solid background for PNG export based on theme
+            const bgRect = document.getElementById('exportBg');
+            const theme = THEMES[state.theme] || THEMES.academic;
+            bgRect.setAttribute('fill', theme.bg);
 
-            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
+            // Hide selection ring for export
+            const oldSelectedId = selectedNodeId;
+            if (oldSelectedId) {
+                selectedNodeId = null;
+                renderDiagram(); 
+            }
 
-            img.onload = function() {
-                const scale = 2; // 2x high resolution
-                canvas.width = svgEl.getAttribute('width') * scale;
-                canvas.height = svgEl.getAttribute('height') * scale;
-                ctx.scale(scale, scale);
-                ctx.drawImage(img, 0, 0);
+            // small delay to ensure DOM updates
+            setTimeout(() => {
+                const updatedSvgEl = document.getElementById('workflowSvg');
+                const svgData = new XMLSerializer().serializeToString(updatedSvgEl);
+                const canvas = document.getElementById('exportCanvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
 
-                const pngUrl = canvas.toDataURL('image/png');
-                const a = document.createElement('a');
-                a.href = pngUrl;
-                a.download = `workflow-figure-${Date.now()}.png`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showToast('高解析度 PNG 匯出完成！');
-            };
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
 
-            img.src = url;
+                img.onload = function() {
+                    const boundingBox = getNodesBoundingBox();
+                    // Crop the canvas to the content size with padding
+                    const pad = 50;
+                    const w = boundingBox.w + pad * 2;
+                    const h = boundingBox.h + pad * 2;
+
+                    const scale = 2; // High-res
+                    canvas.width = w * scale;
+                    canvas.height = h * scale;
+                    
+                    ctx.scale(scale, scale);
+                    ctx.fillStyle = theme.bg;
+                    ctx.fillRect(0, 0, w, h);
+                    
+                    // Draw image offset by bounding box minX/minY
+                    ctx.drawImage(img, -boundingBox.x + pad, -boundingBox.y + pad);
+
+                    const pngUrl = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = pngUrl;
+                    a.download = `workflow-figure-${Date.now()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    // Restore state
+                    bgRect.setAttribute('fill', 'transparent');
+                    if (oldSelectedId) {
+                        selectedNodeId = oldSelectedId;
+                        renderDiagram();
+                    }
+                    showToast('高解析度 PNG 匯出完成！');
+                };
+
+                img.src = url;
+            }, 50);
+        }
+
+        function getNodesBoundingBox() {
+            if (state.nodes.length === 0) return {x:0, y:0, w:800, h:600};
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + NODE_W);
+                maxY = Math.max(maxY, n.y + NODE_H);
+            });
+            // Include subgroups bounds
+            state.subgraphs.forEach(g => {
+                const groupNodes = state.nodes.filter(n => n.group === g.id);
+                if(groupNodes.length > 0) {
+                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
+                    groupNodes.forEach(n => {
+                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
+                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
+                    });
+                    minX = Math.min(minX, gMinX - 24);
+                    minY = Math.min(minY, gMinY - 40);
+                    maxX = Math.max(maxX, gMaxX + 24);
+                    maxY = Math.max(maxY, gMaxY + 24);
+                }
+            });
+            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
         }
 
         function showToast(msg, type = 'success') {
@@ -998,13 +1115,9 @@
             const toastIcon = document.getElementById('toastIcon');
 
             toastMsg.innerText = msg;
-            if (type === 'error') {
-                toastIcon.className = 'fa-solid fa-circle-xmark text-red-400';
-            } else if (type === 'warning') {
-                toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400';
-            } else {
-                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
-            }
+            toastIcon.className = type === 'error' ? 'fa-solid fa-circle-xmark text-red-400' : 
+                                  type === 'warning' ? 'fa-solid fa-triangle-exclamation text-amber-400' : 
+                                  'fa-solid fa-circle-check text-emerald-400';
 
             toast.classList.remove('translate-y-20', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
