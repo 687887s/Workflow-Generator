@@ -695,6 +695,10 @@
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-grabbing');
                     selectNode(null);
+                    if (selectedEdgeIdx !== null) {
+                        selectedEdgeIdx = null;
+                        updateRelationsPanel();
+                    }
                 }
             });
 
@@ -722,6 +726,8 @@
                                 const pathData = computeEdgePath(n1, n2, edgeInfo.indexInPair, edgeInfo.totalInPair);
                                 const pathEl = edgeEl.querySelector('.edge-path');
                                 if (pathEl) pathEl.setAttribute('d', pathData.d);
+                                const hitboxEl = edgeEl.querySelector('.edge-hitbox');
+                                if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
                                 
                                 const labelBg = edgeEl.querySelector('.edge-label-bg');
                                 const labelText = edgeEl.querySelector('.edge-label-text');
@@ -860,8 +866,9 @@
                     const node = state.nodes.find(n => n.id === selectedNodeId);
                     if (node) {
                         const dropZones = getGroupDropZones(selectedNodeId);
-                        const nodeCX = node.x + NODE_W / 2;
-                        const nodeCY = node.y + NODE_H / 2;
+                        const dim = getNodeDimensions(node);
+                        const nodeCX = node.x + dim.w / 2;
+                        const nodeCY = node.y + dim.h / 2;
                         
                         let droppedInGroup = null;
                         for (let i = state.subgraphs.length - 1; i >= 0; i--) {
@@ -943,10 +950,11 @@
             
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
                 minX = Math.min(minX, n.x);
                 minY = Math.min(minY, n.y);
-                maxX = Math.max(maxX, n.x + NODE_W);
-                maxY = Math.max(maxY, n.y + NODE_H);
+                maxX = Math.max(maxX, n.x + dim.w);
+                maxY = Math.max(maxY, n.y + dim.h);
             });
             state.subgraphs.forEach(g => {
                 const box = getGroupBoundingBox(g.id);
@@ -1103,17 +1111,48 @@
             }
         }
 
+        // Selected Edge Index
+        let selectedEdgeIdx = null;
+
+        function selectEdge(idx) {
+            selectedEdgeIdx = idx;
+            selectedNodeId = null;
+            if (activeTab !== 'relations') {
+                switchSidebarTab('relations');
+            } else {
+                updateRelationsPanel();
+            }
+            renderDiagram();
+            setTimeout(() => {
+                const card = document.querySelector(`[data-relation-edge-idx="${idx}"]`);
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 60);
+        }
+
         function updateRelationsPanel() {
             const edgesContainer = document.getElementById('edgesList');
             edgesContainer.innerHTML = '';
             
-            if(state.edges.length === 0) {
+            if (state.edges.length === 0) {
                 edgesContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有連線。</div>`;
             }
             
             state.edges.forEach((e, idx) => {
+                const isSelected = selectedEdgeIdx === idx;
                 const item = document.createElement('div');
-                item.className = 'bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+                item.setAttribute('data-relation-edge-idx', idx);
+                item.className = `p-2.5 rounded-lg border transition-all space-y-2 text-xs cursor-pointer ${
+                    isSelected 
+                        ? 'bg-blue-950/40 border-blue-500 shadow-md ring-1 ring-blue-500/50' 
+                        : 'bg-slate-900/50 border-slate-700/60 hover:border-slate-600'
+                }`;
+                item.onclick = (evt) => {
+                    if (evt.target.tagName !== 'SELECT' && evt.target.tagName !== 'INPUT' && evt.target.tagName !== 'BUTTON' && !evt.target.closest('button')) {
+                        selectEdge(idx);
+                    }
+                };
 
                 let nodeOptionsFrom = '', nodeOptionsTo = '';
                 state.nodes.forEach(n => {
@@ -1122,19 +1161,19 @@
                 });
 
                 item.innerHTML = `
-                    <div class="flex items-center space-x-2">
-                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
+                    <div class="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5 min-w-0">
+                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1.5 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsFrom}
                         </select>
-                        <i class="fa-solid fa-arrow-right text-slate-500"></i>
-                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="flex-1 bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none">
+                        <i class="fa-solid fa-arrow-right text-slate-500 text-[10px] shrink-0"></i>
+                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1.5 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsTo}
                         </select>
-                        <button onclick="removeEdge(${idx})" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1.5 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
-                        <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                    <div class="grid grid-cols-[1fr_80px] gap-1.5">
+                        <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 min-w-0 text-[11px] focus:border-blue-500 focus:outline-none">
+                        <select onchange="updateEdge(${idx}, 'style', this.value); saveHistory();" class="bg-slate-950 px-1.5 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:border-blue-500 focus:outline-none">
                             <option value="solid" ${e.style === 'solid' ? 'selected' : ''}>實線</option>
                             <option value="dashed" ${e.style === 'dashed' ? 'selected' : ''}>虛線</option>
                         </select>
@@ -1263,6 +1302,47 @@
             }
         }
 
+        // --- Node Adaptive Dimension Helpers ---
+        function getNodeDimensions(n) {
+            if (!n) return { w: 200, h: 72 };
+            
+            const label = n.label || '';
+            const sub = n.sub || '';
+            
+            // Asian / Chinese characters ~14px, ASCII ~8.5px
+            let labelW = 0;
+            for (let i = 0; i < label.length; i++) {
+                labelW += label.charCodeAt(i) > 255 ? 14 : 8.5;
+            }
+            
+            let subW = 0;
+            for (let i = 0; i < sub.length; i++) {
+                subW += sub.charCodeAt(i) > 255 ? 11 : 7;
+            }
+            
+            const showIcon = n.showIcon !== false;
+            const paddingLeft = showIcon ? 72 : 30;
+            const paddingRight = 30;
+            const contentW = Math.max(labelW, subW) + paddingLeft + paddingRight;
+            
+            let baseW = Math.max(180, Math.ceil(contentW / 10) * 10);
+            let baseH = 72;
+            
+            // Shape geometry compensation (avoid cutting off text in corners)
+            if (n.shape === 'diamond') {
+                baseW = Math.max(200, Math.round(baseW * 1.35));
+                baseH = 80;
+            } else if (n.shape === 'hexagon') {
+                baseW = Math.max(200, baseW + 36);
+            } else if (n.shape === 'pill') {
+                baseW = Math.max(190, baseW + 16);
+            } else if (n.shape === 'cloud') {
+                baseW = Math.max(200, baseW + 20);
+            }
+            
+            return { w: baseW, h: baseH };
+        }
+
         // --- Multi-edge Adaptive Routing Helpers ---
         function getEdgePairKey(id1, id2) {
             return id1 < id2 ? `${id1}___${id2}` : `${id2}___${id1}`;
@@ -1292,10 +1372,12 @@
         }
 
         function computeEdgePath(n1, n2, pairIndex = 0, totalInPair = 1) {
-            const cx1 = n1.x + NODE_W / 2;
-            const cy1 = n1.y + NODE_H / 2;
-            const cx2 = n2.x + NODE_W / 2;
-            const cy2 = n2.y + NODE_H / 2;
+            const dim1 = getNodeDimensions(n1);
+            const dim2 = getNodeDimensions(n2);
+            const cx1 = n1.x + dim1.w / 2;
+            const cy1 = n1.y + dim1.h / 2;
+            const cx2 = n2.x + dim2.w / 2;
+            const cy2 = n2.y + dim2.h / 2;
             
             const dx = cx2 - cx1;
             const dy = cy2 - cy1;
@@ -1358,10 +1440,11 @@
 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             directNodes.forEach(n => {
+                const dim = getNodeDimensions(n);
                 minX = Math.min(minX, n.x);
                 minY = Math.min(minY, n.y);
-                maxX = Math.max(maxX, n.x + NODE_W);
-                maxY = Math.max(maxY, n.y + NODE_H);
+                maxX = Math.max(maxX, n.x + dim.w);
+                maxY = Math.max(maxY, n.y + dim.h);
             });
 
             childGroups.forEach(cg => {
@@ -1401,8 +1484,9 @@
 
             let minX = 0, minY = 0, maxX = 800, maxY = 600;
             state.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
                 minX = Math.min(minX, n.x - 100); minY = Math.min(minY, n.y - 100);
-                maxX = Math.max(maxX, n.x + NODE_W + 100); maxY = Math.max(maxY, n.y + NODE_H + 100);
+                maxX = Math.max(maxX, n.x + dim.w + 100); maxY = Math.max(maxY, n.y + dim.h + 100);
             });
 
             const svgW = Math.max(2000, maxX);
@@ -1413,6 +1497,9 @@
                     <defs>
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
+                        </marker>
+                        <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
                         </marker>
                         <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
                             <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
@@ -1453,18 +1540,24 @@
                     const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
                     const pathData = computeEdgePath(nodeA, nodeB, edgeInfo.indexInPair, edgeInfo.totalInPair);
                     const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
+                    const isEdgeSelected = selectedEdgeIdx === idx;
+                    const strokeColor = isEdgeSelected ? '#60a5fa' : theme.edgeColor;
+                    const markerId = isEdgeSelected ? 'url(#arrow-selected)' : 'url(#arrow)';
 
                     svgHtml += `
-                        <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}">
-                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${theme.edgeColor}" stroke-width="2.5" ${strokeDash} marker-end="url(#arrow)" />
+                        <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
+                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="7" opacity="0.4" stroke-linecap="round" />` : ''}
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${isEdgeSelected ? 3 : 2.5}" ${strokeDash} marker-end="${markerId}" />
+                            <!-- Hit area for easy clicking & selection -->
+                            <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="18" style="cursor: pointer;" />
                     `;
 
                     if (e.label) {
                         const labelLen = e.label.length;
                         const boxW = Math.max(50, labelLen * 9 + 16);
                         svgHtml += `
-                            <rect class="edge-label-bg" x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${theme.nodeBorder}" stroke-width="1" opacity="0.95" />
-                            <text class="edge-label-text" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle">${e.label}</text>
+                            <rect class="edge-label-bg" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${isEdgeSelected ? '#3b82f6' : theme.nodeBorder}" stroke-width="${isEdgeSelected ? 1.5 : 1}" opacity="0.95" style="cursor: pointer;" />
+                            <text class="edge-label-text" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${isEdgeSelected ? '#60a5fa' : theme.edgeText}" font-size="11" font-weight="600" text-anchor="middle" style="cursor: pointer; user-select: none;">${e.label}</text>
                         `;
                     }
                     svgHtml += `</g>`;
@@ -1474,6 +1567,9 @@
             svgHtml += `</g><g id="nodesLayer">`;
 
             state.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
+                const w = dim.w;
+                const h = dim.h;
                 const nodeBorder = n.color || theme.nodeBorder;
                 const isSelected = selectedNodeId === n.id;
                 const selectedClass = isSelected ? 'node-selected' : '';
@@ -1487,19 +1583,23 @@
 
                 const nodeShowIcon = n.showIcon !== false;
                 const textStartX = nodeShowIcon ? 66 : 24;
+                const iconY = Math.round(h / 2 - 18);
                 const iconHtml = nodeShowIcon ? `
-                    <rect x="16" y="18" width="36" height="36" rx="8" fill="${iconColor}20" />
-                    <svg x="22" y="24" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                    <rect x="16" y="${iconY}" width="36" height="36" rx="8" fill="${iconColor}20" />
+                    <svg x="22" y="${iconY + 6}" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
                         <path d="${iconPath}" />
                     </svg>
                 ` : '';
 
+                const mainTextY = n.sub ? Math.round(h / 2 - 2) : Math.round(h / 2 + 5);
+                const subTextY = Math.round(h / 2 + 15);
+
                 svgHtml += `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
-                        ${renderNodeShape(n.shape, NODE_W, NODE_H, theme.nodeBg, nodeBorder)}
+                        ${renderNodeShape(n.shape, w, h, theme.nodeBg, nodeBorder)}
                         ${iconHtml}
-                        <text x="${textStartX}" y="${n.sub ? 34 : 42}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${theme.text}">${n.label}</text>
-                        ${n.sub ? `<text x="${textStartX}" y="52" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
+                        <text x="${textStartX}" y="${mainTextY}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${theme.text}">${n.label}</text>
+                        ${n.sub ? `<text x="${textStartX}" y="${subTextY}" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
                     </g>
                 `;
             });
@@ -1709,8 +1809,9 @@
             if (state.nodes.length === 0 && state.subgraphs.length === 0) return { x: 0, y: 0, w: 800, h: 600 };
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
                 minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
-                maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + NODE_H);
+                maxX = Math.max(maxX, n.x + dim.w); maxY = Math.max(maxY, n.y + dim.h);
             });
             state.subgraphs.forEach(g => {
                 const box = getGroupBoundingBox(g.id);
