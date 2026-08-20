@@ -798,23 +798,23 @@
 
             filtered.forEach(item => {
                 const isSelected = (currIcon === item.key);
-                const iconSvgPath = SVG_ICONS[item.key] || SVG_ICONS['default'];
+                const iconSvgPath = getIconSvgPath(item.key);
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = `p-2.5 rounded-xl border flex flex-col items-center justify-center text-center space-y-1.5 transition group cursor-pointer ${
                     isSelected 
-                        ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-md ring-1 ring-blue-500/50' 
-                        : 'bg-slate-900/60 border-slate-700/70 hover:border-blue-500/80 hover:bg-slate-900 text-slate-300'
+                        ? 'bg-blue-600/25 border-blue-500 text-blue-300 shadow-lg ring-1 ring-blue-500/50' 
+                        : 'bg-slate-900/70 border-slate-700/80 hover:border-blue-500 hover:bg-slate-900 text-slate-200'
                 }`;
                 btn.onclick = () => selectIcon(item.key);
                 btn.innerHTML = `
-                    <div class="w-8 h-8 rounded-lg ${isSelected ? 'bg-blue-500/30' : 'bg-slate-800 group-hover:bg-blue-500/20'} flex items-center justify-center text-base transition">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <div class="w-9 h-9 rounded-lg ${isSelected ? 'bg-blue-500/30 text-blue-300' : 'bg-slate-800 text-blue-400 group-hover:bg-blue-500/20 group-hover:text-blue-300'} flex items-center justify-center transition">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                             <path d="${iconSvgPath}" />
                         </svg>
                     </div>
-                    <span class="text-[10px] text-slate-300 font-medium truncate w-full group-hover:text-white">${item.name}</span>
-                    <span class="text-[9px] font-mono text-slate-500 truncate w-full">${item.key.replace('fa-', '')}</span>
+                    <span class="text-[10px] text-slate-200 font-semibold truncate w-full group-hover:text-white">${item.name}</span>
+                    <span class="text-[9px] font-mono text-slate-400 truncate w-full">${item.key.replace('fa-', '')}</span>
                 `;
                 container.appendChild(btn);
             });
@@ -1690,7 +1690,7 @@
             
             const rawIconKey = node.icon || 'fa-cube';
             const normIconKey = rawIconKey.startsWith('fa-') ? rawIconKey : 'fa-' + rawIconKey;
-            const iconSvgPath = SVG_ICONS[normIconKey] || SVG_ICONS['default'];
+            const iconSvgPath = getIconSvgPath(node.icon);
             
             document.getElementById('propIcon').value = normIconKey;
             const iconNameEl = document.getElementById('propIconName');
@@ -1698,7 +1698,7 @@
             const iconPreviewEl = document.getElementById('propIconPreview');
             if (iconPreviewEl) {
                 iconPreviewEl.innerHTML = `
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                         <path d="${iconSvgPath}" />
                     </svg>
                 `;
