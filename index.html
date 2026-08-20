@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- HTML-to-Image for flawless PNG exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -90,13 +92,10 @@
 
             <div class="flex items-center space-x-2">
                 <button onclick="copySVGCode()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
-                    <i class="fa-regular fa-copy mr-1.5"></i>複製 SVG
+                    <i class="fa-regular fa-copy mr-1.5"></i>複製程式碼
                 </button>
-                <button onclick="exportPNG()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center shadow-sm">
-                    <i class="fa-regular fa-file-image mr-1.5"></i>匯出 PNG
-                </button>
-                <button onclick="exportSVG()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-download mr-1.5"></i>下載 SVG
+                <button onclick="openExportModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i>匯出圖表...
                 </button>
             </div>
         </div>
@@ -272,6 +271,62 @@
         </main>
     </div>
 
+    <!-- Export Options Modal (Hidden by default) -->
+    <div id="exportModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[400px] overflow-hidden transform scale-95 transition-transform duration-200" id="exportModalContent">
+            <div class="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-download text-blue-400 mr-2"></i>匯出工作流圖表</h3>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-5 space-y-5">
+                <!-- Format -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-2">檔案格式</label>
+                    <div class="flex space-x-2">
+                        <button id="expFmtPng" onclick="setExportFmt('png')" class="flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition"><i class="fa-solid fa-image mr-1.5"></i>高畫質 PNG</button>
+                        <button id="expFmtSvg" onclick="setExportFmt('svg')" class="flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition"><i class="fa-solid fa-vector-square mr-1.5"></i>向量 SVG</button>
+                    </div>
+                </div>
+
+                <!-- Area -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-2">匯出範圍</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition">
+                            <input type="radio" name="expArea" value="autofit" checked class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
+                            <div>
+                                <div class="text-sm font-medium text-slate-200">全圖自動裁切 (Auto Fit)</div>
+                                <div class="text-[10px] text-slate-500">自動包圍所有節點，去除多餘空白</div>
+                            </div>
+                        </label>
+                        <label class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition">
+                            <input type="radio" name="expArea" value="viewport" class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
+                            <div>
+                                <div class="text-sm font-medium text-slate-200">目前畫面範圍 (Viewport)</div>
+                                <div class="text-[10px] text-slate-500">僅匯出目前主視窗能看見的區域（包含縮放）</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Background -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-2">背景樣式</label>
+                    <select id="expBg" class="w-full bg-slate-900 px-3 py-2 rounded-lg border border-slate-700 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="transparent">透明背景 (Transparent)</option>
+                        <option value="theme">套用目前主題顏色 (Theme Base)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 bg-slate-900/50 border-t border-slate-700 flex justify-end space-x-3">
+                <button onclick="closeExportModal()" class="px-4 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition">取消</button>
+                <button onclick="confirmExport()" class="px-5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition">確認下載</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Hidden Canvas for PNG Export -->
     <canvas id="exportCanvas" class="hidden"></canvas>
 
@@ -367,6 +422,9 @@
         let dragStartY = 0;
         let nodeDragOffsetX = 0;
         let nodeDragOffsetY = 0;
+        
+        // Export State
+        let selectedExportFormat = 'png';
 
         window.onload = function() {
             setupCanvasInteractions();
@@ -458,6 +516,35 @@
             });
 
             window.addEventListener('mouseup', () => {
+                if (isDraggingNode && selectedNodeId) {
+                    // --- 新增功能：拖曳結束時偵測是否移入任何群組 ---
+                    const node = state.nodes.find(n => n.id === selectedNodeId);
+                    if (node) {
+                        const dropZones = getGroupDropZones(selectedNodeId);
+                        const nodeCX = node.x + NODE_W / 2;
+                        const nodeCY = node.y + NODE_H / 2;
+                        
+                        let targetGroup = '';
+                        // 反向遍歷（後蓋上的圖層優先判斷）
+                        for (let i = state.subgraphs.length - 1; i >= 0; i--) {
+                            const gid = state.subgraphs[i].id;
+                            const z = dropZones[gid];
+                            if (nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
+                                targetGroup = gid;
+                                break;
+                            }
+                        }
+                        
+                        // 若目標群組改變，則更新並提示
+                        if (node.group !== targetGroup) {
+                            node.group = targetGroup;
+                            showToast(targetGroup ? '已自動吸附至群組' : '已移出群組');
+                            if (activeTab === 'properties') refreshPropertiesPanel();
+                            renderDiagram(); // 重新計算外框
+                        }
+                    }
+                }
+
                 isDraggingNode = false;
                 isDraggingCanvas = false;
                 const viewport = document.getElementById('canvasViewport');
@@ -560,6 +647,40 @@
             panX = 0;
             panY = 0;
             updateCanvasTransform();
+        }
+
+        // 取得群組的「吸附偵測範圍」
+        function getGroupDropZones(draggedNodeId) {
+            const zones = {};
+            const pad = 30; // 邊緣容錯與填充
+            const topPad = 50; // 上方標題列空間
+
+            state.subgraphs.forEach(g => {
+                // 計算時排除正在被拖拽的節點，避免自己的範圍影響判斷
+                const groupNodes = state.nodes.filter(n => n.group === g.id && n.id !== draggedNodeId);
+                
+                if (groupNodes.length > 0) {
+                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
+                    groupNodes.forEach(n => {
+                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
+                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
+                    });
+                    zones[g.id] = {
+                        minX: gMinX - pad - 20,
+                        minY: gMinY - topPad - 20,
+                        maxX: gMaxX + pad + 20,
+                        maxY: gMaxY + pad + 20
+                    };
+                } else {
+                    // 空群組的虛擬範圍
+                    const gx = (g.x || 100) - pad;
+                    const gy = (g.y || 100) - topPad;
+                    zones[g.id] = {
+                        minX: gx - 20, minY: gy - 20, maxX: gx + 300 + 20, maxY: gy + 200 + 20
+                    };
+                }
+            });
+            return zones;
         }
 
         function toggleGridBackground() {
@@ -951,18 +1072,19 @@
                 const isSelected = selectedNodeId === n.id;
                 const selectedClass = isSelected ? 'node-selected' : '';
 
+                // 修改重點：使用 Inline-Style 替換 Tailwind Class，徹底解決 SVG 下載後跑版的問題
                 svgHtml += `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
                         ${renderNodeShape(n.shape, NODE_W, NODE_H, theme.nodeBg, nodeBorder)}
                         
                         <foreignObject width="${NODE_W}" height="${NODE_H}" x="0" y="0">
-                            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center px-4 space-x-3 overflow-hidden select-none" style="background:transparent;">
-                                <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-sm" style="background:${n.color || '#3b82f6'}20; color:${n.color || '#3b82f6'}">
-                                    <i class="fa-solid ${iconClass} text-[15px]"></i>
+                            <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: center; padding: 0 16px; width: 100%; height: 100%; box-sizing: border-box; background: transparent; user-select: none;">
+                                <div style="width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: ${n.color || '#3b82f6'}20; color: ${n.color || '#3b82f6'}; margin-right: 12px;">
+                                    <i class="fa-solid ${iconClass}" style="font-size: 16px;"></i>
                                 </div>
-                                <div class="flex-1 min-w-0 flex flex-col justify-center h-full pt-0.5">
-                                    <div class="text-[13px] font-bold truncate leading-tight" style="color:${theme.text}">${n.label}</div>
-                                    ${n.sub ? `<div class="text-[10px] truncate leading-tight mt-0.5" style="color:${theme.textSub}">${n.sub}</div>` : ''}
+                                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding-top: 2px;">
+                                    <div style="font-size: 13px; font-weight: 700; color: ${theme.text}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Inter', sans-serif; line-height: 1.2;">${n.label}</div>
+                                    ${n.sub ? `<div style="font-size: 10px; font-weight: 500; color: ${theme.textSub}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; font-family: 'Inter', sans-serif; line-height: 1.2;">${n.sub}</div>` : ''}
                                 </div>
                             </div>
                         </foreignObject>
@@ -1025,88 +1147,152 @@
             });
         }
 
-        function exportSVG() {
-            const svgEl = document.getElementById('workflowSvg');
-            if (!svgEl) return;
-            // Clean up transparent bg for svg export
-            const exportData = svgEl.outerHTML.replace('<rect width="100%" height="100%" fill="transparent" id="exportBg" />', '');
-            const blob = new Blob([exportData], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `workflow-figure-${Date.now()}.svg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('SVG 檔案下載完成！');
+        // --- Export Modal Controllers ---
+        function openExportModal() {
+            const modal = document.getElementById('exportModal');
+            const content = document.getElementById('exportModalContent');
+            modal.classList.remove('hidden');
+            // Trigger animation
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
         }
 
-        function exportPNG() {
-            const svgEl = document.getElementById('workflowSvg');
-            if (!svgEl) return;
+        function closeExportModal() {
+            const modal = document.getElementById('exportModal');
+            const content = document.getElementById('exportModalContent');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
 
-            // Temporarily set a solid background for PNG export based on theme
-            const bgRect = document.getElementById('exportBg');
-            const theme = THEMES[state.theme] || THEMES.academic;
-            bgRect.setAttribute('fill', theme.bg);
+        function setExportFmt(fmt) {
+            selectedExportFormat = fmt;
+            const btnPng = document.getElementById('expFmtPng');
+            const btnSvg = document.getElementById('expFmtSvg');
+            
+            if (fmt === 'png') {
+                btnPng.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
+                btnSvg.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+            } else {
+                btnSvg.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
+                btnPng.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+            }
+        }
 
-            // Hide selection ring for export
+        function confirmExport() {
+            const area = document.querySelector('input[name="expArea"]:checked').value;
+            const bg = document.getElementById('expBg').value;
+            
+            closeExportModal();
+            executeExport(selectedExportFormat, area, bg);
+        }
+
+        function executeExport(format, area, bgSetting) {
+            const originalSvg = document.getElementById('workflowSvg');
+            if (!originalSvg) return;
+
+            // Clear selection purely for export rendering
             const oldSelectedId = selectedNodeId;
             if (oldSelectedId) {
                 selectedNodeId = null;
                 renderDiagram(); 
             }
 
-            // small delay to ensure DOM updates
+            // Short timeout to ensure DOM updates applied
             setTimeout(() => {
-                const updatedSvgEl = document.getElementById('workflowSvg');
-                const svgData = new XMLSerializer().serializeToString(updatedSvgEl);
-                const canvas = document.getElementById('exportCanvas');
-                const ctx = canvas.getContext('2d');
-                const img = new Image();
+                const svgToExport = document.getElementById('workflowSvg').cloneNode(true);
+                const theme = THEMES[state.theme] || THEMES.academic;
+                const bgColor = bgSetting === 'theme' ? theme.bg : 'transparent';
+                
+                // Set Export Background
+                const bgRect = svgToExport.querySelector('#exportBg');
+                if (bgRect) {
+                    bgRect.setAttribute('fill', bgColor);
+                }
 
-                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(svgBlob);
-
-                img.onload = function() {
-                    const boundingBox = getNodesBoundingBox();
-                    // Crop the canvas to the content size with padding
+                // Calculate Area ViewBox
+                let exportW, exportH, viewBoxStr;
+                if (area === 'autofit') {
+                    const bbox = getNodesBoundingBox();
                     const pad = 50;
-                    const w = boundingBox.w + pad * 2;
-                    const h = boundingBox.h + pad * 2;
+                    exportW = bbox.w + pad * 2;
+                    exportH = bbox.h + pad * 2;
+                    viewBoxStr = `${bbox.x - pad} ${bbox.y - pad} ${exportW} ${exportH}`;
+                } else {
+                    // Viewport Area
+                    const vp = document.getElementById('canvasViewport');
+                    const viewW = vp.clientWidth;
+                    const viewH = vp.clientHeight;
+                    exportW = viewW / canvasZoom;
+                    exportH = viewH / canvasZoom;
+                    viewBoxStr = `${-panX/canvasZoom} ${-panY/canvasZoom} ${exportW} ${exportH}`;
+                }
 
-                    const scale = 2; // High-res
-                    canvas.width = w * scale;
-                    canvas.height = h * scale;
-                    
-                    ctx.scale(scale, scale);
-                    ctx.fillStyle = theme.bg;
-                    ctx.fillRect(0, 0, w, h);
-                    
-                    // Draw image offset by bounding box minX/minY
-                    ctx.drawImage(img, -boundingBox.x + pad, -boundingBox.y + pad);
+                // Apply to Clone
+                svgToExport.setAttribute('viewBox', viewBoxStr);
+                svgToExport.setAttribute('width', exportW);
+                svgToExport.setAttribute('height', exportH);
+                // Ensure proper XML namespaces for standalone usage
+                svgToExport.setAttribute('xmlns', "http://www.w3.org/2000/svg");
+                svgToExport.setAttribute('xmlns:xhtml', "http://www.w3.org/1999/xhtml");
 
-                    const pngUrl = canvas.toDataURL('image/png');
+                if (format === 'svg') {
+                    const svgData = new XMLSerializer().serializeToString(svgToExport);
+                    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.href = pngUrl;
-                    a.download = `workflow-figure-${Date.now()}.png`;
-                    document.body.appendChild(a);
+                    a.href = url;
+                    a.download = `workflow-${Date.now()}.svg`;
                     a.click();
-                    document.body.removeChild(a);
                     URL.revokeObjectURL(url);
+                    showToast('向量 SVG 下載完成！');
+                    restoreSelection();
+                } 
+                else if (format === 'png') {
+                    showToast('正在生成高解析度 PNG...', 'success');
                     
-                    // Restore state
-                    bgRect.setAttribute('fill', 'transparent');
-                    if (oldSelectedId) {
-                        selectedNodeId = oldSelectedId;
-                        renderDiagram();
-                    }
-                    showToast('高解析度 PNG 匯出完成！');
-                };
+                    // Create an invisible wrapper to render the SVG via html-to-image
+                    const wrapper = document.createElement('div');
+                    wrapper.style.position = 'absolute';
+                    wrapper.style.left = '-9999px';
+                    wrapper.style.width = exportW + 'px';
+                    wrapper.style.height = exportH + 'px';
+                    wrapper.appendChild(svgToExport);
+                    document.body.appendChild(wrapper);
 
-                img.src = url;
+                    htmlToImage.toPng(wrapper, {
+                        quality: 1,
+                        pixelRatio: 2, // High resolution (Retina) output
+                        backgroundColor: bgColor === 'transparent' ? null : bgColor
+                    })
+                    .then(function (dataUrl) {
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = `workflow-${Date.now()}.png`;
+                        a.click();
+                        document.body.removeChild(wrapper);
+                        showToast('高解析度 PNG 匯出完成！');
+                        restoreSelection();
+                    })
+                    .catch(function (error) {
+                        console.error('PNG Export failed:', error);
+                        showToast('PNG 匯出失敗，請檢查圖示資源存取權限', 'error');
+                        document.body.removeChild(wrapper);
+                        restoreSelection();
+                    });
+                }
             }, 50);
+
+            function restoreSelection() {
+                if (oldSelectedId) {
+                    selectedNodeId = oldSelectedId;
+                    renderDiagram();
+                }
+            }
         }
 
         function getNodesBoundingBox() {
