@@ -213,7 +213,18 @@
                                     <input type="checkbox" id="propShowIcon" onchange="updateSelectedNode('showIcon', this.checked); saveHistory();" class="mr-1 cursor-pointer">顯示
                                 </label>
                             </div>
-                            <input type="text" id="propIcon" placeholder="fa-brain" onchange="updateSelectedNode('icon', this.value); saveHistory();" class="w-full bg-slate-950 px-2.5 py-1.5 rounded border border-slate-700 text-sm text-slate-100 focus:border-blue-500 focus:outline-none">
+                            <div class="flex items-center space-x-2">
+                                <button type="button" onclick="openIconPicker()" class="flex-1 bg-slate-950 hover:bg-slate-900 border border-slate-700 hover:border-blue-500 px-3 py-2 rounded-lg flex items-center justify-between text-slate-200 transition group cursor-pointer shadow-sm">
+                                    <div class="flex items-center space-x-2">
+                                        <div id="propIconPreview" class="w-6 h-6 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs">
+                                            <i class="fa-solid fa-brain"></i>
+                                        </div>
+                                        <span id="propIconName" class="text-xs font-mono text-slate-300">fa-brain</span>
+                                    </div>
+                                    <span class="text-[11px] font-medium text-blue-400 group-hover:text-blue-300 flex items-center"><i class="fa-solid fa-shapes mr-1"></i>更換圖示</span>
+                                </button>
+                                <input type="hidden" id="propIcon" value="fa-brain">
+                            </div>
                         </div>
                         <div>
                             <label class="text-[11px] text-slate-400 block mb-1">主題色 (Color)</label>
@@ -414,6 +425,36 @@
         </div>
     </div>
 
+    <!-- Icon Picker Modal -->
+    <div id="iconPickerModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[580px] max-h-[85vh] flex flex-col overflow-hidden transform scale-95 transition-transform duration-200" id="iconPickerModalContent">
+            <div class="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-shapes text-blue-400 mr-2"></i>選擇組件圖示庫</h3>
+                <button onclick="closeIconPicker()" class="text-slate-400 hover:text-white transition p-1"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+            <!-- Search & Categories -->
+            <div class="p-4 border-b border-slate-700/80 bg-slate-900/30 space-y-2.5">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="iconSearchInput" placeholder="搜尋圖示 (例如: brain, data, cloud, server, user, lock, code...)" oninput="filterIconPicker(this.value)" class="w-full bg-slate-950 pl-8 pr-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 focus:border-blue-500 focus:outline-none">
+                </div>
+                <!-- Category Tabs -->
+                <div class="flex items-center space-x-1 overflow-x-auto pb-1" id="iconCategoryTabs">
+                    <button onclick="setIconCategory('all')" data-cat="all" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-blue-600 text-white font-medium transition">全部</button>
+                    <button onclick="setIconCategory('ai')" data-cat="ai" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition">AI / 運算</button>
+                    <button onclick="setIconCategory('data')" data-cat="data" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition">資料儲存</button>
+                    <button onclick="setIconCategory('cloud')" data-cat="cloud" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition">雲端網路</button>
+                    <button onclick="setIconCategory('security')" data-cat="security" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition">安全防護</button>
+                    <button onclick="setIconCategory('app')" data-cat="app" class="icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition">應用與運營</button>
+                </div>
+            </div>
+            <!-- Icons Grid Container -->
+            <div id="iconGridContainer" class="flex-1 overflow-y-auto p-4 grid grid-cols-4 sm:grid-cols-5 gap-2.5 max-h-[380px]">
+                <!-- Injected dynamically -->
+            </div>
+        </div>
+    </div>
+
     <!-- Hidden Canvas for PNG Export -->
     <canvas id="exportCanvas" class="hidden"></canvas>
 
@@ -529,20 +570,203 @@
 
         const SVG_ICONS = {
             'fa-database': 'M12 2C6.48 2 2 4.24 2 7v10c0 2.76 4.48 5 10 5s10-2.24 10-5V7c0-2.76-4.48-5-10-5zm0 18c-4.41 0-8-1.79-8-4v-2.26c1.88 1.41 4.7 2.26 8 2.26s6.12-.85 8-2.26V16c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4V7.74C5.88 9.15 8.7 10 12 10s6.12-.85 8-2.26V10c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4s3.59-4 8-4 8 1.79 8 4-3.59 4-8 4z',
+            'fa-server': 'M2 4h20v6H2zm0 10h20v6H2zm4-8h2v2H6zm0 10h2v2H6z',
+            'fa-hard-drive': 'M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-4h16v4zm0-6H4V6h16v6zM15 16h2v-2h-2v2zm-4 0h2v-2h-2v2z',
+            'fa-box-archive': 'M20 2H4c-1.1 0-2 .9-2 2v3c0 .55.45 1 1 1h1v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8h1c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zM9 12h6v2H9v-2z',
+            'fa-table': 'M3 3v18h18V3H3zm8 16H5v-6h6v6zm0-8H5V5h6v6zm8 8h-6v-6h6v6zm0-8h-6V5h6v6z',
+            'fa-file-lines': 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z',
+            'fa-folder-open': 'M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z',
             'fa-cloud': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z',
+            'fa-cloud-arrow-up': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z',
+            'fa-cloud-arrow-down': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 10v4H7l5 5 5-5h-3v-4h-4z',
+            'fa-globe': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
+            'fa-wifi': 'M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.64 0 6.96 1.43 9.42 3.77L12 19.46 2.58 11.27C5.04 8.93 8.36 7.5 12 7.5z',
+            'fa-tower-broadcast': 'M12 2c-1.1 0-2 .9-2 2v4.18C6.99 9.12 5 11.83 5 15c0 3.87 3.13 7 7 7s7-3.13 7-7c0-3.17-1.99-5.88-5-6.82V4c0-1.1-.9-2-2-2zm0 8c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5 2.24-5 5-5z',
+            'fa-share-nodes': 'M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z',
+            'fa-route': 'M19 15.18V7c0-2.21-1.79-4-4-4s-4 1.79-4 4v10c0 1.1-.9 2-2 2s-2-.9-2-2V8.82C8.16 8.4 9 7.3 9 6c0-1.66-1.34-3-3-3S3 4.34 3 6c0 1.3.84 2.4 2 2.82V17c0 2.21 1.79 4 4 4s4-1.79 4-4V7c0-1.1.9-2 2-2s2 .9 2 2v8.18c-1.16.41-2 1.51-2 2.82 0 1.66 1.34 3 3 3s3-1.34 3-3c0-1.31-.84-2.41-2-2.82z',
             'fa-cube': 'M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zM19 15.91v-6.7l-6 3.38v6.71l6-3.38z',
+            'fa-cubes': 'M19 13v6l-5 3v-6l5-3zm-7 4.2l5-3-5-3-5 3 5 3zm-7-1.2v6l5 3v-6l-5-3zm14-8v6l-5 3v-6l5-3zm-7 4.2l5-3-5-3-5 3 5 3zm-7-1.2v6l5 3v-6l-5-3z',
+            'fa-code': 'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z',
+            'fa-terminal': 'M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-12-3l3.5-3.5L8 8l1.4-1.4 4.9 4.9-4.9 4.9L8 15zm7 0h5v2h-5v-2z',
+            'fa-sliders': 'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z',
             'fa-filter': 'M3 4c0-.55.45-1 1-1h16c.55 0 1 .45 1 1 0 .21-.07.42-.19.58L14 13v6c0 .38-.2.72-.51.89l-3 1.5c-.39.2-.87.05-1.07-.34-.08-.16-.12-.34-.12-.55v-7.5L3.19 4.58C3.07 4.42 3 4.21 3 4z',
             'fa-microchip': 'M8 4h8v16H8z M4 6h2v2H4z M4 10h2v2H4z M4 14h2v2H4z M18 6h2v2h-2z M18 10h2v2h-2z M18 14h2v2h-2z',
             'fa-brain': 'M12 3c-2.76 0-5 2.24-5 5 0 .58.11 1.13.3 1.63C5.55 10.3 4 12.46 4 15c0 3.31 2.69 6 6 6 1.15 0 2.22-.32 3.14-.88.28.02.56.05.86.05 3.31 0 6-2.69 6-6 0-1.84-.83-3.47-2.14-4.57.1-.47.14-.95.14-1.43 0-2.76-2.24-5-5-5-.97 0-1.88.28-2.65.77C13.56 3.28 12.8 3 12 3z',
-            'fa-code-branch': 'M17 4c-1.66 0-3 1.34-3 3 0 1.31.83 2.44 2 2.83v2.34c0 1.54-1.14 2.91-2.67 3.09C11.51 15.47 10 14.1 10 12.33V6.5C10 4.01 7.99 2 5.5 2S1 4.01 1 6.5v8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3c0-1.31-.83-2.44-2-2.83v-5.34c0-1.54 1.14-2.91 2.67-3.09C9.49 8.53 11 9.9 11 11.67v5.83c0 2.49 2.01 4.5 4.5 4.5s4.5-2.01 4.5-4.5v-8c1.66 0 3-1.34 3-3s-1.34-3-3-3z',
-            'fa-cloud-arrow-up': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z',
-            'fa-mobile-screen': 'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4h10v14H7V4zm5 16c-.83 0-1.5-.67-1.5-1.5S11.17 17 12 17s1.5.67 1.5 1.5S12.83 20 12 20z',
+            'fa-robot': 'M19 10v9H5v-9h14m0-2H5c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-9c0-1.1-.9-2-2-2zM8.5 13a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 2a2 2 0 0 1 2 2v2h-4V4a2 2 0 0 1 2-2z',
+            'fa-dna': 'M20.5 4.5l-2-2c-.39-.39-1.02-.39-1.41 0l-3.3 3.3 3.41 3.41 3.3-3.3c.39-.39.39-1.02 0-1.41zM3.5 19.5l2 2c.39.39 1.02.39 1.41 0l3.3-3.3-3.41-3.41-3.3 3.3c-.39.39-.39 1.02 0 1.41z M9.17 6.42l1.41 1.41-4.24 4.25-1.42-1.42 4.25-4.24zm8.41 8.41l1.42 1.42-4.25 4.24-1.41-1.41 4.24-4.25z',
+            'fa-network-wired': 'M17 3H7c-1.1 0-2 .9-2 2v3c0 1.1.9 2 2 2h4v3H6c-1.1 0-2 .9-2 2v3c0 1.1.9 2 2 2h3v-2H6v-3h5v3H9v2h6v-2h-2v-3h5v3h-3v2h3c1.1 0 2-.9 2-2v-3c0-1.1-.9-2-2-2h-5v-3h4c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7 8V5h10v3H7z',
+            'fa-chart-pie': 'M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2 0v8.5l7.36 4.25C21.43 13.14 22 11.13 22 9c0-4.97-4.03-9-9-9z',
+            'fa-diagram-project': 'M19 13h-4V9h4v4zm-6-2h-2V7h2v4zm-4 4H5v-4h4v4zm-4-8H1V3h4v4zm14 12h-4v-4h4v4zm-6-2h-2v-4h2v4z',
+            'fa-bolt': 'M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C14.94 14.62 13 18.01 11 21z',
             'fa-shield-halved': 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z',
             'fa-key': 'M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+            'fa-lock': 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z',
+            'fa-user-shield': 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm7-9l-4 1.8v3.6c0 2.5 1.7 4.8 4 5.4 2.3-.6 4-2.9 4-5.4V6.8L19 5z',
+            'fa-fingerprint': 'M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 13.92 3 12.01 3c-1.9 0-3.63.42-5.54 1.4-.3.15-.66.04-.82-.25-.15-.3-.04-.66.25-.82C7.99 2.27 9.94 1.8 12.01 1.8c2.08 0 4.02.47 6.04 1.53.3.16.41.52.25.82-.11.21-.33.32-.49.32zM2.36 10.11c-.32 0-.61-.23-.66-.56-.05-.33.18-.64.51-.69 2.02-.31 3.99-.46 6.03-.46 3.65 0 7.15.54 10.42 1.62.32.11.5.45.39.77-.11.32-.45.5-.77.39-3.09-1.02-6.39-1.53-9.84-1.53-1.92 0-3.79.14-5.69.43-.07.02-.13.03-.39.03z',
+            'fa-code-branch': 'M17 4c-1.66 0-3 1.34-3 3 0 1.31.83 2.44 2 2.83v2.34c0 1.54-1.14 2.91-2.67 3.09C11.51 15.47 10 14.1 10 12.33V6.5C10 4.01 7.99 2 5.5 2S1 4.01 1 6.5v8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3c0-1.31-.83-2.44-2-2.83v-5.34c0-1.54 1.14-2.91 2.67-3.09C9.49 8.53 11 9.9 11 11.67v5.83c0 2.49 2.01 4.5 4.5 4.5s4.5-2.01 4.5-4.5v-8c1.66 0 3-1.34 3-3s-1.34-3-3-3z',
             'fa-user-gear': 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 7c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm-6 4c.22-.72 3.31-2 6-2 2.7 0 5.8 1.29 6 2H6zm16-4v-1h2v-2h-2V9h-2v2h-2v2h2v1h2z',
             'fa-cart-shopping': 'M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z',
+            'fa-mobile-screen': 'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4h10v14H7V4zm5 16c-.83 0-1.5-.67-1.5-1.5S11.17 17 12 17s1.5.67 1.5 1.5S12.83 20 12 20z',
+            'fa-bell': 'M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z',
+            'fa-envelope': 'M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z',
+            'fa-check-circle': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+            'fa-gear': 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+            'fa-layer-group': 'M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z',
             'default': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z'
         };
+
+        const ICON_REGISTRY = [
+            // AI & Compute
+            { key: 'fa-brain', name: 'AI / 類神經網絡', cat: 'ai', icon: 'fa-brain' },
+            { key: 'fa-microchip', name: '晶片 / 算力核心', cat: 'ai', icon: 'fa-microchip' },
+            { key: 'fa-robot', name: '機器人 / 自動化', cat: 'ai', icon: 'fa-robot' },
+            { key: 'fa-dna', name: '演算法 / 特徵提取', cat: 'ai', icon: 'fa-dna' },
+            { key: 'fa-network-wired', name: '網絡 / 分散架構', cat: 'ai', icon: 'fa-network-wired' },
+            { key: 'fa-chart-pie', name: '分析 / 模型分群', cat: 'ai', icon: 'fa-chart-pie' },
+            { key: 'fa-diagram-project', name: '管線 / 拓撲流程', cat: 'ai', icon: 'fa-diagram-project' },
+            { key: 'fa-bolt', name: '即時推論 / 觸發', cat: 'ai', icon: 'fa-bolt' },
+
+            // Data & Storage
+            { key: 'fa-database', name: 'SQL / 關聯資料庫', cat: 'data', icon: 'fa-database' },
+            { key: 'fa-server', name: '主機 / 伺服節點', cat: 'data', icon: 'fa-server' },
+            { key: 'fa-hard-drive', name: '硬碟 / 區塊儲存', cat: 'data', icon: 'fa-hard-drive' },
+            { key: 'fa-box-archive', name: '冷存儲 / 資料歸檔', cat: 'data', icon: 'fa-box-archive' },
+            { key: 'fa-table', name: '資料表 / 結構資料', cat: 'data', icon: 'fa-table' },
+            { key: 'fa-file-lines', name: '日誌 / 文字檔案', cat: 'data', icon: 'fa-file-lines' },
+            { key: 'fa-folder-open', name: '物件池 / 儲存桶', cat: 'data', icon: 'fa-folder-open' },
+            { key: 'fa-filter', name: '過濾器 / 資料清洗', cat: 'data', icon: 'fa-filter' },
+
+            // Cloud & Networking
+            { key: 'fa-cloud', name: '雲端 / 基礎設施', cat: 'cloud', icon: 'fa-cloud' },
+            { key: 'fa-cloud-arrow-up', name: '雲端上傳 / 發布', cat: 'cloud', icon: 'fa-cloud-arrow-up' },
+            { key: 'fa-cloud-arrow-down', name: '雲端同步 / 下載', cat: 'cloud', icon: 'fa-cloud-arrow-down' },
+            { key: 'fa-globe', name: '互聯網 / CDN', cat: 'cloud', icon: 'fa-globe' },
+            { key: 'fa-wifi', name: '物聯網 / 無線端', cat: 'cloud', icon: 'fa-wifi' },
+            { key: 'fa-tower-broadcast', name: '訊息廣播 / MQ', cat: 'cloud', icon: 'fa-tower-broadcast' },
+            { key: 'fa-share-nodes', name: '微服務通訊 / 拓撲', cat: 'cloud', icon: 'fa-share-nodes' },
+            { key: 'fa-route', name: '網關 / 路由分流', cat: 'cloud', icon: 'fa-route' },
+
+            // Security & Auth
+            { key: 'fa-shield-halved', name: '防火牆 / 安全盾', cat: 'security', icon: 'fa-shield-halved' },
+            { key: 'fa-key', name: '金鑰 / API Key', cat: 'security', icon: 'fa-key' },
+            { key: 'fa-lock', name: '密文 / 加密傳輸', cat: 'security', icon: 'fa-lock' },
+            { key: 'fa-user-shield', name: '身份驗證 / IAM', cat: 'security', icon: 'fa-user-shield' },
+            { key: 'fa-fingerprint', name: '生物辨識 / 零信任', cat: 'security', icon: 'fa-fingerprint' },
+
+            // Applications & Operations
+            { key: 'fa-cube', name: '微服務單元 (Pod)', cat: 'app', icon: 'fa-cube' },
+            { key: 'fa-cubes', name: '叢集容器 (K8s)', cat: 'app', icon: 'fa-cubes' },
+            { key: 'fa-code', name: '核心邏輯 / API', cat: 'app', icon: 'fa-code' },
+            { key: 'fa-terminal', name: 'CLI / 腳本執行', cat: 'app', icon: 'fa-terminal' },
+            { key: 'fa-sliders', name: '設定參數 / Config', cat: 'app', icon: 'fa-sliders' },
+            { key: 'fa-code-branch', name: 'Git 分支 / 條件判斷', cat: 'app', icon: 'fa-code-branch' },
+            { key: 'fa-user-gear', name: '管理員 / 系統設定', cat: 'app', icon: 'fa-user-gear' },
+            { key: 'fa-cart-shopping', name: '交易 / 電商服務', cat: 'app', icon: 'fa-cart-shopping' },
+            { key: 'fa-mobile-screen', name: 'App / 前端介面', cat: 'app', icon: 'fa-mobile-screen' },
+            { key: 'fa-bell', name: '告警 / 即時通知', cat: 'app', icon: 'fa-bell' },
+            { key: 'fa-envelope', name: '電子郵件服務', cat: 'app', icon: 'fa-envelope' },
+            { key: 'fa-check-circle', name: '健康檢查 / 通過', cat: 'app', icon: 'fa-check-circle' },
+            { key: 'fa-layer-group', name: '中介層 / 架構層', cat: 'app', icon: 'fa-layer-group' }
+        ];
+
+        let activeIconCategory = 'all';
+        let iconSearchQuery = '';
+
+        function openIconPicker() {
+            const modal = document.getElementById('iconPickerModal');
+            const content = document.getElementById('iconPickerModalContent');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                content.classList.add('scale-100');
+            }, 10);
+            document.getElementById('iconSearchInput').value = '';
+            iconSearchQuery = '';
+            renderIconGrid();
+        }
+
+        function closeIconPicker() {
+            const modal = document.getElementById('iconPickerModal');
+            const content = document.getElementById('iconPickerModalContent');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function setIconCategory(cat) {
+            activeIconCategory = cat;
+            document.querySelectorAll('.icon-cat-btn').forEach(btn => {
+                if (btn.getAttribute('data-cat') === cat) {
+                    btn.className = 'icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-blue-600 text-white font-medium transition';
+                } else {
+                    btn.className = 'icon-cat-btn text-[11px] px-2.5 py-1 rounded bg-slate-900 text-slate-400 hover:text-slate-200 transition';
+                }
+            });
+            renderIconGrid();
+        }
+
+        function filterIconPicker(val) {
+            iconSearchQuery = val.trim().toLowerCase();
+            renderIconGrid();
+        }
+
+        function renderIconGrid() {
+            const container = document.getElementById('iconGridContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const filtered = ICON_REGISTRY.filter(item => {
+                const matchCat = (activeIconCategory === 'all' || item.cat === activeIconCategory);
+                const matchSearch = !iconSearchQuery || item.key.toLowerCase().includes(iconSearchQuery) || item.name.toLowerCase().includes(iconSearchQuery);
+                return matchCat && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-8 text-center text-slate-500 text-xs">
+                        <i class="fa-solid fa-shapes text-2xl mb-2 block opacity-40"></i>
+                        找不到符合「${iconSearchQuery}」的圖示
+                    </div>
+                `;
+                return;
+            }
+
+            const currIcon = document.getElementById('propIcon') ? document.getElementById('propIcon').value : '';
+
+            filtered.forEach(item => {
+                const isSelected = (currIcon === item.key);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `p-2.5 rounded-xl border flex flex-col items-center justify-center text-center space-y-1.5 transition group cursor-pointer ${
+                    isSelected 
+                        ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-md ring-1 ring-blue-500/50' 
+                        : 'bg-slate-900/60 border-slate-700/70 hover:border-blue-500/80 hover:bg-slate-900 text-slate-300'
+                }`;
+                btn.onclick = () => selectIcon(item.key);
+                btn.innerHTML = `
+                    <div class="w-8 h-8 rounded-lg ${isSelected ? 'bg-blue-500/30' : 'bg-slate-800 group-hover:bg-blue-500/20'} flex items-center justify-center text-base transition">
+                        <i class="fa-solid ${item.icon}"></i>
+                    </div>
+                    <span class="text-[10px] text-slate-300 font-medium truncate w-full group-hover:text-white">${item.name}</span>
+                    <span class="text-[9px] font-mono text-slate-500 truncate w-full">${item.key.replace('fa-', '')}</span>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectIcon(iconKey) {
+            if (selectedNodeId) {
+                updateSelectedNode('icon', iconKey);
+                saveHistory();
+                refreshPropertiesPanel();
+                showToast(`已套用圖示「${iconKey}」`);
+            }
+            closeIconPicker();
+        }
 
         window.onload = function() {
             setupCanvasInteractions();
@@ -612,8 +836,10 @@
             }
         }
 
-        // Clipboard State
+        // Clipboard State (Supports Node & Group Deep Copy)
+        let clipboardType = null; // 'node' | 'group'
         let clipboardNode = null;
+        let clipboardGroup = null;
 
         function copySelectedNode() {
             if (!selectedNodeId) {
@@ -622,8 +848,34 @@
             }
             const node = state.nodes.find(n => n.id === selectedNodeId);
             if (!node) return;
+            clipboardType = 'node';
             clipboardNode = JSON.parse(JSON.stringify(node));
             showToast(`已複製「${node.label}」組件 (Ctrl+C)`);
+        }
+
+        function copySelectedGroup(gid) {
+            const targetGid = gid || selectedGroupId;
+            if (!targetGid) {
+                showToast('請先選取要複製的群組容器', 'warning');
+                return;
+            }
+            const rootGroup = state.subgraphs.find(g => g.id === targetGid);
+            if (!rootGroup) return;
+
+            const desc = getAllGroupDescendants(targetGid);
+            const subgraphs = [rootGroup, ...desc.subgraphs.filter(g => g.id !== targetGid)];
+            const nodes = desc.nodes;
+            const allIds = new Set([...subgraphs.map(g => g.id), ...nodes.map(n => n.id)]);
+            const internalEdges = state.edges.filter(e => allIds.has(e.from) && allIds.has(e.to));
+
+            clipboardType = 'group';
+            clipboardGroup = {
+                rootGroupId: targetGid,
+                subgraphs: JSON.parse(JSON.stringify(subgraphs)),
+                nodes: JSON.parse(JSON.stringify(nodes)),
+                edges: JSON.parse(JSON.stringify(internalEdges))
+            };
+            showToast(`已複製「${rootGroup.label}」群組 (含 ${nodes.length} 個節點與 ${internalEdges.length} 條連線)`);
         }
 
         function pasteNode() {
@@ -646,6 +898,74 @@
             showToast(`已貼上「${newNode.label}」組件 (Ctrl+V)`);
         }
 
+        function pasteGroup() {
+            if (!clipboardGroup) {
+                showToast('剪貼簿中沒有可貼上的群組容器', 'warning');
+                return;
+            }
+            const idMap = new Map();
+            const newSubgraphs = [];
+            const newNodes = [];
+            const newEdges = [];
+            const offset = 40;
+
+            // Map new IDs for subgraphs
+            clipboardGroup.subgraphs.forEach(g => {
+                const newId = 'sg_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
+                idMap.set(g.id, newId);
+                const cloneG = JSON.parse(JSON.stringify(g));
+                cloneG.id = newId;
+                if (g.id === clipboardGroup.rootGroupId) {
+                    cloneG.label = cloneG.label + ' (副本)';
+                }
+                if (cloneG.x !== undefined) cloneG.x += offset;
+                if (cloneG.y !== undefined) cloneG.y += offset;
+                newSubgraphs.push(cloneG);
+            });
+
+            // Update parent references for subgraphs
+            newSubgraphs.forEach(g => {
+                if (g.parent && idMap.has(g.parent)) {
+                    g.parent = idMap.get(g.parent);
+                }
+            });
+
+            // Map new IDs for nodes
+            clipboardGroup.nodes.forEach(n => {
+                const newId = 'n_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
+                idMap.set(n.id, newId);
+                const cloneN = JSON.parse(JSON.stringify(n));
+                cloneN.id = newId;
+                cloneN.x = (cloneN.x || 100) + offset;
+                cloneN.y = (cloneN.y || 100) + offset;
+                if (cloneN.group && idMap.has(cloneN.group)) {
+                    cloneN.group = idMap.get(cloneN.group);
+                }
+                newNodes.push(cloneN);
+            });
+
+            // Map internal edges
+            clipboardGroup.edges.forEach(e => {
+                if (idMap.has(e.from) && idMap.has(e.to)) {
+                    const cloneE = JSON.parse(JSON.stringify(e));
+                    cloneE.from = idMap.get(e.from);
+                    cloneE.to = idMap.get(e.to);
+                    newEdges.push(cloneE);
+                }
+            });
+
+            state.subgraphs.push(...newSubgraphs);
+            state.nodes.push(...newNodes);
+            state.edges.push(...newEdges);
+
+            const rootNewId = idMap.get(clipboardGroup.rootGroupId);
+            selectedGroupId = rootNewId;
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已貼上群組 (含 ${newNodes.length} 個節點與 ${newEdges.length} 條連線)`);
+        }
+
         window.addEventListener('keydown', function(e) {
             const activeEl = document.activeElement;
             const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
@@ -658,11 +978,19 @@
                         e.preventDefault();
                         copySelectedNode();
                         return;
+                    } else if (selectedGroupId) {
+                        e.preventDefault();
+                        copySelectedGroup(selectedGroupId);
+                        return;
                     }
                 }
                 else if ((e.key === 'v' || e.key === 'V') && !isInput) {
                     e.preventDefault();
-                    pasteNode();
+                    if (clipboardType === 'group') {
+                        pasteGroup();
+                    } else {
+                        pasteNode();
+                    }
                     return;
                 }
             }
@@ -880,7 +1208,7 @@
                                 const epB = getEndpointBounds(effTo);
                                 if (epA && epB) {
                                     const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
+                                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
                                     const pathEl = edgeEl.querySelector('.edge-path');
                                     if (pathEl) pathEl.setAttribute('d', pathData.d);
                                     const hitboxEl = edgeEl.querySelector('.edge-hitbox');
@@ -1269,7 +1597,17 @@
             
             document.getElementById('propLabel').value = node.label;
             document.getElementById('propSub').value = node.sub;
-            document.getElementById('propIcon').value = node.icon;
+            
+            const iconKey = node.icon || 'fa-cube';
+            document.getElementById('propIcon').value = iconKey;
+            const iconNameEl = document.getElementById('propIconName');
+            if (iconNameEl) iconNameEl.textContent = iconKey;
+            const iconPreviewEl = document.getElementById('propIconPreview');
+            if (iconPreviewEl) {
+                iconPreviewEl.innerHTML = `<i class="fa-solid ${iconKey}"></i>`;
+                iconPreviewEl.style.color = node.color || '#3b82f6';
+            }
+
             document.getElementById('propShowIcon').checked = node.showIcon !== false;
             document.getElementById('propColor').value = node.color;
             
@@ -1452,6 +1790,11 @@
                 const curArrow = e.arrow || 'end';
                 const curWidth = e.width || '';
 
+                const fromPort = e.fromPort || 'auto';
+                const toPort = e.toPort || 'auto';
+                const fromOffset = e.fromOffset || 0;
+                const toOffset = e.toOffset || 0;
+
                 item.innerHTML = `
                     <!-- Essential Row 1: From -> Swap(X) -> To + Delete -->
                     <div class="grid grid-cols-[1fr_auto_auto_1fr_auto] items-center gap-1 min-w-0">
@@ -1521,6 +1864,39 @@
                                 </select>
                             </div>
                         </div>
+
+                        <!-- Port Anchor & Offset Fine Tuning -->
+                        <div class="grid grid-cols-2 gap-1.5 bg-slate-950/60 p-1.5 rounded border border-slate-800">
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5">
+                                    <span class="text-[10px] text-slate-400">起點錨位</span>
+                                    <span class="text-[9px] text-blue-400 font-mono" id="fromOffsetVal_${idx}">${fromOffset > 0 ? '+'+fromOffset : fromOffset}px</span>
+                                </div>
+                                <select onchange="updateEdge(${idx}, 'fromPort', this.value); saveHistory();" class="w-full bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200 text-[10px] focus:outline-none mb-1">
+                                    <option value="auto" ${fromPort === 'auto' ? 'selected' : ''}>自動 (Auto)</option>
+                                    <option value="top" ${fromPort === 'top' ? 'selected' : ''}>上方 (Top)</option>
+                                    <option value="bottom" ${fromPort === 'bottom' ? 'selected' : ''}>下方 (Bottom)</option>
+                                    <option value="left" ${fromPort === 'left' ? 'selected' : ''}>左側 (Left)</option>
+                                    <option value="right" ${fromPort === 'right' ? 'selected' : ''}>右側 (Right)</option>
+                                </select>
+                                <input type="range" min="-30" max="30" value="${fromOffset}" oninput="updateEdge(${idx}, 'fromOffset', parseInt(this.value)); document.getElementById('fromOffsetVal_${idx}').innerText=(this.value > 0 ? '+'+this.value : this.value)+'px';" onchange="saveHistory();" class="w-full accent-blue-500 h-1 bg-slate-800 rounded cursor-pointer" title="起點偏移微調">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-0.5">
+                                    <span class="text-[10px] text-slate-400">終點錨位</span>
+                                    <span class="text-[9px] text-blue-400 font-mono" id="toOffsetVal_${idx}">${toOffset > 0 ? '+'+toOffset : toOffset}px</span>
+                                </div>
+                                <select onchange="updateEdge(${idx}, 'toPort', this.value); saveHistory();" class="w-full bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200 text-[10px] focus:outline-none mb-1">
+                                    <option value="auto" ${toPort === 'auto' ? 'selected' : ''}>自動 (Auto)</option>
+                                    <option value="top" ${toPort === 'top' ? 'selected' : ''}>上方 (Top)</option>
+                                    <option value="bottom" ${toPort === 'bottom' ? 'selected' : ''}>下方 (Bottom)</option>
+                                    <option value="left" ${toPort === 'left' ? 'selected' : ''}>左側 (Left)</option>
+                                    <option value="right" ${toPort === 'right' ? 'selected' : ''}>右側 (Right)</option>
+                                </select>
+                                <input type="range" min="-30" max="30" value="${toOffset}" oninput="updateEdge(${idx}, 'toOffset', parseInt(this.value)); document.getElementById('toOffsetVal_${idx}').innerText=(this.value > 0 ? '+'+this.value : this.value)+'px';" onchange="saveHistory();" class="w-full accent-blue-500 h-1 bg-slate-800 rounded cursor-pointer" title="終點偏移微調">
+                            </div>
+                        </div>
+
                         ${e.label ? `
                         <div class="flex items-center space-x-2 pt-1">
                             <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-arrows-left-right mr-1"></i>標籤位置: <b id="edgePosVal_${idx}" class="text-blue-400 font-mono">${curPos}%</b></span>
@@ -1580,7 +1956,10 @@
                         <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0">
                         <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-200 text-xs" placeholder="群組名稱">
                         <span class="text-[10px] px-1.5 py-0.5 rounded ${isCollapsed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'} shrink-0">${childNodeCount} 節點</span>
-                        <button onclick="removeGroup(${idx})" title="刪除群組" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        <button onclick="copySelectedGroup('${g.id}')" title="複製此群組與內含所有節點 (Ctrl+C)" class="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-slate-800 shrink-0 transition">
+                            <i class="fa-regular fa-copy text-xs"></i>
+                        </button>
+                        <button onclick="removeGroup(${idx})" title="刪除群組" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-[11px] text-slate-400 shrink-0"><i class="fa-solid fa-folder-tree mr-1"></i>上層群組:</span>
@@ -1768,31 +2147,123 @@
         }
 
         // --- Border Intersection & Geometry Calculation Helpers ---
-        function getBorderIntersection(pCenter, pTarget, box, shape = 'rect') {
-            const cx = box.cx !== undefined ? box.cx : box.x + box.w / 2;
-            const cy = box.cy !== undefined ? box.cy : box.y + box.h / 2;
+        function rayCircleIntersection(ox, oy, dx, dy, ccx, ccy, r) {
+            const fx = ox - ccx;
+            const fy = oy - ccy;
+            const a = dx * dx + dy * dy;
+            const b = 2 * (fx * dx + fy * dy);
+            const c = fx * fx + fy * fy - r * r;
+            const disc = b * b - 4 * a * c;
+            if (disc < 0) return null;
+            const t1 = (-b - Math.sqrt(disc)) / (2 * a);
+            const t2 = (-b + Math.sqrt(disc)) / (2 * a);
+            let t = t1 > 0 ? t1 : (t2 > 0 ? t2 : null);
+            if (t === null) return null;
+            return { x: ox + t * dx, y: oy + t * dy };
+        }
+
+        function raySegmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+            const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+            if (Math.abs(denom) < 0.0001) return null;
+            const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+            const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+            if (ua >= 0 && ub >= 0 && ub <= 1) {
+                return { x: x1 + ua * (x2 - x1), y: y1 + ua * (y2 - y1) };
+            }
+            return null;
+        }
+
+        function getBorderIntersection(pCenter, pTarget, box, shape = 'rect', port = 'auto', offset = 0) {
+            const cx = box.cx !== undefined ? box.cx : (box.x + box.w / 2);
+            const cy = box.cy !== undefined ? box.cy : (box.y + box.h / 2);
+            const w = box.w;
+            const h = box.h;
+            const halfW = w / 2;
+            const halfH = h / 2;
+            const ox = (offset && typeof offset === 'number') ? offset : 0;
+
+            // 1. Explicit Anchor Port Tuning
+            if (port && port !== 'auto') {
+                if (port === 'top') {
+                    if (shape === 'diamond') return { x: cx + ox, y: box.y };
+                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y };
+                }
+                if (port === 'bottom') {
+                    if (shape === 'diamond') return { x: cx + ox, y: box.y + h };
+                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h };
+                }
+                if (port === 'left') {
+                    if (shape === 'diamond') return { x: box.x, y: cy + ox };
+                    return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)) };
+                }
+                if (port === 'right') {
+                    if (shape === 'diamond') return { x: box.x + w, y: cy + ox };
+                    return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)) };
+                }
+            }
+
             const dx = pTarget.x - cx;
             const dy = pTarget.y - cy;
-            
             if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
-                return { x: cx, y: cy };
+                return { x: cx, y: cy - halfH };
             }
-            
+
+            // 2. Shape-Specific True Boundary Intersection
+
+            // Shape: Diamond (4 diagonal line segments)
             if (shape === 'diamond') {
-                const halfW = box.w / 2;
-                const halfH = box.h / 2;
                 const denom = Math.abs(dx) / (halfW || 1) + Math.abs(dy) / (halfH || 1);
                 const t = denom > 0 ? 1 / denom : 0;
-                return {
-                    x: cx + dx * t,
-                    y: cy + dy * t
-                };
+                return { x: cx + dx * t, y: cy + dy * t };
             }
-            
-            // Standard Box (Rectangle, Rounded Rect, Pill, Hexagon, Container)
-            const halfW = box.w / 2;
-            const halfH = box.h / 2;
-            
+
+            // Shape: Hexagon (6 polygon boundary segments, inset p = 22)
+            if (shape === 'hexagon') {
+                const p = 22;
+                const vertices = [
+                    { x: box.x + p, y: box.y },
+                    { x: box.x + w - p, y: box.y },
+                    { x: box.x + w, y: box.y + halfH },
+                    { x: box.x + w - p, y: box.y + h },
+                    { x: box.x + p, y: box.y + h },
+                    { x: box.x, y: box.y + halfH }
+                ];
+                for (let i = 0; i < 6; i++) {
+                    const v1 = vertices[i];
+                    const v2 = vertices[(i + 1) % 6];
+                    const hit = raySegmentIntersection(cx, cy, cx + dx, cy + dy, v1.x, v1.y, v2.x, v2.y);
+                    if (hit) return hit;
+                }
+            }
+
+            // Shape: Pill (Capsule: Horizontal top/bottom straight lines + Left/Right true circular arcs)
+            if (shape === 'pill') {
+                const r = halfH;
+                const straightHalfW = Math.max(0, halfW - r);
+                
+                if (Math.abs(dy) > 0.001) {
+                    const tTop = -halfH / dy;
+                    if (tTop > 0 && Math.abs(tTop * dx) <= straightHalfW) {
+                        return { x: cx + tTop * dx, y: box.y };
+                    }
+                    const tBottom = halfH / dy;
+                    if (tBottom > 0 && Math.abs(tBottom * dx) <= straightHalfW) {
+                        return { x: cx + tBottom * dx, y: box.y + h };
+                    }
+                }
+
+                if (dx > 0) {
+                    const arcCx = cx + straightHalfW;
+                    const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
+                    if (hit && hit.x >= arcCx) return hit;
+                } else if (dx < 0) {
+                    const arcCx = cx - straightHalfW;
+                    const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
+                    if (hit && hit.x <= arcCx) return hit;
+                }
+            }
+
+            // Default Box (Rectangle, Rounded Rect, Group Container)
             const tx = Math.abs(dx) > 0 ? halfW / Math.abs(dx) : Infinity;
             const ty = Math.abs(dy) > 0 ? halfH / Math.abs(dy) : Infinity;
             const t = Math.min(tx, ty);
@@ -1942,16 +2413,16 @@
             return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false, shape: 'rect' };
         }
 
-        function computeEdgePath(ep1, ep2, pairIndex = 0, totalInPair = 1, edgeType = 'bezier', labelPos = 0.5) {
+        function computeEdgePath(ep1, ep2, pairIndex = 0, totalInPair = 1, edgeType = 'bezier', labelPos = 0.5, fromPort = 'auto', toPort = 'auto', fromOffset = 0, toOffset = 0) {
             const b1 = getEndpointBounds(ep1);
             const b2 = getEndpointBounds(ep2);
             
             const center1 = { x: b1.cx, y: b1.cy };
             const center2 = { x: b2.cx, y: b2.cy };
             
-            // Edge-to-Edge Intersection Calculation (avoids center penetration & marker occlusion)
-            const p1 = getBorderIntersection(center1, center2, b1, b1.shape);
-            const p2 = getBorderIntersection(center2, center1, b2, b2.shape);
+            // Edge-to-Edge True Boundary Intersection with Port & Fine-Tuning Support
+            const p1 = getBorderIntersection(center1, center2, b1, b1.shape, fromPort, fromOffset);
+            const p2 = getBorderIntersection(center2, center1, b2, b2.shape, toPort, toOffset);
             
             const x1 = p1.x, y1 = p1.y;
             const x2 = p2.x, y2 = p2.y;
@@ -2262,7 +2733,7 @@
                 
                 if (epA && epB) {
                     const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
+                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
                     const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
                     const isEdgeSelected = selectedEdgeIdx === idx;
                     const strokeColor = isEdgeSelected ? '#60a5fa' : theme.edgeColor;
