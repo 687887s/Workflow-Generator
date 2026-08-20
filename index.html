@@ -752,11 +752,25 @@
         }
         
         function addGroup() {
+            const vp = document.getElementById('canvasViewport');
+            // 抓取當前畫布中心點
+            const centerPt = {
+                x: (vp.clientWidth/2 - panX) / canvasZoom,
+                y: (vp.clientHeight/2 - panY) / canvasZoom
+            };
+            
             const newId = 'sg_' + Date.now().toString().slice(-4);
-            state.subgraphs.push({ id: newId, label: '新群組區域', color: '#3b82f6' });
+            state.subgraphs.push({ 
+                id: newId, 
+                label: '新群組區域', 
+                color: '#10b981',
+                x: centerPt.x - 150, // 預設空群組 X
+                y: centerPt.y - 100  // 預設空群組 Y
+            });
             updateRelationsPanel();
             if(selectedNodeId) refreshPropertiesPanel(); // update group dropdown
             renderDiagram();
+            showToast('已新增群組！請點選節點修改「所屬群組」');
         }
         function updateGroup(idx, key, val) {
             state.subgraphs[idx][key] = val;
@@ -847,7 +861,7 @@
                         </filter>
                         <!-- Inline CSS to preserve styling on Export -->
                         <style>
-                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap');
+                            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
                             @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
                             text { font-family: 'Inter', sans-serif; }
                         </style>
@@ -862,6 +876,10 @@
             // Draw Subgraphs dynamically based on node positions
             state.subgraphs.forEach(g => {
                 const groupNodes = state.nodes.filter(n => n.group === g.id);
+                let gx, gy, gw, gh;
+                const pad = 24;
+                const topPad = 40;
+                
                 if(groupNodes.length > 0) {
                     let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
                     groupNodes.forEach(n => {
@@ -871,20 +889,29 @@
                         gMaxY = Math.max(gMaxY, n.y + NODE_H);
                     });
                     
-                    const pad = 24;
-                    const topPad = 40;
-                    const gx = gMinX - pad;
-                    const gy = gMinY - topPad;
-                    const gw = (gMaxX - gMinX) + pad*2;
-                    const gh = (gMaxY - gMinY) + pad + topPad;
+                    gx = gMinX - pad;
+                    gy = gMinY - topPad;
+                    gw = (gMaxX - gMinX) + pad*2;
+                    gh = (gMaxY - gMinY) + pad + topPad;
                     
-                    svgHtml += `
-                        <g transform="translate(${gx}, ${gy})">
-                            <rect width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
-                            <text x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
-                        </g>
-                    `;
+                    // 記錄最後的位置，以免群組清空時找不到座標
+                    g.x = gx + pad; 
+                    g.y = gy + topPad;
+                } else {
+                    // 空群組佔位符位置與大小
+                    gx = (g.x || 100) - pad;
+                    gy = (g.y || 100) - topPad;
+                    gw = 300;
+                    gh = 200;
                 }
+                    
+                svgHtml += `
+                    <g transform="translate(${gx}, ${gy})">
+                        <rect width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
+                        <text x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
+                        ${groupNodes.length === 0 ? `<text x="${gw/2}" y="${gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：請在節點「屬性」中指派至此群組</text>` : ''}
+                    </g>
+                `;
             });
 
             svgHtml += `</g><g id="edgesLayer">`;
@@ -1104,6 +1131,14 @@
                     minY = Math.min(minY, gMinY - 40);
                     maxX = Math.max(maxX, gMaxX + 24);
                     maxY = Math.max(maxY, gMaxY + 24);
+                } else {
+                    // 計算空群組邊界，防止匯出時被裁切
+                    const gx = (g.x || 100) - 24;
+                    const gy = (g.y || 100) - 40;
+                    minX = Math.min(minX, gx);
+                    minY = Math.min(minY, gy);
+                    maxX = Math.max(maxX, gx + 300);
+                    maxY = Math.max(maxY, gy + 200);
                 }
             });
             return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
