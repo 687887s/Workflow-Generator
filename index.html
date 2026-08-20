@@ -352,6 +352,31 @@
             <!-- Selection Overlay -->
             <div id="selectionBox" class="absolute border-2 border-blue-500 bg-blue-500/20 hidden pointer-events-none z-40"></div>
 
+            <!-- Floating Multi-Select Action Capsule Bar -->
+            <div id="multiSelectBar" class="absolute top-4 left-1/2 -translate-x-1/2 z-30 hidden items-center space-x-2 bg-slate-900/95 backdrop-blur border border-blue-500/60 rounded-full px-4 py-2 shadow-2xl transition-all duration-200">
+                <div class="flex items-center space-x-1.5 text-blue-400 text-xs font-semibold pr-2 border-r border-slate-700">
+                    <span id="multiSelectCount">2</span> 個已選中
+                </div>
+                <button onclick="connectSelectedNodes()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-full text-xs font-semibold flex items-center space-x-1.5 transition shadow-sm" title="依選取順序建立連線 (快捷鍵 L 或 C)">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    <span>建立連線 (L)</span>
+                </button>
+                <button onclick="connectSelectedNodesBidirectional()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-medium flex items-center space-x-1 transition" title="建立雙向互連">
+                    <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                    <span>雙向互連</span>
+                </button>
+                <button onclick="groupSelectedNodes()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-full text-xs font-medium flex items-center space-x-1 transition" title="將選取的節點打包為新群組">
+                    <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    <span>打包群組</span>
+                </button>
+                <button onclick="deleteSelectedMultiNodes()" class="p-1 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-full transition ml-1" title="批量刪除 (Delete)">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </button>
+                <button onclick="clearNodeSelection()" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-full transition" title="取消選取 (Esc)">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+
             <!-- Canvas Toolbar overlay -->
             <div class="absolute top-4 right-4 z-30 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
                 <button onclick="zoomCanvas(1.1)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition flex items-center justify-center" title="放大">
@@ -387,6 +412,76 @@
             <div id="toast" class="absolute bottom-6 right-6 bg-slate-800/95 border border-blue-500/50 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
                 <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
                 <span id="toastMsg" class="text-xs font-medium">訊息標題</span>
+            </div>
+
+            <!-- Custom Context Menu for Right-Click Interaction -->
+            <div id="contextMenu" class="fixed z-[999] hidden bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-xl shadow-2xl py-1.5 w-52 text-xs text-slate-200 transition-opacity duration-150 select-none">
+                <div id="ctxNodeOptions" class="space-y-0.5">
+                    <div id="ctxMultiHeader" class="px-3 py-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider border-b border-slate-800 mb-1 flex items-center justify-between">
+                        <span>節點操作</span>
+                        <span id="ctxSelectedCount" class="bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">1</span>
+                    </div>
+                    <button onclick="connectSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        <span class="flex-1 font-semibold">建立連線</span>
+                        <span class="text-[10px] text-slate-400 font-mono">L / C</span>
+                    </button>
+                    <button onclick="connectSelectedNodesBidirectional(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+                        <span class="flex-1">建立雙向互連</span>
+                    </button>
+                    <button onclick="groupSelectedNodes(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        <span class="flex-1">打包為群組</span>
+                    </button>
+                    <div class="h-[1px] bg-slate-800 my-1"></div>
+                    <button onclick="copySelectedNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <span class="flex-1">複製副本</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Ctrl+C</span>
+                    </button>
+                    <button onclick="deleteSelectedNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        <span class="flex-1">刪除節點</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Del</span>
+                    </button>
+                </div>
+                <div id="ctxEdgeOptions" class="space-y-0.5 hidden">
+                    <button onclick="swapConnectedNodes(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                        <span class="flex-1 font-semibold">反轉連線方向</span>
+                        <span class="text-[10px] text-slate-400 font-mono">X / S</span>
+                    </button>
+                    <button onclick="toggleSelectedEdgeStyle(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/></svg>
+                        <span class="flex-1">切換連線樣式 (平滑/直/折)</span>
+                    </button>
+                    <button onclick="removeEdge(selectedEdgeIdx); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-red-600 hover:text-white flex items-center space-x-2 text-red-400 transition">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        <span class="flex-1">刪除連線</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Del</span>
+                    </button>
+                </div>
+                <div id="ctxCanvasOptions" class="space-y-0.5 hidden">
+                    <button onclick="addNewNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        <span class="flex-1">新增組件節點</span>
+                    </button>
+                    <button onclick="addNewGroup(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                        <span class="flex-1">新增群組容器</span>
+                    </button>
+                    <button onclick="pasteNode(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <span class="flex-1">貼上剪貼簿內容</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Ctrl+V</span>
+                    </button>
+                    <div class="h-[1px] bg-slate-800 my-1"></div>
+                    <button onclick="centerView(); closeContextMenu();" class="w-full px-3 py-1.5 text-left hover:bg-blue-600 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+                        <span class="flex-1">置中畫布畫面</span>
+                    </button>
+                </div>
             </div>
         </main>
     </div>
@@ -602,12 +697,12 @@
         // Export State
         let selectedExportFormat = 'png';
 
-        // Custom Selection State
-        let appMode = 'drag'; 
-        let isSelectingArea = false;
-        let selectStartX = 0;
-        let selectStartY = 0;
-        let customExportBox = null;
+        // Multi-Selection State
+        let selectedNodeIds = new Set();
+        let selectedNodeOrder = [];
+        let multiDragStartPt = { x: 0, y: 0 };
+        let multiDragInitialNodes = [];
+        let multiDragDropZoneMap = {};
 
         // Official Lucide Raw Vector Database (Downloaded to Git assets/icons/ & Embedded for Instant Offline Zero-Config)
         const OFFICIAL_LUCIDE_ICONS = {
@@ -1045,7 +1140,19 @@
             }
             
             if (!isInput) {
-                if (e.key === 'x' || e.key === 'X' || e.key === 's' || e.key === 'S') {
+                if (e.key === 'l' || e.key === 'L' || (!e.ctrlKey && !e.metaKey && (e.key === 'c' || e.key === 'C') && selectedNodeOrder.length >= 2)) {
+                    e.preventDefault();
+                    connectSelectedNodes();
+                } else if (e.key === 'g' || e.key === 'G') {
+                    if (selectedNodeIds.size > 0) {
+                        e.preventDefault();
+                        groupSelectedNodes();
+                    }
+                } else if (e.key === 'Escape') {
+                    closeContextMenu();
+                    clearNodeSelection();
+                    selectGroup(null);
+                } else if (e.key === 'x' || e.key === 'X' || e.key === 's' || e.key === 'S') {
                     // Quick Swap shortcut for connected nodes / containers
                     if (selectedEdgeIdx !== null) {
                         e.preventDefault();
@@ -1058,7 +1165,10 @@
                         }
                     }
                 } else if (e.key === 'Delete' || e.key === 'Backspace') {
-                    if (selectedNodeId) {
+                    if (selectedNodeIds.size > 1) {
+                        e.preventDefault();
+                        deleteSelectedMultiNodes();
+                    } else if (selectedNodeId) {
                         e.preventDefault();
                         deleteSelectedNode();
                     } else if (selectedGroupId) {
@@ -1069,6 +1179,17 @@
                         removeEdge(selectedEdgeIdx);
                     }
                 }
+            }
+        });
+
+        function closeContextMenu() {
+            const ctxMenu = document.getElementById('contextMenu');
+            if (ctxMenu) ctxMenu.classList.add('hidden');
+        }
+
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('#contextMenu')) {
+                closeContextMenu();
             }
         });
 
@@ -1189,19 +1310,33 @@
                     return;
                 }
 
+                const isShift = e.shiftKey;
                 const nodeGroup = e.target.closest('.node-group');
                 const groupEl = e.target.closest('.group-container');
                 
                 if (nodeGroup) {
-                    isDraggingNode = true;
                     const nodeId = nodeGroup.getAttribute('data-id');
-                    selectNode(nodeId);
+                    if (isShift) {
+                        selectNode(nodeId, true);
+                    } else {
+                        if (!selectedNodeIds.has(nodeId)) {
+                            selectNode(nodeId, false);
+                        }
+                    }
+
+                    isDraggingNode = true;
+                    const pt = getMousePositionInSVG(e);
+                    multiDragStartPt = { x: pt.x, y: pt.y };
+                    multiDragInitialNodes = Array.from(selectedNodeIds).map(nid => {
+                        const n = state.nodes.find(x => x.id === nid);
+                        return n ? { node: n, startX: n.x, startY: n.y } : null;
+                    }).filter(Boolean);
 
                     const node = state.nodes.find(n => n.id === nodeId);
-                    const pt = getMousePositionInSVG(e);
-                    
-                    nodeDragOffsetX = pt.x - node.x;
-                    nodeDragOffsetY = pt.y - node.y;
+                    if (node) {
+                        nodeDragOffsetX = pt.x - node.x;
+                        nodeDragOffsetY = pt.y - node.y;
+                    }
                     
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-move');
@@ -1226,86 +1361,66 @@
                     dragStartY = e.clientY - panY;
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-grabbing');
-                    selectNode(null);
-                    selectGroup(null);
-                    if (selectedEdgeIdx !== null) {
-                        selectedEdgeIdx = null;
-                        updateRelationsPanel();
+                    if (!isShift) {
+                        clearNodeSelection();
+                        selectGroup(null);
+                        if (selectedEdgeIdx !== null) {
+                            selectedEdgeIdx = null;
+                            updateRelationsPanel();
+                        }
                     }
                 }
             });
 
-            // Fast local DOM updates during node drag (avoids re-building entire SVG)
-            function updateDraggedNodeDOM(nodeId, nx, ny) {
-                const nodeEl = document.querySelector(`.node-group[data-id="${nodeId}"]`);
-                if (nodeEl) {
-                    nodeEl.setAttribute('transform', `translate(${nx}, ${ny})`);
+            // Context Menu Handler for Right Click
+            viewport.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const nodeGroup = e.target.closest('.node-group');
+                const edgeGroup = e.target.closest('[data-edge-idx]');
+                const groupEl = e.target.closest('.group-container');
+
+                const ctxMenu = document.getElementById('contextMenu');
+                const ctxNode = document.getElementById('ctxNodeOptions');
+                const ctxEdge = document.getElementById('ctxEdgeOptions');
+                const ctxCanvas = document.getElementById('ctxCanvasOptions');
+                const multiHeader = document.getElementById('ctxMultiHeader');
+                const ctxSelectedCount = document.getElementById('ctxSelectedCount');
+
+                ctxNode.classList.add('hidden');
+                ctxEdge.classList.add('hidden');
+                ctxCanvas.classList.add('hidden');
+
+                if (nodeGroup) {
+                    const nodeId = nodeGroup.getAttribute('data-id');
+                    if (!selectedNodeIds.has(nodeId)) {
+                        selectNode(nodeId, false);
+                    }
+                    ctxNode.classList.remove('hidden');
+                    if (selectedNodeIds.size > 1) {
+                        multiHeader.classList.remove('hidden');
+                        if (ctxSelectedCount) ctxSelectedCount.innerText = selectedNodeIds.size;
+                    } else {
+                        multiHeader.classList.add('hidden');
+                    }
+                } else if (edgeGroup) {
+                    const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
+                    selectEdge(edgeIdx);
+                    ctxEdge.classList.remove('hidden');
+                } else {
+                    ctxCanvas.classList.remove('hidden');
                 }
 
-                const nodeMap = new Map();
-                state.nodes.forEach(n => nodeMap.set(n.id, n));
-                const draggedNode = nodeMap.get(nodeId);
-                const edgePairInfoMap = buildEdgePairIndexMap();
+                // Dynamic boundary positioning
+                const menuW = 210, menuH = 220;
+                let posX = e.clientX;
+                let posY = e.clientY;
+                if (posX + menuW > window.innerWidth) posX = window.innerWidth - menuW - 10;
+                if (posY + menuH > window.innerHeight) posY = window.innerHeight - menuH - 10;
 
-                // Update affected edges (either connected directly to the node or to affected groups)
-                state.edges.forEach((e, idx) => {
-                    const isDirectlyConnected = (e.from === nodeId || e.to === nodeId);
-                    const isGroupConnected = (draggedNode && draggedNode.group && (e.from === draggedNode.group || e.to === draggedNode.group));
-                    if (isDirectlyConnected || isGroupConnected) {
-                        const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
-                        if (edgeEl) {
-                            const effFrom = resolveEffectiveEndpointId(e.from);
-                            const effTo = resolveEffectiveEndpointId(e.to);
-                            if (effFrom && effTo && effFrom !== effTo) {
-                                const epA = getEndpointBounds(effFrom);
-                                const epB = getEndpointBounds(effTo);
-                                if (epA && epB) {
-                                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
-                                    const pathEl = edgeEl.querySelector('.edge-path');
-                                    if (pathEl) pathEl.setAttribute('d', pathData.d);
-                                    const hitboxEl = edgeEl.querySelector('.edge-hitbox');
-                                    if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
-                                    
-                                    const labelBg = edgeEl.querySelector('.edge-label-bg');
-                                    const labelText = edgeEl.querySelector('.edge-label-text');
-                                    if (labelBg && labelText) {
-                                        const labelLen = (e.label || '').length;
-                                        const boxW = Math.max(50, labelLen * 9 + 16);
-                                        labelBg.setAttribute('x', pathData.midX - boxW/2);
-                                        labelBg.setAttribute('y', pathData.midY - 12);
-                                        labelText.setAttribute('x', pathData.midX);
-                                        labelText.setAttribute('y', pathData.midY + 4);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // Update affected group bounds
-                if (draggedNode && draggedNode.group) {
-                    let currGid = draggedNode.group;
-                    while (currGid) {
-                        const groupEl = document.querySelector(`[data-group-id="${currGid}"]`);
-                        if (groupEl) {
-                            const box = getGroupBoundingBox(currGid);
-                            groupEl.setAttribute('transform', `translate(${box.gx}, ${box.gy})`);
-                            const rectEl = groupEl.querySelector('.group-rect');
-                            const headerEl = groupEl.querySelector('.group-header');
-                            if (rectEl) {
-                                rectEl.setAttribute('width', box.gw);
-                                rectEl.setAttribute('height', box.gh);
-                            }
-                            if (headerEl) {
-                                headerEl.setAttribute('width', box.gw);
-                            }
-                        }
-                        const gObj = state.subgraphs.find(x => x.id === currGid);
-                        currGid = gObj ? gObj.parent : null;
-                    }
-                }
-            }
+                ctxMenu.style.left = posX + 'px';
+                ctxMenu.style.top = posY + 'px';
+                ctxMenu.classList.remove('hidden');
+            });
 
             let dragRafId = null;
             let panRafId = null;
@@ -1323,20 +1438,21 @@
                     return;
                 }
 
-                if (isDraggingNode && selectedNodeId) {
-                    const node = state.nodes.find(n => n.id === selectedNodeId);
-                    if (node) {
-                        const pt = getMousePositionInSVG(e);
-                        // Grid snapping (10px)
-                        node.x = Math.round((pt.x - nodeDragOffsetX) / 10) * 10;
-                        node.y = Math.round((pt.y - nodeDragOffsetY) / 10) * 10;
-                        
-                        if (!dragRafId) {
-                            dragRafId = requestAnimationFrame(() => {
-                                updateDraggedNodeDOM(selectedNodeId, node.x, node.y);
-                                dragRafId = null;
-                            });
-                        }
+                if (isDraggingNode && multiDragInitialNodes.length > 0) {
+                    const pt = getMousePositionInSVG(e);
+                    const deltaX = Math.round((pt.x - multiDragStartPt.x) / 10) * 10;
+                    const deltaY = Math.round((pt.y - multiDragStartPt.y) / 10) * 10;
+
+                    multiDragInitialNodes.forEach(item => {
+                        item.node.x = item.startX + deltaX;
+                        item.node.y = item.startY + deltaY;
+                    });
+
+                    if (!dragRafId) {
+                        dragRafId = requestAnimationFrame(() => {
+                            renderDiagram();
+                            dragRafId = null;
+                        });
                     }
                 } else if (isDraggingGroup && selectedGroupId) {
                     const pt = getMousePositionInSVG(e);
@@ -1401,45 +1517,44 @@
                     return;
                 }
 
-                if (isDraggingNode && selectedNodeId) {
-                    const node = state.nodes.find(n => n.id === selectedNodeId);
-                    if (node) {
-                        const dropZones = getGroupDropZones(selectedNodeId);
-                        const dim = getNodeDimensions(node);
-                        const nodeCX = node.x + dim.w / 2;
-                        const nodeCY = node.y + dim.h / 2;
-                        
-                        // Collect all matched candidate groups
-                        const matchedGroups = [];
-                        state.subgraphs.forEach(g => {
-                            const z = dropZones[g.id];
-                            if (z && nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
-                                matchedGroups.push({
-                                    id: g.id,
-                                    depth: getGroupDepth(g.id),
-                                    area: (z.maxX - z.minX) * (z.maxY - z.minY)
-                                });
+                if (isDraggingNode && multiDragInitialNodes.length > 0) {
+                    // Check auto-snap for the primary dragged node
+                    if (selectedNodeId) {
+                        const node = state.nodes.find(n => n.id === selectedNodeId);
+                        if (node) {
+                            const dropZones = getGroupDropZones(selectedNodeId);
+                            const dim = getNodeDimensions(node);
+                            const nodeCX = node.x + dim.w / 2;
+                            const nodeCY = node.y + dim.h / 2;
+                            
+                            const matchedGroups = [];
+                            state.subgraphs.forEach(g => {
+                                const z = dropZones[g.id];
+                                if (z && nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
+                                    matchedGroups.push({
+                                        id: g.id,
+                                        depth: getGroupDepth(g.id),
+                                        area: (z.maxX - z.minX) * (z.maxY - z.minY)
+                                    });
+                                }
+                            });
+                            
+                            matchedGroups.sort((a, b) => b.depth - a.depth || a.area - b.area);
+                            const targetGroupId = matchedGroups.length > 0 ? matchedGroups[0].id : '';
+                            
+                            if (node.group !== targetGroupId) {
+                                node.group = targetGroupId;
+                                if (targetGroupId) {
+                                    const targetGroup = state.subgraphs.find(g => g.id === targetGroupId);
+                                    showToast(`已自動吸附至「${targetGroup ? targetGroup.label : '群組'}」`);
+                                } else {
+                                    showToast('已移出群組');
+                                }
                             }
-                        });
-                        
-                        // Deepest-Child-First sorting (highest depth first, then smallest bounding box)
-                        matchedGroups.sort((a, b) => b.depth - a.depth || a.area - b.area);
-                        const targetGroupId = matchedGroups.length > 0 ? matchedGroups[0].id : '';
-                        
-                        if (node.group !== targetGroupId) {
-                            node.group = targetGroupId;
-                            if (targetGroupId) {
-                                const targetGroup = state.subgraphs.find(g => g.id === targetGroupId);
-                                showToast(`已自動吸附至「${targetGroup ? targetGroup.label : '群組'}」`);
-                            } else {
-                                showToast('已移出群組');
-                            }
-                            if (activeTab === 'properties') refreshPropertiesPanel();
-                            renderDiagram();
-                        } else {
-                            renderDiagram();
                         }
                     }
+                    renderDiagram();
+                    if (activeTab === 'properties') refreshPropertiesPanel();
                     saveHistory();
                 } else if (isDraggingGroup) {
                     renderDiagram();
@@ -1450,6 +1565,7 @@
                 isDraggingGroup = false;
                 isDraggingCanvas = false;
                 selectedGroupId = null;
+                multiDragInitialNodes = [];
                 const viewport = document.getElementById('canvasViewport');
                 viewport.classList.remove('cursor-grabbing', 'cursor-move');
                 viewport.classList.add('cursor-grab');
@@ -1579,27 +1695,164 @@
             }
         }
 
-        function selectNode(id) {
-            selectedNodeId = id;
-            if (id) {
+        function selectNode(id, isShift = false) {
+            if (!id) {
+                selectedNodeIds.clear();
+                selectedNodeOrder = [];
+                selectedNodeId = null;
+            } else {
                 selectedGroupId = null;
                 selectedEdgeIdx = null;
+                if (isShift) {
+                    if (selectedNodeIds.has(id)) {
+                        selectedNodeIds.delete(id);
+                        selectedNodeOrder = selectedNodeOrder.filter(x => x !== id);
+                        selectedNodeId = selectedNodeOrder.length > 0 ? selectedNodeOrder[selectedNodeOrder.length - 1] : null;
+                    } else {
+                        selectedNodeIds.add(id);
+                        selectedNodeOrder.push(id);
+                        selectedNodeId = id;
+                    }
+                } else {
+                    selectedNodeIds = new Set([id]);
+                    selectedNodeOrder = [id];
+                    selectedNodeId = id;
+                }
             }
+            updateMultiSelectBar();
             renderDiagram(); 
             
-            if (id && activeTab !== 'properties') {
+            if (selectedNodeId && activeTab !== 'properties') {
                 switchSidebarTab('properties');
-            } else if (id && activeTab === 'properties') {
-                refreshPropertiesPanel();
-            } else if (!id && activeTab === 'properties') {
+            } else if (activeTab === 'properties') {
                 refreshPropertiesPanel();
             }
+        }
+
+        function clearNodeSelection() {
+            selectedNodeIds.clear();
+            selectedNodeOrder = [];
+            selectedNodeId = null;
+            updateMultiSelectBar();
+            renderDiagram();
+            if (activeTab === 'properties') refreshPropertiesPanel();
+        }
+
+        function updateMultiSelectBar() {
+            const bar = document.getElementById('multiSelectBar');
+            const countEl = document.getElementById('multiSelectCount');
+            if (!bar) return;
+            if (selectedNodeIds.size > 1) {
+                bar.classList.remove('hidden');
+                bar.classList.add('flex');
+                if (countEl) countEl.innerText = selectedNodeIds.size;
+            } else {
+                bar.classList.add('hidden');
+                bar.classList.remove('flex');
+            }
+        }
+
+        function connectSelectedNodes() {
+            if (selectedNodeOrder.length < 2) {
+                showToast('請按住 Shift 點選至少 2 個節點以建立連線', 'warning');
+                return;
+            }
+            let count = 0;
+            for (let i = 0; i < selectedNodeOrder.length - 1; i++) {
+                const fromId = selectedNodeOrder[i];
+                const toId = selectedNodeOrder[i + 1];
+                state.edges.push({
+                    from: fromId,
+                    to: toId,
+                    label: '',
+                    style: 'solid',
+                    type: 'bezier',
+                    labelPos: 0.5
+                });
+                count++;
+            }
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已快速建立 ${count} 條連線 (快捷鍵 L / C)`);
+        }
+
+        function connectSelectedNodesBidirectional() {
+            if (selectedNodeOrder.length < 2) {
+                showToast('請按住 Shift 點選至少 2 個節點以建立連線', 'warning');
+                return;
+            }
+            let count = 0;
+            for (let i = 0; i < selectedNodeOrder.length - 1; i++) {
+                const fromId = selectedNodeOrder[i];
+                const toId = selectedNodeOrder[i + 1];
+                state.edges.push({ from: fromId, to: toId, label: '', style: 'solid', type: 'bezier', labelPos: 0.5 });
+                state.edges.push({ from: toId, to: fromId, label: '', style: 'solid', type: 'bezier', labelPos: 0.5 });
+                count += 2;
+            }
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已建立 ${count} 條雙向互連線`);
+        }
+
+        function groupSelectedNodes() {
+            if (selectedNodeIds.size === 0) {
+                showToast('請先選取欲打包的節點', 'warning');
+                return;
+            }
+            const newId = 'sg_' + Date.now().toString().slice(-4);
+            const newGroup = {
+                id: newId,
+                label: '新群組區域',
+                color: '#6366f1',
+                parent: '',
+                collapsed: false,
+                x: 100,
+                y: 100
+            };
+            state.subgraphs.push(newGroup);
+            selectedNodeIds.forEach(nid => {
+                const n = state.nodes.find(x => x.id === nid);
+                if (n) n.group = newId;
+            });
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            refreshPropertiesPanel();
+            showToast(`已將 ${selectedNodeIds.size} 個節點打包為新群組 (G)`);
+        }
+
+        function deleteSelectedMultiNodes() {
+            if (selectedNodeIds.size === 0 && !selectedNodeId) return;
+            const idsToDelete = selectedNodeIds.size > 0 ? new Set(selectedNodeIds) : new Set([selectedNodeId]);
+            const count = idsToDelete.size;
+            state.nodes = state.nodes.filter(n => !idsToDelete.has(n.id));
+            state.edges = state.edges.filter(e => !idsToDelete.has(e.from) && !idsToDelete.has(e.to));
+            clearNodeSelection();
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已批量刪除 ${count} 個節點及相關連線`);
+        }
+
+        function toggleSelectedEdgeStyle() {
+            if (selectedEdgeIdx === null || !state.edges[selectedEdgeIdx]) return;
+            const edge = state.edges[selectedEdgeIdx];
+            const styles = ['bezier', 'straight', 'orthogonal'];
+            const currIdx = styles.indexOf(edge.type || 'bezier');
+            edge.type = styles[(currIdx + 1) % styles.length];
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            const names = { 'bezier': '平滑曲線', 'straight': '直線', 'orthogonal': '直角折線' };
+            showToast(`連線樣式已切換為「${names[edge.type]}」`);
         }
 
         function selectGroup(gid) {
             selectedGroupId = gid;
             if (gid) {
-                selectedNodeId = null;
+                clearNodeSelection();
                 selectedEdgeIdx = null;
             }
             renderDiagram();
@@ -1646,10 +1899,14 @@
         }
 
         function deleteSelectedNode() {
+            if (selectedNodeIds.size > 1) {
+                deleteSelectedMultiNodes();
+                return;
+            }
             if(!selectedNodeId) return;
             state.nodes = state.nodes.filter(n => n.id !== selectedNodeId);
             state.edges = state.edges.filter(e => e.from !== selectedNodeId && e.to !== selectedNodeId);
-            selectedNodeId = null;
+            clearNodeSelection();
             
             saveHistory();
             renderDiagram();
@@ -2584,15 +2841,30 @@
             const dist = Math.hypot(dx, dy) || 1;
             const t = Math.max(0.08, Math.min(0.92, labelPos !== undefined ? labelPos : 0.5));
 
-            // 1. Straight Line
+            // Canonical Base Normal Orientation: ensure X->Y and Y->X offset symmetrically in absolute world space
+            const id1 = String(b1.id || (typeof ep1 === 'string' ? ep1 : (ep1 && ep1.id ? ep1.id : '')));
+            const id2 = String(b2.id || (typeof ep2 === 'string' ? ep2 : (ep2 && ep2.id ? ep2.id : '')));
+            const isForward = id1 <= id2;
+            const baseSign = isForward ? 1 : -1;
+
+            const perpX = (-dy / dist) * baseSign;
+            const perpY = (dx / dist) * baseSign;
+            const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
+            const routeOffset = totalInPair > 1 ? offsetMultiplier * 18 : 0;
+
+            // 1. Straight Line with Adaptive Parallel Route Separation
             if (edgeType === 'straight') {
-                const d = `M ${x1} ${y1} L ${x2} ${y2}`;
-                const midX = x1 + dx * t;
-                const midY = y1 + dy * t;
+                const sx1 = x1 + perpX * routeOffset;
+                const sy1 = y1 + perpY * routeOffset;
+                const sx2 = x2 + perpX * routeOffset;
+                const sy2 = y2 + perpY * routeOffset;
+                const d = `M ${sx1} ${sy1} L ${sx2} ${sy2}`;
+                const midX = sx1 + (sx2 - sx1) * t;
+                const midY = sy1 + (sy2 - sy1) * t;
                 return { d, midX, midY };
             }
 
-            // 2. Orthogonal Step Line with Normal Guidance
+            // 2. Orthogonal Step Line with Adaptive Layered Offsetting
             if (edgeType === 'orthogonal') {
                 let d = '';
                 let midX = x1 + dx * t, midY = y1 + dy * t;
@@ -2600,13 +2872,13 @@
 
                 if (side1 === 'top' || side1 === 'bottom') {
                     const stepY = (side1 === 'top' ? -1 : 1) * Math.min(30, Math.max(16, Math.abs(dy) / 2));
-                    const midY1 = y1 + stepY;
+                    const midY1 = y1 + stepY + routeOffset;
                     d = `M ${x1} ${y1} L ${x1} ${midY1} L ${x2} ${midY1} L ${x2} ${y2}`;
                     midX = x1 + dx * t;
                     midY = midY1;
                 } else {
                     const stepX = (side1 === 'left' ? -1 : 1) * Math.min(30, Math.max(16, Math.abs(dx) / 2));
-                    const midX1 = x1 + stepX;
+                    const midX1 = x1 + stepX + routeOffset;
                     d = `M ${x1} ${y1} L ${midX1} ${y1} L ${midX1} ${y2} L ${x2} ${y2}`;
                     midX = midX1;
                     midY = y1 + dy * t;
@@ -2629,17 +2901,7 @@
                 cp2x = x2 + n2x * curvature;
                 cp2y = y2 + n2y * curvature;
             } else {
-                // Canonical Base Normal Orientation: ensure X->Y and Y->X curve symmetrically in absolute world space
-                const id1 = String(b1.id || (typeof ep1 === 'string' ? ep1 : (ep1 && ep1.id ? ep1.id : '')));
-                const id2 = String(b2.id || (typeof ep2 === 'string' ? ep2 : (ep2 && ep2.id ? ep2.id : '')));
-                const isForward = id1 <= id2;
-                const baseSign = isForward ? 1 : -1;
-
-                const perpX = (-dy / dist) * baseSign;
-                const perpY = (dx / dist) * baseSign;
-                const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
                 const curveOffset = offsetMultiplier * 50;
-
                 cp1x = x1 + n1x * curvature + perpX * curveOffset;
                 cp1y = y1 + n1y * curvature + perpY * curveOffset;
                 cp2x = x2 + n2x * curvature + perpX * curveOffset;
@@ -2898,7 +3160,7 @@
                 const w = dim.w;
                 const h = dim.h;
                 const nodeBorder = n.color || theme.nodeBorder;
-                const isSelected = selectedNodeId === n.id;
+                const isSelected = selectedNodeIds.has(n.id) || selectedNodeId === n.id;
                 const selectedClass = isSelected ? 'node-selected' : '';
                 const iconColor = n.color || '#3b82f6';
                 
