@@ -49,6 +49,11 @@
             stroke-width: 3px !important;
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
         }
+        .group-container { transition: all 0.2s ease-out; }
+        .group-collapsed:hover .group-rect {
+            stroke-width: 2.5px;
+            filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
+        }
     </style>
 </head>
 <body class="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden">
@@ -61,7 +66,7 @@
             </div>
             <div>
                 <h1 class="text-base font-bold text-white leading-tight">Workflow Figure Builder</h1>
-                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器</p>
+                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器 <span class="hidden md:inline-block ml-2 px-1.5 py-0.5 rounded bg-slate-700/60 text-[10px] text-slate-300"><i class="fa-solid fa-keyboard mr-1 text-blue-400"></i>[X] 交換順序 | [雙擊群組] 收折/展開</span></p>
             </div>
         </div>
 
@@ -603,9 +608,36 @@
         }
 
         window.addEventListener('keydown', function(e) {
+            const activeEl = document.activeElement;
+            const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+            
             if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); }
-                else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); }
+                if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); return; }
+                else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); return; }
+            }
+            
+            if (!isInput) {
+                if (e.key === 'x' || e.key === 'X' || e.key === 's' || e.key === 'S') {
+                    // Quick Swap shortcut for connected nodes / containers
+                    if (selectedEdgeIdx !== null) {
+                        e.preventDefault();
+                        swapConnectedNodes(selectedEdgeIdx);
+                    } else if (selectedNodeId) {
+                        const connectedEdgeIdx = state.edges.findIndex(ed => ed.from === selectedNodeId || ed.to === selectedNodeId);
+                        if (connectedEdgeIdx !== -1) {
+                            e.preventDefault();
+                            swapConnectedNodes(connectedEdgeIdx);
+                        }
+                    }
+                } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                    if (selectedNodeId) {
+                        e.preventDefault();
+                        deleteSelectedNode();
+                    } else if (selectedEdgeIdx !== null) {
+                        e.preventDefault();
+                        removeEdge(selectedEdgeIdx);
+                    }
+                }
             }
         });
 
@@ -781,25 +813,29 @@
                     if (isDirectlyConnected || isGroupConnected) {
                         const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
                         if (edgeEl) {
-                            const epA = getEndpointBounds(e.from);
-                            const epB = getEndpointBounds(e.to);
-                            if (epA && epB) {
-                                const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                                const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
-                                const pathEl = edgeEl.querySelector('.edge-path');
-                                if (pathEl) pathEl.setAttribute('d', pathData.d);
-                                const hitboxEl = edgeEl.querySelector('.edge-hitbox');
-                                if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
-                                
-                                const labelBg = edgeEl.querySelector('.edge-label-bg');
-                                const labelText = edgeEl.querySelector('.edge-label-text');
-                                if (labelBg && labelText) {
-                                    const labelLen = (e.label || '').length;
-                                    const boxW = Math.max(50, labelLen * 9 + 16);
-                                    labelBg.setAttribute('x', pathData.midX - boxW/2);
-                                    labelBg.setAttribute('y', pathData.midY - 12);
-                                    labelText.setAttribute('x', pathData.midX);
-                                    labelText.setAttribute('y', pathData.midY + 4);
+                            const effFrom = resolveEffectiveEndpointId(e.from);
+                            const effTo = resolveEffectiveEndpointId(e.to);
+                            if (effFrom && effTo && effFrom !== effTo) {
+                                const epA = getEndpointBounds(effFrom);
+                                const epB = getEndpointBounds(effTo);
+                                if (epA && epB) {
+                                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos);
+                                    const pathEl = edgeEl.querySelector('.edge-path');
+                                    if (pathEl) pathEl.setAttribute('d', pathData.d);
+                                    const hitboxEl = edgeEl.querySelector('.edge-hitbox');
+                                    if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
+                                    
+                                    const labelBg = edgeEl.querySelector('.edge-label-bg');
+                                    const labelText = edgeEl.querySelector('.edge-label-text');
+                                    if (labelBg && labelText) {
+                                        const labelLen = (e.label || '').length;
+                                        const boxW = Math.max(50, labelLen * 9 + 16);
+                                        labelBg.setAttribute('x', pathData.midX - boxW/2);
+                                        labelBg.setAttribute('y', pathData.midY - 12);
+                                        labelText.setAttribute('x', pathData.midX);
+                                        labelText.setAttribute('y', pathData.midY + 4);
+                                    }
                                 }
                             }
                         }
@@ -1222,6 +1258,79 @@
             }, 60);
         }
 
+        function swapConnectedNodes(edgeIdx) {
+            if (edgeIdx < 0 || edgeIdx >= state.edges.length) return;
+            const edge = state.edges[edgeIdx];
+            const nodeA = state.nodes.find(n => n.id === edge.from);
+            const nodeB = state.nodes.find(n => n.id === edge.to);
+            const groupA = state.subgraphs.find(g => g.id === edge.from);
+            const groupB = state.subgraphs.find(g => g.id === edge.to);
+            
+            const labelA = nodeA ? nodeA.label : (groupA ? groupA.label : edge.from);
+            const labelB = nodeB ? nodeB.label : (groupB ? groupB.label : edge.to);
+            
+            // Swap canvas coordinates
+            if (nodeA && nodeB) {
+                const tempX = nodeA.x;
+                const tempY = nodeA.y;
+                nodeA.x = nodeB.x;
+                nodeA.y = nodeB.y;
+                nodeB.x = tempX;
+                nodeB.y = tempY;
+            } else if (groupA && groupB) {
+                const tempX = groupA.x !== undefined ? groupA.x : 100;
+                const tempY = groupA.y !== undefined ? groupA.y : 100;
+                groupA.x = groupB.x !== undefined ? groupB.x : 100;
+                groupA.y = groupB.y !== undefined ? groupB.y : 100;
+                groupB.x = tempX;
+                groupB.y = tempY;
+            } else if (nodeA && groupB) {
+                const tempX = nodeA.x;
+                const tempY = nodeA.y;
+                nodeA.x = groupB.x !== undefined ? groupB.x : 100;
+                nodeA.y = groupB.y !== undefined ? groupB.y : 100;
+                groupB.x = tempX;
+                groupB.y = tempY;
+            } else if (groupA && nodeB) {
+                const tempX = groupA.x !== undefined ? groupA.x : 100;
+                const tempY = groupA.y !== undefined ? groupA.y : 100;
+                groupA.x = nodeB.x;
+                groupA.y = nodeB.y;
+                nodeB.x = tempX;
+                nodeB.y = tempY;
+            }
+
+            // Also swap direction of edge
+            const tempFrom = edge.from;
+            edge.from = edge.to;
+            edge.to = tempFrom;
+            
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(`已快速交換「${labelA}」與「${labelB}」的順序與位置 (快速鍵: X)`);
+        }
+
+        function toggleGroupCollapse(gid) {
+            const g = state.subgraphs.find(x => x.id === gid);
+            if (!g) return;
+            g.collapsed = !g.collapsed;
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(g.collapsed ? `已收折「${g.label}」容器` : `已展開「${g.label}」容器`);
+        }
+
+        function toggleAllGroupsCollapse(collapse) {
+            state.subgraphs.forEach(g => {
+                g.collapsed = collapse;
+            });
+            saveHistory();
+            renderDiagram();
+            updateRelationsPanel();
+            showToast(collapse ? '已收折全部群組' : '已展開全部群組');
+        }
+
         function updateRelationsPanel() {
             const edgesContainer = document.getElementById('edgesList');
             edgesContainer.innerHTML = '';
@@ -1258,8 +1367,8 @@
                     nodeOptionsFrom += '<optgroup label="群組 (Group)">';
                     nodeOptionsTo += '<optgroup label="群組 (Group)">';
                     state.subgraphs.forEach(g => {
-                        nodeOptionsFrom += `<option value="${g.id}" ${e.from === g.id ? 'selected' : ''}>[群組] ${g.label}</option>`;
-                        nodeOptionsTo += `<option value="${g.id}" ${e.to === g.id ? 'selected' : ''}>[群組] ${g.label}</option>`;
+                        nodeOptionsFrom += `<option value="${g.id}" ${e.from === g.id ? 'selected' : ''}>[群組] ${g.label}${g.collapsed ? ' (已收折)' : ''}</option>`;
+                        nodeOptionsTo += `<option value="${g.id}" ${e.to === g.id ? 'selected' : ''}>[群組] ${g.label}${g.collapsed ? ' (已收折)' : ''}</option>`;
                     });
                     nodeOptionsFrom += '</optgroup>';
                     nodeOptionsTo += '</optgroup>';
@@ -1271,15 +1380,18 @@
                 const curWidth = e.width || '';
 
                 item.innerHTML = `
-                    <div class="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5 min-w-0">
-                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1.5 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
+                    <div class="grid grid-cols-[1fr_auto_auto_1fr_auto] items-center gap-1 min-w-0">
+                        <select onchange="updateEdge(${idx}, 'from', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsFrom}
                         </select>
+                        <button onclick="swapConnectedNodes(${idx}); event.stopPropagation();" title="交換相連兩端順序與位置 (快速鍵: X)" class="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-slate-800 shrink-0 transition">
+                            <i class="fa-solid fa-arrow-right-arrow-left text-[10px]"></i>
+                        </button>
                         <i class="fa-solid fa-arrow-right text-slate-500 text-[10px] shrink-0"></i>
-                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1.5 py-1.5 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
+                        <select onchange="updateEdge(${idx}, 'to', this.value); saveHistory();" class="min-w-0 w-full bg-slate-950 px-1 py-1 rounded border border-slate-700 text-slate-200 focus:outline-none truncate text-[11px]">
                             ${nodeOptionsTo}
                         </select>
-                        <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1.5 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="removeEdge(${idx}); event.stopPropagation();" title="刪除連線" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
                     <div class="grid grid-cols-[1fr_80px_65px] gap-1.5">
                         <input type="text" value="${e.label || ''}" placeholder="連線標籤 (選填)" onchange="updateEdge(${idx}, 'label', this.value); saveHistory();" class="bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 min-w-0 text-[11px] focus:border-blue-500 focus:outline-none">
@@ -1327,13 +1439,33 @@
             const groupsContainer = document.getElementById('groupsList');
             groupsContainer.innerHTML = '';
             
+            // Header for groups management with collapse-all and expand-all
+            const groupsHeader = document.createElement('div');
+            groupsHeader.className = 'flex items-center justify-between pb-1';
+            groupsHeader.innerHTML = `
+                <span class="text-[11px] text-slate-400">群組容器收折控制</span>
+                <div class="flex items-center space-x-1">
+                    <button onclick="toggleAllGroupsCollapse(true)" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 transition" title="收折所有群組"><i class="fa-solid fa-compress mr-1"></i>全收折</button>
+                    <button onclick="toggleAllGroupsCollapse(false)" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 transition" title="展開所有群組"><i class="fa-solid fa-expand mr-1"></i>全展開</button>
+                </div>
+            `;
+            groupsContainer.appendChild(groupsHeader);
+
             if(state.subgraphs.length === 0) {
-                groupsContainer.innerHTML = `<div class="text-xs text-slate-500 py-2">目前沒有群組。</div>`;
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'text-xs text-slate-500 py-2';
+                emptyMsg.innerText = '目前沒有群組。';
+                groupsContainer.appendChild(emptyMsg);
             }
             
             state.subgraphs.forEach((g, idx) => {
                 const item = document.createElement('div');
-                item.className = 'bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+                const isCollapsed = !!g.collapsed;
+                item.className = `p-2.5 rounded-lg border space-y-2 text-xs transition ${
+                    isCollapsed 
+                        ? 'bg-slate-900/90 border-emerald-500/50' 
+                        : 'bg-slate-900/50 border-slate-700/60'
+                }`;
                 
                 // Parent group options (exclude self and own descendants to avoid cyclic references)
                 const validParentOptions = state.subgraphs
@@ -1341,11 +1473,17 @@
                     .map(other => `<option value="${other.id}" ${g.parent === other.id ? 'selected' : ''}>↳ ${other.label}</option>`)
                     .join('');
 
+                const childNodeCount = state.nodes.filter(n => n.group === g.id).length;
+
                 item.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0">
-                        <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1.5 rounded border border-slate-700 text-slate-200" placeholder="群組名稱">
-                        <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="toggleGroupCollapse('${g.id}')" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-${isCollapsed ? 'emerald-400' : 'slate-400'} shrink-0 transition" title="${isCollapsed ? '點擊展開群組' : '點擊收折群組'}">
+                            <i class="fa-solid fa-${isCollapsed ? 'chevron-right' : 'chevron-down'} text-[11px] w-3 text-center"></i>
+                        </button>
+                        <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0">
+                        <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-200 text-xs" placeholder="群組名稱">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded ${isCollapsed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'} shrink-0">${childNodeCount} 節點</span>
+                        <button onclick="removeGroup(${idx})" title="刪除群組" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-[11px] text-slate-400 shrink-0"><i class="fa-solid fa-folder-tree mr-1"></i>上層群組:</span>
@@ -1394,6 +1532,7 @@
                 label: '新群組區域', 
                 color: '#10b981',
                 parent: '',
+                collapsed: false,
                 x: centerPt.x - 150,
                 y: centerPt.y - 100
             });
@@ -1401,7 +1540,7 @@
             updateRelationsPanel();
             if(selectedNodeId) refreshPropertiesPanel();
             renderDiagram();
-            showToast('已新增群組！可設定「上層群組」以進行嵌套');
+            showToast('已新增群組！可設定「上層群組」以進行嵌套，雙擊群組可收折');
         }
         function updateGroup(idx, key, val) {
             state.subgraphs[idx][key] = val;
@@ -1531,6 +1670,91 @@
             return { w: baseW, h: baseH };
         }
 
+        // --- Border Intersection & Geometry Calculation Helpers ---
+        function getBorderIntersection(pCenter, pTarget, box, shape = 'rect') {
+            const cx = box.cx !== undefined ? box.cx : box.x + box.w / 2;
+            const cy = box.cy !== undefined ? box.cy : box.y + box.h / 2;
+            const dx = pTarget.x - cx;
+            const dy = pTarget.y - cy;
+            
+            if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
+                return { x: cx, y: cy };
+            }
+            
+            if (shape === 'diamond') {
+                const halfW = box.w / 2;
+                const halfH = box.h / 2;
+                const denom = Math.abs(dx) / (halfW || 1) + Math.abs(dy) / (halfH || 1);
+                const t = denom > 0 ? 1 / denom : 0;
+                return {
+                    x: cx + dx * t,
+                    y: cy + dy * t
+                };
+            }
+            
+            // Standard Box (Rectangle, Rounded Rect, Pill, Hexagon, Container)
+            const halfW = box.w / 2;
+            const halfH = box.h / 2;
+            
+            const tx = Math.abs(dx) > 0 ? halfW / Math.abs(dx) : Infinity;
+            const ty = Math.abs(dy) > 0 ? halfH / Math.abs(dy) : Infinity;
+            const t = Math.min(tx, ty);
+            
+            return {
+                x: cx + dx * t,
+                y: cy + dy * t
+            };
+        }
+
+        // --- Collapse Hierarchy & Filtering Helpers ---
+        function isGroupCollapsed(gid, visited = new Set()) {
+            if (!gid || visited.has(gid)) return false;
+            visited.add(gid);
+            const g = state.subgraphs.find(x => x.id === gid);
+            if (!g) return false;
+            if (g.collapsed) return true;
+            if (g.parent) return isGroupCollapsed(g.parent, visited);
+            return false;
+        }
+
+        function getTopmostCollapsedAncestor(gid, visited = new Set()) {
+            if (!gid || visited.has(gid)) return null;
+            visited.add(gid);
+            const g = state.subgraphs.find(x => x.id === gid);
+            if (!g) return null;
+            
+            if (g.parent) {
+                const parentCollapsed = getTopmostCollapsedAncestor(g.parent, visited);
+                if (parentCollapsed) return parentCollapsed;
+            }
+            if (g.collapsed) return g.id;
+            return null;
+        }
+
+        function isNodeHidden(node) {
+            if (!node || !node.group) return false;
+            return isGroupCollapsed(node.group);
+        }
+
+        function resolveEffectiveEndpointId(endpointId) {
+            if (!endpointId) return null;
+            const node = state.nodes.find(n => n.id === endpointId);
+            if (node) {
+                if (node.group) {
+                    const collapsedAncestor = getTopmostCollapsedAncestor(node.group);
+                    if (collapsedAncestor) return collapsedAncestor;
+                }
+                return node.id;
+            }
+            const group = state.subgraphs.find(g => g.id === endpointId);
+            if (group) {
+                const collapsedAncestor = getTopmostCollapsedAncestor(group.id);
+                if (collapsedAncestor) return collapsedAncestor;
+                return group.id;
+            }
+            return endpointId;
+        }
+
         // --- Multi-edge & Multi-type Adaptive Routing Helpers ---
         function getEdgePairKey(id1, id2) {
             return id1 < id2 ? `${id1}___${id2}` : `${id2}___${id1}`;
@@ -1539,9 +1763,13 @@
         function buildEdgePairIndexMap() {
             const pairMap = new Map();
             state.edges.forEach((e, idx) => {
-                const key = getEdgePairKey(e.from, e.to);
+                const effFrom = resolveEffectiveEndpointId(e.from);
+                const effTo = resolveEffectiveEndpointId(e.to);
+                if (!effFrom || !effTo || effFrom === effTo) return;
+
+                const key = getEdgePairKey(effFrom, effTo);
                 if (!pairMap.has(key)) pairMap.set(key, []);
-                pairMap.get(key).push({ edgeIndex: idx, from: e.from, to: e.to });
+                pairMap.get(key).push({ edgeIndex: idx, from: effFrom, to: effTo });
             });
             
             const edgeInfoMap = new Map();
@@ -1559,14 +1787,15 @@
             return edgeInfoMap;
         }
 
-        // --- Unified Endpoint Bounds Resolver (Supports Node & Subgraph Group) ---
+        // --- Unified Endpoint Bounds Resolver (Supports Node, Subgraph & Collapsed Container) ---
         function getEndpointBounds(endpoint) {
-            if (!endpoint) return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false };
+            if (!endpoint) return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false, shape: 'rect' };
             
             const id = typeof endpoint === 'string' ? endpoint : endpoint.id;
+            const effectiveId = resolveEffectiveEndpointId(id);
             
             // 1. Check if endpoint is a Node
-            const node = state.nodes.find(n => n.id === id);
+            const node = state.nodes.find(n => n.id === effectiveId);
             if (node) {
                 const dim = getNodeDimensions(node);
                 return {
@@ -1577,12 +1806,13 @@
                     cx: node.x + dim.w / 2,
                     cy: node.y + dim.h / 2,
                     label: node.label,
-                    isGroup: false
+                    isGroup: false,
+                    shape: node.shape || 'rect'
                 };
             }
             
-            // 2. Check if endpoint is a Group / Subgraph
-            const group = state.subgraphs.find(g => g.id === id);
+            // 2. Check if endpoint is a Group / Subgraph (or Collapsed container)
+            const group = state.subgraphs.find(g => g.id === effectiveId);
             if (group) {
                 const box = getGroupBoundingBox(group.id);
                 return {
@@ -1593,7 +1823,8 @@
                     cx: box.gx + box.gw / 2,
                     cy: box.gy + box.gh / 2,
                     label: group.label,
-                    isGroup: true
+                    isGroup: true,
+                    shape: 'rect'
                 };
             }
             
@@ -1606,31 +1837,38 @@
                     cx: endpoint.x + w / 2,
                     cy: endpoint.y + h / 2,
                     label: endpoint.label || '',
-                    isGroup: false
+                    isGroup: false,
+                    shape: 'rect'
                 };
             }
             
-            return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false };
+            return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false, shape: 'rect' };
         }
 
         function computeEdgePath(ep1, ep2, pairIndex = 0, totalInPair = 1, edgeType = 'bezier', labelPos = 0.5) {
             const b1 = getEndpointBounds(ep1);
             const b2 = getEndpointBounds(ep2);
-            const cx1 = b1.cx;
-            const cy1 = b1.cy;
-            const cx2 = b2.cx;
-            const cy2 = b2.cy;
             
-            const dx = cx2 - cx1;
-            const dy = cy2 - cy1;
+            const center1 = { x: b1.cx, y: b1.cy };
+            const center2 = { x: b2.cx, y: b2.cy };
+            
+            // Edge-to-Edge Intersection Calculation (avoids center penetration & marker occlusion)
+            const p1 = getBorderIntersection(center1, center2, b1, b1.shape);
+            const p2 = getBorderIntersection(center2, center1, b2, b2.shape);
+            
+            const x1 = p1.x, y1 = p1.y;
+            const x2 = p2.x, y2 = p2.y;
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
             const dist = Math.hypot(dx, dy) || 1;
             const t = Math.max(0.08, Math.min(0.92, labelPos !== undefined ? labelPos : 0.5));
 
             // 1. Straight Line
             if (edgeType === 'straight') {
-                const d = `M ${cx1} ${cy1} L ${cx2} ${cy2}`;
-                const midX = cx1 + dx * t;
-                const midY = cy1 + dy * t;
+                const d = `M ${x1} ${y1} L ${x2} ${y2}`;
+                const midX = x1 + dx * t;
+                const midY = y1 + dy * t;
                 return { d, midX, midY };
             }
 
@@ -1642,8 +1880,8 @@
                 let midX = 0, midY = 0;
 
                 if (absDx >= absDy) {
-                    const midX1 = cx1 + dx / 2;
-                    d = `M ${cx1} ${cy1} L ${midX1} ${cy1} L ${midX1} ${cy2} L ${cx2} ${cy2}`;
+                    const midX1 = x1 + dx / 2;
+                    d = `M ${x1} ${y1} L ${midX1} ${y1} L ${midX1} ${y2} L ${x2} ${y2}`;
                     
                     const len1 = Math.abs(dx / 2);
                     const len2 = absDy;
@@ -1653,20 +1891,20 @@
 
                     if (targetLen <= len1) {
                         const segT = targetLen / (len1 || 1);
-                        midX = cx1 + (dx / 2) * segT;
-                        midY = cy1;
+                        midX = x1 + (dx / 2) * segT;
+                        midY = y1;
                     } else if (targetLen <= len1 + len2) {
                         const segT = (targetLen - len1) / (len2 || 1);
                         midX = midX1;
-                        midY = cy1 + dy * segT;
+                        midY = y1 + dy * segT;
                     } else {
                         const segT = (targetLen - len1 - len2) / (len3 || 1);
                         midX = midX1 + (dx / 2) * segT;
-                        midY = cy2;
+                        midY = y2;
                     }
                 } else {
-                    const midY1 = cy1 + dy / 2;
-                    d = `M ${cx1} ${cy1} L ${cx1} ${midY1} L ${cx2} ${midY1} L ${cx2} ${cy2}`;
+                    const midY1 = y1 + dy / 2;
+                    d = `M ${x1} ${y1} L ${x1} ${midY1} L ${x2} ${midY1} L ${x2} ${y2}`;
 
                     const len1 = Math.abs(dy / 2);
                     const len2 = absDx;
@@ -1676,15 +1914,15 @@
 
                     if (targetLen <= len1) {
                         const segT = targetLen / (len1 || 1);
-                        midX = cx1;
-                        midY = cy1 + (dy / 2) * segT;
+                        midX = x1;
+                        midY = y1 + (dy / 2) * segT;
                     } else if (targetLen <= len1 + len2) {
                         const segT = (targetLen - len1) / (len2 || 1);
-                        midX = cx1 + dx * segT;
+                        midX = x1 + dx * segT;
                         midY = midY1;
                     } else {
                         const segT = (targetLen - len1 - len2) / (len3 || 1);
-                        midX = cx2;
+                        midX = x2;
                         midY = midY1 + (dy / 2) * segT;
                     }
                 }
@@ -1699,40 +1937,39 @@
                 const absDy = Math.abs(dy);
                 if (absDx > absDy) {
                     const controlOffset = absDx * 0.45;
-                    cp1x = cx1 + (dx > 0 ? controlOffset : -controlOffset);
-                    cp1y = cy1;
-                    cp2x = cx2 - (dx > 0 ? controlOffset : -controlOffset);
-                    cp2y = cy2;
+                    cp1x = x1 + (dx > 0 ? controlOffset : -controlOffset);
+                    cp1y = y1;
+                    cp2x = x2 - (dx > 0 ? controlOffset : -controlOffset);
+                    cp2y = y2;
                 } else {
                     const controlOffset = absDy * 0.45;
-                    cp1x = cx1;
-                    cp1y = cy1 + (dy > 0 ? controlOffset : -controlOffset);
-                    cp2x = cx2;
-                    cp2y = cy2 - (dy > 0 ? controlOffset : -controlOffset);
+                    cp1x = x1;
+                    cp1y = y1 + (dy > 0 ? controlOffset : -controlOffset);
+                    cp2x = x2;
+                    cp2y = y2 - (dy > 0 ? controlOffset : -controlOffset);
                 }
             } else {
                 const nx = -dy / dist;
                 const ny = dx / dist;
                 const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
-                const curveOffset = offsetMultiplier * 50;
+                const curveOffset = offsetMultiplier * 45;
 
-                cp1x = cx1 + dx * 0.25 + nx * curveOffset;
-                cp1y = cy1 + dy * 0.25 + ny * curveOffset;
-                cp2x = cx1 + dx * 0.75 + nx * curveOffset;
-                cp2y = cy1 + dy * 0.75 + ny * curveOffset;
+                cp1x = x1 + dx * 0.25 + nx * curveOffset;
+                cp1y = y1 + dy * 0.25 + ny * curveOffset;
+                cp2x = x1 + dx * 0.75 + nx * curveOffset;
+                cp2y = y1 + dy * 0.75 + ny * curveOffset;
             }
 
-            const d = `M ${cx1} ${cy1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${cx2} ${cy2}`;
+            const d = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
 
-            // Cubic Bezier parameter evaluation at t
             const omt = 1 - t;
             const omt2 = omt * omt;
             const omt3 = omt2 * omt;
             const t2 = t * t;
             const t3 = t2 * t;
 
-            const midX = omt3 * cx1 + 3 * omt2 * t * cp1x + 3 * omt * t2 * cp2x + t3 * cx2;
-            const midY = omt3 * cy1 + 3 * omt2 * t * cp1y + 3 * omt * t2 * cp2y + t3 * cy2;
+            const midX = omt3 * x1 + 3 * omt2 * t * cp1x + 3 * omt * t2 * cp2x + t3 * x2;
+            const midY = omt3 * y1 + 3 * omt2 * t * cp1y + 3 * omt * t2 * cp2y + t3 * y2;
 
             return { d, midX, midY };
         }
@@ -1747,12 +1984,26 @@
         }
 
         function getGroupBoundingBox(gid, visited = new Set()) {
-            if (visited.has(gid)) return { gx: 100, gy: 100, gw: 300, gh: 200, minX: 100, minY: 100, maxX: 400, maxY: 300, isEmpty: true };
+            if (visited.has(gid)) return { gx: 100, gy: 100, gw: 220, gh: 48, minX: 100, minY: 100, maxX: 320, maxY: 148, isEmpty: true, isCollapsed: false };
             visited.add(gid);
             const g = state.subgraphs.find(x => x.id === gid);
-            if (!g) return { gx: 100, gy: 100, gw: 300, gh: 200, minX: 100, minY: 100, maxX: 400, maxY: 300, isEmpty: true };
+            if (!g) return { gx: 100, gy: 100, gw: 220, gh: 48, minX: 100, minY: 100, maxX: 320, maxY: 148, isEmpty: true, isCollapsed: false };
 
-            const directNodes = state.nodes.filter(n => n.group === gid);
+            // If Group is Collapsed: fixed compact capsule/card size
+            if (g.collapsed) {
+                const gx = g.x !== undefined ? g.x : 100;
+                const gy = g.y !== undefined ? g.y : 100;
+                const gw = 220;
+                const gh = 48;
+                return {
+                    gx, gy, gw, gh,
+                    minX: gx, minY: gy, maxX: gx + gw, maxY: gy + gh,
+                    isEmpty: false,
+                    isCollapsed: true
+                };
+            }
+
+            const directNodes = state.nodes.filter(n => n.group === gid && !isNodeHidden(n));
             const childGroups = state.subgraphs.filter(cg => cg.parent === gid);
 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1779,7 +2030,8 @@
                 return {
                     gx, gy, gw: 300, gh: 200,
                     minX: gx, minY: gy, maxX: gx + 300, maxY: gy + 200,
-                    isEmpty: true
+                    isEmpty: true,
+                    isCollapsed: false
                 };
             }
 
@@ -1789,7 +2041,7 @@
             const gh = (maxY - minY) + pad + topPad;
             g.x = gx + pad;
             g.y = gy + topPad;
-            return { gx, gy, gw, gh, minX: gx, minY: gy, maxX: gx + gw, maxY: gy + gh, isEmpty: false };
+            return { gx, gy, gw, gh, minX: gx, minY: gy, maxX: gx + gw, maxY: gy + gh, isEmpty: false, isCollapsed: false };
         }
 
         function renderDiagram() {
@@ -1824,21 +2076,21 @@
             let svgHtml = `
                 <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
                     <defs>
-                        <!-- End Arrowhead -->
-                        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
+                        <!-- End Arrowhead (refX=10 puts point precisely at path boundary) -->
+                        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="${theme.edgeColor}" />
                         </marker>
                         <!-- Start Arrowhead -->
-                        <marker id="arrow-start" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 10 1 L 0 5 L 10 9 z" fill="${theme.edgeColor}" />
+                        <marker id="arrow-start" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="${theme.edgeColor}" />
                         </marker>
                         <!-- Selected End Arrowhead -->
-                        <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
+                        <marker id="arrow-selected" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#60a5fa" />
                         </marker>
                         <!-- Selected Start Arrowhead -->
-                        <marker id="arrow-selected-start" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 10 1 L 0 5 L 10 9 z" fill="#60a5fa" />
+                        <marker id="arrow-selected-start" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 10 1.5 L 0 5 L 10 8.5 z" fill="#60a5fa" />
                         </marker>
                         <filter id="dropShadow" x="-25%" y="-25%" width="150%" height="150%">
                             <feDropShadow dx="0" dy="${shadowDy}" stdDeviation="${shadowStdDev}" flood-color="${theme.shadow}" flood-opacity="${shadowOpacity}" />
@@ -1854,18 +2106,46 @@
             const sortedGroups = [...state.subgraphs].sort((a, b) => getGroupDepth(a.id) - getGroupDepth(b.id));
 
             sortedGroups.forEach(g => {
+                // If this group is a descendant of a collapsed ancestor, do not render this inner group
+                if (g.parent && isGroupCollapsed(g.parent)) return;
+
                 const box = getGroupBoundingBox(g.id);
                 const gColor = g.color || theme.groupBorder;
+                const childNodeCount = state.nodes.filter(n => n.group === g.id).length;
                 
-                svgHtml += `
-                    <g data-group-id="${g.id}" class="group-container" transform="translate(${box.gx}, ${box.gy})">
-                        <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="16" fill="${theme.groupBg}" stroke="${gColor}" stroke-width="1.5" stroke-dasharray="5 4" />
-                        <!-- Group Draggable Header Bar -->
-                        <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
-                        <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
-                        ${box.isEmpty ? `<text class="group-empty-hint" x="${box.gw/2}" y="${box.gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：可拖曳移動或指派節點/子群組</text>` : ''}
-                    </g>
-                `;
+                if (g.collapsed) {
+                    // Collapsed Capsule / Card State
+                    svgHtml += `
+                        <g data-group-id="${g.id}" class="group-container group-collapsed" transform="translate(${box.gx}, ${box.gy})" style="cursor: pointer;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
+                            <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="24" fill="${theme.nodeBg}" stroke="${gColor}" stroke-width="2" filter="url(#dropShadow)" />
+                            <!-- Collapse / Expand Icon Button -->
+                            <g onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊展開容器">
+                                <circle cx="24" cy="24" r="14" fill="${gColor}25" />
+                                <path d="M 21 18 L 28 24 L 21 30" fill="none" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </g>
+                            <text class="group-title" x="46" y="25" dominant-baseline="central" fill="${gColor}" font-size="12" font-weight="700" style="user-select: none;">${g.label}</text>
+                            <!-- Node Count Badge -->
+                            <rect x="${box.gw - 66}" y="14" width="54" height="20" rx="10" fill="${gColor}20" stroke="${gColor}50" stroke-width="1" />
+                            <text x="${box.gw - 39}" y="25" dominant-baseline="central" text-anchor="middle" fill="${gColor}" font-size="10" font-weight="700">${childNodeCount} 節點</text>
+                        </g>
+                    `;
+                } else {
+                    // Expanded Bounding Box State
+                    svgHtml += `
+                        <g data-group-id="${g.id}" class="group-container" transform="translate(${box.gx}, ${box.gy})" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
+                            <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="16" fill="${theme.groupBg}" stroke="${gColor}" stroke-width="1.5" stroke-dasharray="5 4" />
+                            <!-- Group Draggable Header Bar -->
+                            <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
+                            <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
+                            <!-- Collapse Toggle Button in Header -->
+                            <g onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
+                                <rect x="${box.gw - 28}" y="6" width="20" height="20" rx="4" fill="${gColor}20" />
+                                <path d="M ${box.gw - 22} 16 L ${box.gw - 14} 16" stroke="${gColor}" stroke-width="2" stroke-linecap="round" />
+                            </g>
+                            ${box.isEmpty ? `<text class="group-empty-hint" x="${box.gw/2}" y="${box.gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：可拖曳移動或指派節點/子群組</text>` : ''}
+                        </g>
+                    `;
+                }
             });
 
             svgHtml += `</g><g id="edgesLayer">`;
@@ -1874,8 +2154,14 @@
             const edgePairInfoMap = buildEdgePairIndexMap();
 
             state.edges.forEach((e, idx) => {
-                const epA = getEndpointBounds(e.from);
-                const epB = getEndpointBounds(e.to);
+                const effFrom = resolveEffectiveEndpointId(e.from);
+                const effTo = resolveEffectiveEndpointId(e.to);
+                
+                // If both endpoints route to the exact same collapsed group, skip rendering internal connection
+                if (!effFrom || !effTo || effFrom === effTo) return;
+
+                const epA = getEndpointBounds(effFrom);
+                const epB = getEndpointBounds(effTo);
                 
                 if (epA && epB) {
                     const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
@@ -1923,6 +2209,9 @@
             svgHtml += `</g><g id="nodesLayer">`;
 
             state.nodes.forEach(n => {
+                // Filter out hidden nodes belonging to collapsed groups
+                if (isNodeHidden(n)) return;
+
                 const dim = getNodeDimensions(n);
                 const w = dim.w;
                 const h = dim.h;
