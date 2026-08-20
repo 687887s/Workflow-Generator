@@ -69,6 +69,12 @@
 
         <!-- Controls Toolbar -->
         <div class="flex items-center space-x-3">
+            <!-- Mode Switch -->
+            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5 mr-2">
+                <button id="modeDrag" onclick="setMode('drag')" class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm">拖曳編輯</button>
+                <button id="modeSelect" onclick="setMode('select')" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition">框選匯出</button>
+            </div>
+
             <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
                 <span class="text-xs text-slate-400 pl-2 font-medium"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>範本:</span>
                 <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
@@ -240,6 +246,9 @@
 
         <!-- Right Preview Canvas Area -->
         <main id="canvasViewport" class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden bg-grid-pattern cursor-grab">
+            <!-- Selection Overlay -->
+            <div id="selectionBox" class="absolute border-2 border-blue-500 bg-blue-500/20 hidden pointer-events-none z-40"></div>
+
             <!-- Canvas Toolbar overlay -->
             <div class="absolute top-4 right-4 z-30 flex items-center space-x-2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 shadow-xl">
                 <button onclick="zoomCanvas(1.1)" class="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition" title="放大">
@@ -305,6 +314,13 @@
                             <div>
                                 <div class="text-sm font-medium text-slate-200">目前畫面範圍 (Viewport)</div>
                                 <div class="text-[10px] text-slate-500">僅匯出目前主視窗能看見的區域（包含縮放）</div>
+                            </div>
+                        </label>
+                        <label id="labelCustomArea" class="flex items-center space-x-3 p-2.5 rounded-lg border border-slate-700 bg-slate-900/50 cursor-pointer hover:border-slate-500 transition opacity-50">
+                            <input type="radio" name="expArea" id="radioCustomArea" value="custom" disabled class="text-blue-500 bg-slate-800 border-slate-600 focus:ring-blue-500">
+                            <div>
+                                <div class="text-sm font-medium text-slate-200">自訂框選區域 (Custom)</div>
+                                <div class="text-[10px] text-slate-500">請使用上方「框選匯出」按鈕選取範圍</div>
                             </div>
                         </label>
                     </div>
@@ -426,6 +442,31 @@
         // Export State
         let selectedExportFormat = 'png';
 
+        // Custom Selection State
+        let appMode = 'drag'; // 'drag' or 'select'
+        let isSelectingArea = false;
+        let selectStartX = 0;
+        let selectStartY = 0;
+        let customExportBox = null;
+
+        // Native SVG paths for common icons (Standalone & PNG safe)
+        const SVG_ICONS = {
+            'fa-database': 'M12 2C6.48 2 2 4.24 2 7v10c0 2.76 4.48 5 10 5s10-2.24 10-5V7c0-2.76-4.48-5-10-5zm0 18c-4.41 0-8-1.79-8-4v-2.26c1.88 1.41 4.7 2.26 8 2.26s6.12-.85 8-2.26V16c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4V7.74C5.88 9.15 8.7 10 12 10s6.12-.85 8-2.26V10c0 2.21-3.59 4-8 4zm0-6c-4.41 0-8-1.79-8-4s3.59-4 8-4 8 1.79 8 4-3.59 4-8 4z',
+            'fa-cloud': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z',
+            'fa-cube': 'M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18-.21 0-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18.21 0 .41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.38v-6.71L5 9.21v6.7zM19 15.91v-6.7l-6 3.38v6.71l6-3.38z',
+            'fa-filter': 'M3 4c0-.55.45-1 1-1h16c.55 0 1 .45 1 1 0 .21-.07.42-.19.58L14 13v6c0 .38-.2.72-.51.89l-3 1.5c-.39.2-.87.05-1.07-.34-.08-.16-.12-.34-.12-.55v-7.5L3.19 4.58C3.07 4.42 3 4.21 3 4z',
+            'fa-microchip': 'M8 4h8v16H8z M4 6h2v2H4z M4 10h2v2H4z M4 14h2v2H4z M18 6h2v2h-2z M18 10h2v2h-2z M18 14h2v2h-2z',
+            'fa-brain': 'M12 3c-2.76 0-5 2.24-5 5 0 .58.11 1.13.3 1.63C5.55 10.3 4 12.46 4 15c0 3.31 2.69 6 6 6 1.15 0 2.22-.32 3.14-.88.28.02.56.05.86.05 3.31 0 6-2.69 6-6 0-1.84-.83-3.47-2.14-4.57.1-.47.14-.95.14-1.43 0-2.76-2.24-5-5-5-.97 0-1.88.28-2.65.77C13.56 3.28 12.8 3 12 3z',
+            'fa-code-branch': 'M17 4c-1.66 0-3 1.34-3 3 0 1.31.83 2.44 2 2.83v2.34c0 1.54-1.14 2.91-2.67 3.09C11.51 15.47 10 14.1 10 12.33V6.5C10 4.01 7.99 2 5.5 2S1 4.01 1 6.5v8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3c0-1.31-.83-2.44-2-2.83v-5.34c0-1.54 1.14-2.91 2.67-3.09C9.49 8.53 11 9.9 11 11.67v5.83c0 2.49 2.01 4.5 4.5 4.5s4.5-2.01 4.5-4.5v-8c1.66 0 3-1.34 3-3s-1.34-3-3-3z',
+            'fa-cloud-arrow-up': 'M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z',
+            'fa-mobile-screen': 'M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zM7 4h10v14H7V4zm5 16c-.83 0-1.5-.67-1.5-1.5S11.17 17 12 17s1.5.67 1.5 1.5S12.83 20 12 20z',
+            'fa-shield-halved': 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z',
+            'fa-key': 'M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+            'fa-user-gear': 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 7c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm-6 4c.22-.72 3.31-2 6-2 2.7 0 5.8 1.29 6 2H6zm16-4v-1h2v-2h-2V9h-2v2h-2v2h2v1h2z',
+            'fa-cart-shopping': 'M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z',
+            'default': 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z'
+        };
+
         window.onload = function() {
             setupCanvasInteractions();
             document.getElementById('themeSelect').value = state.theme;
@@ -457,6 +498,21 @@
             if (tabName === 'code') document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
         }
 
+        function setMode(m) {
+            appMode = m;
+            document.getElementById('modeDrag').className = m === 'drag' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
+            document.getElementById('modeSelect').className = m === 'select' ? "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" : "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
+            
+            const vp = document.getElementById('canvasViewport');
+            if (m === 'select') {
+                vp.classList.remove('cursor-grab', 'cursor-grabbing');
+                vp.classList.add('cursor-crosshair');
+            } else {
+                vp.classList.remove('cursor-crosshair');
+                vp.classList.add('cursor-grab');
+            }
+        }
+
         // --- Viewport & Drag/Drop Logic ---
         function setupCanvasInteractions() {
             const viewport = document.getElementById('canvasViewport');
@@ -464,6 +520,20 @@
             viewport.addEventListener('mousedown', (e) => {
                 // Ignore if clicked on UI overlays
                 if(e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+
+                if (appMode === 'select') {
+                    isSelectingArea = true;
+                    const rect = viewport.getBoundingClientRect();
+                    selectStartX = e.clientX - rect.left;
+                    selectStartY = e.clientY - rect.top;
+                    const sb = document.getElementById('selectionBox');
+                    sb.style.left = selectStartX + 'px';
+                    sb.style.top = selectStartY + 'px';
+                    sb.style.width = '0px';
+                    sb.style.height = '0px';
+                    sb.classList.remove('hidden');
+                    return;
+                }
 
                 const nodeGroup = e.target.closest('.node-group');
                 
@@ -496,26 +566,18 @@
             });
 
             window.addEventListener('mousemove', (e) => {
-                if (isDraggingNode && selectedNodeId) {
-                    const pt = getMousePositionInSVG(e);
-                    const node = state.nodes.find(n => n.id === selectedNodeId);
-                    if(node) {
-                        // Snap to 10px grid logic
-                        let newX = pt.x - nodeDragOffsetX;
-                        let newY = pt.y - nodeDragOffsetY;
-                        node.x = Math.round(newX / 10) * 10;
-                        node.y = Math.round(newY / 10) * 10;
-                        
-                        renderDiagram(); // Rapid re-render for smooth movement
-                    }
-                } else if (isDraggingCanvas) {
-                    panX = e.clientX - dragStartX;
-                    panY = e.clientY - dragStartY;
-                    updateCanvasTransform();
+                if (isSelectingArea) {
+                    const rect = viewport.getBoundingClientRect();
+                    const currX = e.clientX - rect.left;
+                    const currY = e.clientY - rect.top;
+                    const sb = document.getElementById('selectionBox');
+                    sb.style.left = Math.min(selectStartX, currX) + 'px';
+                    sb.style.top = Math.min(selectStartY, currY) + 'px';
+                    sb.style.width = Math.abs(currX - selectStartX) + 'px';
+                    sb.style.height = Math.abs(currY - selectStartY) + 'px';
+                    return;
                 }
-            });
 
-            window.addEventListener('mouseup', () => {
                 if (isDraggingNode && selectedNodeId) {
                     // --- 新增功能：拖曳結束時偵測是否移入任何群組 ---
                     const node = state.nodes.find(n => n.id === selectedNodeId);
@@ -556,31 +618,75 @@
                 }
             });
 
-            // Wheel zoom
-            viewport.addEventListener('wheel', (e) => {
-                // if not scrolling on canvas directly, ignore (e.g. scrolling in sidebar)
-                if(e.target.closest('aside')) return;
-                
-                e.preventDefault();
-                const delta = e.deltaY < 0 ? 1.05 : 0.95;
-                zoomCanvas(delta, e.clientX, e.clientY);
-            }, { passive: false });
-        }
+            window.addEventListener('mouseup', (e) => {
+                if (isSelectingArea) {
+                    isSelectingArea = false;
+                    const sb = document.getElementById('selectionBox');
+                    sb.classList.add('hidden');
+                    
+                    const rect = viewport.getBoundingClientRect();
+                    const endX = e.clientX - rect.left;
+                    const endY = e.clientY - rect.top;
+                    
+                    const minX = Math.min(selectStartX, endX);
+                    const minY = Math.min(selectStartY, endY);
+                    const w = Math.abs(endX - selectStartX);
+                    const h = Math.abs(endY - selectStartY);
 
-        function getMousePositionInSVG(evt) {
-            // Convert viewport clientX/Y to SVG internal coordinates
-            const viewport = document.getElementById('canvasViewport');
-            const rect = viewport.getBoundingClientRect();
-            
-            // Mouse relative to viewport container
-            const mx = evt.clientX - rect.left;
-            const my = evt.clientY - rect.top;
-            
-            // Apply reverse transform (Pan and Zoom)
-            return {
-                x: (mx - panX) / canvasZoom,
-                y: (my - panY) / canvasZoom
-            };
+                    // Must select a large enough box to count
+                    if (w > 20 && h > 20) {
+                        const pt1 = { x: (minX - panX)/canvasZoom, y: (minY - panY)/canvasZoom };
+                        const pt2 = { x: (minX + w - panX)/canvasZoom, y: (minY + h - panY)/canvasZoom };
+                        customExportBox = { x: pt1.x, y: pt1.y, w: pt2.x - pt1.x, h: pt2.y - pt1.y };
+                        
+                        document.getElementById('radioCustomArea').disabled = false;
+                        document.getElementById('radioCustomArea').checked = true;
+                        document.getElementById('labelCustomArea').classList.remove('opacity-50');
+                        openExportModal();
+                        setMode('drag'); // Auto switch back to drag
+                    }
+                    return;
+                }
+
+                if (isDraggingNode && selectedNodeId) {
+                    // --- 修正：解綁太過靈敏，現在只允許「移入新群組」，若拖曳到空白處則保留原群組 ---
+                    const node = state.nodes.find(n => n.id === selectedNodeId);
+                    if (node) {
+                        const dropZones = getGroupDropZones(selectedNodeId);
+                        const nodeCX = node.x + NODE_W / 2;
+                        const nodeCY = node.y + NODE_H / 2;
+                        
+                        let droppedInGroup = null;
+                        for (let i = state.subgraphs.length - 1; i >= 0; i--) {
+                            const gid = state.subgraphs[i].id;
+                            const z = dropZones[gid];
+                            if (nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
+                                droppedInGroup = gid;
+                                break;
+                            }
+                        }
+                        
+                        if (droppedInGroup && node.group !== droppedInGroup) {
+                            node.group = droppedInGroup;
+                            showToast('已自動吸附至群組');
+                            if (activeTab === 'properties') refreshPropertiesPanel();
+                            renderDiagram();
+                        }
+                    }
+                }
+
+                isDraggingNode = false;
+            });
+
+            // Allow zooming with wheel
+            viewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomCanvas(1.1);
+                } else {
+                    zoomCanvas(0.9);
+                }
+            }, { passive: false });
         }
 
         function updateCanvasTransform() {
@@ -589,25 +695,25 @@
             document.getElementById('zoomLevelDisplay').innerText = Math.round(canvasZoom * 100) + '%';
         }
 
-        function zoomCanvas(factor, originX = null, originY = null) {
+        function zoomCanvas(factor) {
             const viewport = document.getElementById('canvasViewport');
             const rect = viewport.getBoundingClientRect();
-            
-            let ox = originX !== null ? originX - rect.left : rect.width / 2;
-            let oy = originY !== null ? originY - rect.top : rect.height / 2;
+            // Center of viewport relative to canvas
+            const cx = (rect.width / 2 - panX) / canvasZoom;
+            const cy = (rect.height / 2 - panY) / canvasZoom;
 
-            // Math to keep the point under the mouse stationary during zoom
-            const newZoom = Math.max(0.2, Math.min(3.0, canvasZoom * factor));
+            canvasZoom *= factor;
+            // Clamp zoom
+            if(canvasZoom < 0.2) canvasZoom = 0.2;
+            if(canvasZoom > 3.0) canvasZoom = 3.0;
+
+            panX = rect.width / 2 - cx * canvasZoom;
+            panY = rect.height / 2 - cy * canvasZoom;
             
-            panX = ox - (ox - panX) * (newZoom / canvasZoom);
-            panY = oy - (oy - panY) * (newZoom / canvasZoom);
-            
-            canvasZoom = newZoom;
             updateCanvasTransform();
         }
 
         function centerView() {
-            // Find bounding box of all nodes
             if(state.nodes.length === 0) {
                 resetCanvasView();
                 return;
@@ -1068,26 +1174,29 @@
             // Draw Nodes
             state.nodes.forEach(n => {
                 const nodeBorder = n.color || theme.nodeBorder;
-                const iconClass = n.icon ? (n.icon.startsWith('fa-') ? n.icon : 'fa-' + n.icon) : 'fa-cube';
                 const isSelected = selectedNodeId === n.id;
                 const selectedClass = isSelected ? 'node-selected' : '';
+                const iconColor = n.color || '#3b82f6';
+                
+                let iconPath = SVG_ICONS['default'];
+                if (n.icon) {
+                    const iconKey = n.icon.startsWith('fa-') ? n.icon : 'fa-' + n.icon;
+                    if (SVG_ICONS[iconKey]) iconPath = SVG_ICONS[iconKey];
+                }
 
-                // 修改重點：使用 Inline-Style 替換 Tailwind Class，徹底解決 SVG 下載後跑版的問題
+                // 完全摒棄 foreignObject，採用 100% 乾淨原生的 SVG 向量文字與圖示 (Native Vector Path & Text)
+                // 完美解決匯出 PNG 破圖以及 SVG 文字消失的問題
                 svgHtml += `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
                         ${renderNodeShape(n.shape, NODE_W, NODE_H, theme.nodeBg, nodeBorder)}
                         
-                        <foreignObject width="${NODE_W}" height="${NODE_H}" x="0" y="0">
-                            <div xmlns="http://www.w3.org/1999/xhtml" style="display: flex; align-items: center; padding: 0 16px; width: 100%; height: 100%; box-sizing: border-box; background: transparent; user-select: none;">
-                                <div style="width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: ${n.color || '#3b82f6'}20; color: ${n.color || '#3b82f6'}; margin-right: 12px;">
-                                    <i class="fa-solid ${iconClass}" style="font-size: 16px;"></i>
-                                </div>
-                                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding-top: 2px;">
-                                    <div style="font-size: 13px; font-weight: 700; color: ${theme.text}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Inter', sans-serif; line-height: 1.2;">${n.label}</div>
-                                    ${n.sub ? `<div style="font-size: 10px; font-weight: 500; color: ${theme.textSub}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; font-family: 'Inter', sans-serif; line-height: 1.2;">${n.sub}</div>` : ''}
-                                </div>
-                            </div>
-                        </foreignObject>
+                        <rect x="16" y="18" width="36" height="36" rx="8" fill="${iconColor}20" />
+                        <svg x="22" y="24" width="24" height="24" viewBox="0 0 24 24" fill="${iconColor}">
+                            <path d="${iconPath}" />
+                        </svg>
+                        
+                        <text x="66" y="${n.sub ? 34 : 42}" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="bold" fill="${theme.text}">${n.label}</text>
+                        ${n.sub ? `<text x="66" y="52" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
                     </g>
                 `;
             });
@@ -1222,6 +1331,10 @@
                     exportW = bbox.w + pad * 2;
                     exportH = bbox.h + pad * 2;
                     viewBoxStr = `${bbox.x - pad} ${bbox.y - pad} ${exportW} ${exportH}`;
+                } else if (area === 'custom' && customExportBox) {
+                    exportW = customExportBox.w;
+                    exportH = customExportBox.h;
+                    viewBoxStr = `${customExportBox.x} ${customExportBox.y} ${exportW} ${exportH}`;
                 } else {
                     // Viewport Area
                     const vp = document.getElementById('canvasViewport');
@@ -1238,10 +1351,10 @@
                 svgToExport.setAttribute('height', exportH);
                 // Ensure proper XML namespaces for standalone usage
                 svgToExport.setAttribute('xmlns', "http://www.w3.org/2000/svg");
-                svgToExport.setAttribute('xmlns:xhtml', "http://www.w3.org/1999/xhtml");
+
+                const svgData = new XMLSerializer().serializeToString(svgToExport);
 
                 if (format === 'svg') {
-                    const svgData = new XMLSerializer().serializeToString(svgToExport);
                     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -1255,35 +1368,46 @@
                 else if (format === 'png') {
                     showToast('正在生成高解析度 PNG...', 'success');
                     
-                    // Create an invisible wrapper to render the SVG via html-to-image
-                    const wrapper = document.createElement('div');
-                    wrapper.style.position = 'absolute';
-                    wrapper.style.left = '-9999px';
-                    wrapper.style.width = exportW + 'px';
-                    wrapper.style.height = exportH + 'px';
-                    wrapper.appendChild(svgToExport);
-                    document.body.appendChild(wrapper);
+                    // 完全採用 Native HTML5 Canvas，捨棄極不穩定的 html-to-image 套件
+                    const canvas = document.getElementById('exportCanvas');
+                    canvas.width = exportW * 2; // Retina (2x 解析度)
+                    canvas.height = exportH * 2;
+                    const ctx = canvas.getContext('2d');
+                    
+                    if (bgColor !== 'transparent') {
+                        ctx.fillStyle = bgColor;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
 
-                    htmlToImage.toPng(wrapper, {
-                        quality: 1,
-                        pixelRatio: 2, // High resolution (Retina) output
-                        backgroundColor: bgColor === 'transparent' ? null : bgColor
-                    })
-                    .then(function (dataUrl) {
-                        const a = document.createElement('a');
-                        a.href = dataUrl;
-                        a.download = `workflow-${Date.now()}.png`;
-                        a.click();
-                        document.body.removeChild(wrapper);
-                        showToast('高解析度 PNG 匯出完成！');
+                    // 將 SVG 資料安全編碼以供 Image() 載入
+                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+                    
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.onload = function() {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(url);
+                        
+                        try {
+                            const pngDataUrl = canvas.toDataURL('image/png');
+                            const a = document.createElement('a');
+                            a.href = pngDataUrl;
+                            a.download = `workflow-${Date.now()}.png`;
+                            a.click();
+                            showToast('高解析度 PNG 匯出完成！');
+                        } catch (err) {
+                            console.error(err);
+                            showToast('PNG 轉換發生問題，請嘗試下載 SVG', 'error');
+                        }
                         restoreSelection();
-                    })
-                    .catch(function (error) {
-                        console.error('PNG Export failed:', error);
-                        showToast('PNG 匯出失敗，請檢查圖示資源存取權限', 'error');
-                        document.body.removeChild(wrapper);
+                    };
+                    img.onerror = function(err) {
+                        console.error('Image load error:', err);
+                        showToast('圖像渲染失敗，請改用 SVG 格式下載', 'error');
                         restoreSelection();
-                    });
+                    };
+                    img.src = url;
                 }
             }, 50);
 
