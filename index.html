@@ -1163,8 +1163,8 @@
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-move');
                     e.stopPropagation(); 
-                } else if (groupEl && (e.target.classList.contains('group-header') || e.target.classList.contains('group-title') || e.target.classList.contains('group-rect') || e.target.classList.contains('group-container'))) {
-                    // Start Group Drag & Selection
+                } else if (groupEl && !e.target.closest('[data-action="toggle-collapse"]')) {
+                    // Start Group Drag & Selection (Robust check for any area inside group container)
                     isDraggingGroup = true;
                     const gid = groupEl.getAttribute('data-group-id');
                     selectGroup(gid);
@@ -2477,6 +2477,7 @@
             if (node) {
                 const dim = getNodeDimensions(node);
                 return {
+                    id: node.id,
                     x: node.x,
                     y: node.y,
                     w: dim.w,
@@ -2494,6 +2495,7 @@
             if (group) {
                 const box = getGroupBoundingBox(group.id);
                 return {
+                    id: group.id,
                     x: box.gx,
                     y: box.gy,
                     w: box.gw,
@@ -2509,18 +2511,19 @@
             if (endpoint.x !== undefined && endpoint.y !== undefined) {
                 const w = endpoint.w || 100, h = endpoint.h || 50;
                 return {
+                    id: endpoint.id || (typeof endpoint === 'string' ? endpoint : ''),
                     x: endpoint.x,
                     y: endpoint.y,
                     w, h,
-                    cx: endpoint.x + w / 2,
-                    cy: endpoint.y + h / 2,
+                    cx: endpoint.cx !== undefined ? endpoint.cx : (endpoint.x + w / 2),
+                    cy: endpoint.cy !== undefined ? endpoint.cy : (endpoint.y + h / 2),
                     label: endpoint.label || '',
-                    isGroup: false,
-                    shape: 'rect'
+                    isGroup: !!endpoint.isGroup,
+                    shape: endpoint.shape || 'rect'
                 };
             }
             
-            return { cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false, shape: 'rect' };
+            return { id: '', cx: 0, cy: 0, w: 100, h: 50, x: 0, y: 0, label: '', isGroup: false, shape: 'rect' };
         }
 
         function computeEdgePath(ep1, ep2, pairIndex = 0, totalInPair = 1, edgeType = 'bezier', labelPos = 0.5, fromPort = 'auto', toPort = 'auto', fromOffset = 0, toOffset = 0) {
@@ -2590,8 +2593,8 @@
                 cp2y = y2 + n2y * curvature;
             } else {
                 // Canonical Base Normal Orientation: ensure X->Y and Y->X curve symmetrically in absolute world space
-                const id1 = String(ep1.id || (typeof ep1 === 'string' ? ep1 : ''));
-                const id2 = String(ep2.id || (typeof ep2 === 'string' ? ep2 : ''));
+                const id1 = String(b1.id || (typeof ep1 === 'string' ? ep1 : (ep1 && ep1.id ? ep1.id : '')));
+                const id2 = String(b2.id || (typeof ep2 === 'string' ? ep2 : (ep2 && ep2.id ? ep2.id : '')));
                 const isForward = id1 <= id2;
                 const baseSign = isForward ? 1 : -1;
 
