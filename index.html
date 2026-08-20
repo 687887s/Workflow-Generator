@@ -364,8 +364,9 @@
             aiml: {
                 theme: 'tech',
                 subgraphs: [
-                    { id: 'sg1', label: '資料處理與特徵工程', color: '#0ea5e9', x: 76, y: 110 },
-                    { id: 'sg2', label: '模型訓練階段', color: '#10b981', x: 576, y: 310 }
+                    { id: 'sg0', label: 'MLOps 管線叢集 (父群組)', color: '#6366f1', parent: '', x: 50, y: 50 },
+                    { id: 'sg1', label: '資料處理與特徵工程', color: '#0ea5e9', parent: 'sg0', x: 76, y: 110 },
+                    { id: 'sg2', label: '模型訓練階段', color: '#10b981', parent: 'sg0', x: 576, y: 310 }
                 ],
                 nodes: [
                     { id: 'n1', label: 'Raw Data Source', sub: 'SQL & S3 Bucket', shape: 'database', icon: 'fa-database', group: 'sg1', color: '#64748b', x: 100, y: 150, showIcon: true },
@@ -381,14 +382,15 @@
                     { from: 'n3', to: 'n4', label: 'Tensors', style: 'solid' },
                     { from: 'n4', to: 'n5', label: 'Evaluate', style: 'solid' },
                     { from: 'n5', to: 'n6', label: 'Pass', style: 'solid' },
-                    { from: 'n5', to: 'n4', label: 'Retry', style: 'dashed' }
+                    { from: 'n5', to: 'n4', label: 'Retry Loop', style: 'dashed' }
                 ]
             },
             microservices: {
                 theme: 'tech',
                 subgraphs: [
-                    { id: 'sg1', label: 'API Gateway & Security', color: '#06b6d4', x: 376, y: 60 },
-                    { id: 'sg2', label: 'Backend Microservices', color: '#a855f7', x: 726, y: 110 }
+                    { id: 'sg0', label: 'Cloud Infrastructure (外層叢集)', color: '#3b82f6', parent: '', x: 350, y: 40 },
+                    { id: 'sg1', label: 'API Gateway & Security', color: '#06b6d4', parent: 'sg0', x: 376, y: 60 },
+                    { id: 'sg2', label: 'Backend Microservices', color: '#a855f7', parent: 'sg0', x: 726, y: 110 }
                 ],
                 nodes: [
                     { id: 'n1', label: 'Client Application', sub: 'Web / Mobile', shape: 'pill', icon: 'fa-mobile-screen', group: '', color: '#0ea5e9', x: 100, y: 250, showIcon: true },
@@ -404,6 +406,7 @@
                     { from: 'n2', to: 'n4', label: 'Route /api/user', style: 'solid' },
                     { from: 'n2', to: 'n5', label: 'Route /api/order', style: 'solid' },
                     { from: 'n4', to: 'n6', label: 'Read/Write', style: 'solid' },
+                    { from: 'n6', to: 'n4', label: 'Sync Event', style: 'dashed' },
                     { from: 'n5', to: 'n6', label: 'Transactions', style: 'solid' }
                 ]
             },
@@ -601,11 +604,44 @@
             };
         }
 
+        // --- Group Descendants & Dragging Logic ---
+        function isGroupDescendantOf(childId, parentId, visited = new Set()) {
+            if (visited.has(childId)) return false;
+            visited.add(childId);
+            const child = state.subgraphs.find(x => x.id === childId);
+            if (!child || !child.parent) return false;
+            if (child.parent === parentId) return true;
+            return isGroupDescendantOf(child.parent, parentId, visited);
+        }
+
+        function getAllGroupDescendants(gid) {
+            const allGroupIds = new Set([gid]);
+            let added = true;
+            while (added) {
+                added = false;
+                state.subgraphs.forEach(g => {
+                    if (g.parent && allGroupIds.has(g.parent) && !allGroupIds.has(g.id)) {
+                        allGroupIds.add(g.id);
+                        added = true;
+                    }
+                });
+            }
+            const nodes = state.nodes.filter(n => allGroupIds.has(n.group));
+            const subgraphs = state.subgraphs.filter(g => allGroupIds.has(g.id));
+            return { nodes, subgraphs, allGroupIds };
+        }
+
+        let isDraggingGroup = false;
+        let selectedGroupId = null;
+        let groupDragStartPt = { x: 0, y: 0 };
+        let groupDragInitialNodes = [];
+        let groupDragInitialGroups = [];
+
         function setupCanvasInteractions() {
             const viewport = document.getElementById('canvasViewport');
 
             viewport.addEventListener('mousedown', (e) => {
-                if(e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
+                if (e.target.closest('header') || e.target.closest('aside') || e.target.closest('.absolute.top-4')) return;
 
                 if (appMode === 'select') {
                     isSelectingArea = true;
@@ -622,6 +658,7 @@
                 }
 
                 const nodeGroup = e.target.closest('.node-group');
+                const groupEl = e.target.closest('.group-container');
                 
                 if (nodeGroup) {
                     isDraggingNode = true;
@@ -637,6 +674,20 @@
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-move');
                     e.stopPropagation(); 
+                } else if (groupEl && (e.target.classList.contains('group-header') || e.target.classList.contains('group-title') || e.target.classList.contains('group-rect'))) {
+                    // Start Group Drag
+                    isDraggingGroup = true;
+                    selectedGroupId = groupEl.getAttribute('data-group-id');
+                    groupDragStartPt = getMousePositionInSVG(e);
+
+                    const desc = getAllGroupDescendants(selectedGroupId);
+                    groupDragInitialNodes = desc.nodes.map(n => ({ node: n, startX: n.x, startY: n.y }));
+                    groupDragInitialGroups = desc.subgraphs.map(g => ({ group: g, startX: g.x !== undefined ? g.x : 100, startY: g.y !== undefined ? g.y : 100 }));
+
+                    viewport.classList.remove('cursor-grab');
+                    viewport.classList.add('cursor-move');
+                    selectNode(null);
+                    e.stopPropagation();
                 } else {
                     isDraggingCanvas = true;
                     dragStartX = e.clientX - panX;
@@ -657,6 +708,7 @@
                 const nodeMap = new Map();
                 state.nodes.forEach(n => nodeMap.set(n.id, n));
                 const draggedNode = nodeMap.get(nodeId);
+                const edgePairInfoMap = buildEdgePairIndexMap();
 
                 // Update affected edges
                 state.edges.forEach((e, idx) => {
@@ -666,7 +718,8 @@
                             const n1 = nodeMap.get(e.from);
                             const n2 = nodeMap.get(e.to);
                             if (n1 && n2) {
-                                const pathData = computeEdgePath(n1, n2);
+                                const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                                const pathData = computeEdgePath(n1, n2, edgeInfo.indexInPair, edgeInfo.totalInPair);
                                 const pathEl = edgeEl.querySelector('.edge-path');
                                 if (pathEl) pathEl.setAttribute('d', pathData.d);
                                 
@@ -685,27 +738,26 @@
                     }
                 });
 
-                // Update affected group bounds if this node is in a group
+                // Update affected group bounds
                 if (draggedNode && draggedNode.group) {
-                    const groupEl = document.querySelector(`[data-group-id="${draggedNode.group}"]`);
-                    if (groupEl) {
-                        const gNodes = state.nodes.filter(n => n.group === draggedNode.group);
-                        if (gNodes.length > 0) {
-                            let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                            gNodes.forEach(n => {
-                                gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                                gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                            });
-                            const pad = 24; const topPad = 40;
-                            const gx = gMinX - pad; const gy = gMinY - topPad;
-                            const gw = (gMaxX - gMinX) + pad*2; const gh = (gMaxY - gMinY) + pad + topPad;
-                            groupEl.setAttribute('transform', `translate(${gx}, ${gy})`);
+                    let currGid = draggedNode.group;
+                    while (currGid) {
+                        const groupEl = document.querySelector(`[data-group-id="${currGid}"]`);
+                        if (groupEl) {
+                            const box = getGroupBoundingBox(currGid);
+                            groupEl.setAttribute('transform', `translate(${box.gx}, ${box.gy})`);
                             const rectEl = groupEl.querySelector('.group-rect');
+                            const headerEl = groupEl.querySelector('.group-header');
                             if (rectEl) {
-                                rectEl.setAttribute('width', gw);
-                                rectEl.setAttribute('height', gh);
+                                rectEl.setAttribute('width', box.gw);
+                                rectEl.setAttribute('height', box.gh);
+                            }
+                            if (headerEl) {
+                                headerEl.setAttribute('width', box.gw);
                             }
                         }
+                        const gObj = state.subgraphs.find(x => x.id === currGid);
+                        currGid = gObj ? gObj.parent : null;
                     }
                 }
             }
@@ -734,13 +786,32 @@
                         node.x = Math.round((pt.x - nodeDragOffsetX) / 10) * 10;
                         node.y = Math.round((pt.y - nodeDragOffsetY) / 10) * 10;
                         
-                        // Performance: Use rAF + selective DOM update instead of full innerHTML re-render
                         if (!dragRafId) {
                             dragRafId = requestAnimationFrame(() => {
                                 updateDraggedNodeDOM(selectedNodeId, node.x, node.y);
                                 dragRafId = null;
                             });
                         }
+                    }
+                } else if (isDraggingGroup && selectedGroupId) {
+                    const pt = getMousePositionInSVG(e);
+                    const deltaX = Math.round((pt.x - groupDragStartPt.x) / 10) * 10;
+                    const deltaY = Math.round((pt.y - groupDragStartPt.y) / 10) * 10;
+
+                    groupDragInitialNodes.forEach(item => {
+                        item.node.x = item.startX + deltaX;
+                        item.node.y = item.startY + deltaY;
+                    });
+                    groupDragInitialGroups.forEach(item => {
+                        item.group.x = item.startX + deltaX;
+                        item.group.y = item.startY + deltaY;
+                    });
+
+                    if (!dragRafId) {
+                        dragRafId = requestAnimationFrame(() => {
+                            renderDiagram();
+                            dragRafId = null;
+                        });
                     }
                 } else if (isDraggingCanvas) {
                     panX = e.clientX - dragStartX;
@@ -809,20 +880,24 @@
                             if (activeTab === 'properties') refreshPropertiesPanel();
                             renderDiagram();
                         } else {
-                            // Ensure final state is aligned cleanly
                             renderDiagram();
                         }
                     }
                     saveHistory();
+                } else if (isDraggingGroup) {
+                    renderDiagram();
+                    saveHistory();
                 }
 
                 isDraggingNode = false;
+                isDraggingGroup = false;
                 isDraggingCanvas = false;
+                selectedGroupId = null;
                 const viewport = document.getElementById('canvasViewport');
                 viewport.classList.remove('cursor-grabbing', 'cursor-move');
                 viewport.classList.add('cursor-grab');
                 
-                if(activeTab === 'code') {
+                if (activeTab === 'code') {
                     document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
                 }
             });
@@ -859,7 +934,7 @@
         }
 
         function centerView() {
-            if(state.nodes.length === 0) {
+            if (state.nodes.length === 0 && state.subgraphs.length === 0) {
                 canvasZoom = 1.0;
                 panX = 0; panY = 0;
                 updateCanvasTransform();
@@ -874,13 +949,17 @@
                 maxY = Math.max(maxY, n.y + NODE_H);
             });
             state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
-                if(groupNodes.length === 0 && g.x !== undefined) {
-                    minX = Math.min(minX, g.x - 24); minY = Math.min(minY, g.y - 40);
-                    maxX = Math.max(maxX, g.x + 300); maxY = Math.max(maxY, g.y + 200);
-                }
+                const box = getGroupBoundingBox(g.id);
+                minX = Math.min(minX, box.minX);
+                minY = Math.min(minY, box.minY);
+                maxX = Math.max(maxX, box.maxX);
+                maxY = Math.max(maxY, box.maxY);
             });
             
+            if (minX === Infinity) {
+                minX = 0; minY = 0; maxX = 800; maxY = 600;
+            }
+
             const contentW = maxX - minX;
             const contentH = maxY - minY;
             const cx = minX + contentW / 2;
@@ -891,7 +970,7 @@
             const viewH = viewport.clientHeight;
             
             canvasZoom = 1.0;
-            if(contentW > viewW * 0.8 || contentH > viewH * 0.8) {
+            if (contentW > viewW * 0.8 || contentH > viewH * 0.8) {
                 canvasZoom = Math.min((viewW * 0.8) / contentW, (viewH * 0.8) / contentH);
             }
             
@@ -902,26 +981,14 @@
 
         function getGroupDropZones(draggedNodeId) {
             const zones = {};
-            const pad = 30;
-            const topPad = 50;
-
             state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id && n.id !== draggedNodeId);
-                if (groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    zones[g.id] = {
-                        minX: gMinX - pad - 20, minY: gMinY - topPad - 20,
-                        maxX: gMaxX + pad + 20, maxY: gMaxY + pad + 20
-                    };
-                } else {
-                    const gx = (g.x || 100) - pad;
-                    const gy = (g.y || 100) - topPad;
-                    zones[g.id] = { minX: gx - 20, minY: gy - 20, maxX: gx + 300 + 20, maxY: gy + 200 + 20 };
-                }
+                const box = getGroupBoundingBox(g.id);
+                zones[g.id] = {
+                    minX: box.gx,
+                    minY: box.gy,
+                    maxX: box.gx + box.gw,
+                    maxY: box.gy + box.gh
+                };
             });
             return zones;
         }
@@ -1085,11 +1152,27 @@
             
             state.subgraphs.forEach((g, idx) => {
                 const item = document.createElement('div');
-                item.className = 'bg-slate-900/50 p-2 rounded-lg border border-slate-700/60 flex items-center space-x-2 text-xs';
+                item.className = 'bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/60 space-y-2 text-xs';
+                
+                // Parent group options (exclude self and own descendants to avoid cyclic references)
+                const validParentOptions = state.subgraphs
+                    .filter(other => other.id !== g.id && !isGroupDescendantOf(other.id, g.id))
+                    .map(other => `<option value="${other.id}" ${g.parent === other.id ? 'selected' : ''}>↳ ${other.label}</option>`)
+                    .join('');
+
                 item.innerHTML = `
-                    <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0">
-                    <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1.5 rounded border border-slate-700 text-slate-200">
-                    <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
+                    <div class="flex items-center space-x-2">
+                        <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0">
+                        <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1.5 rounded border border-slate-700 text-slate-200" placeholder="群組名稱">
+                        <button onclick="removeGroup(${idx})" class="text-slate-500 hover:text-red-400 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[11px] text-slate-400 shrink-0"><i class="fa-solid fa-folder-tree mr-1"></i>上層群組:</span>
+                        <select onchange="updateGroup(${idx}, 'parent', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:outline-none">
+                            <option value="">(無 / 最上層群組)</option>
+                            ${validParentOptions}
+                        </select>
+                    </div>
                 `;
                 groupsContainer.appendChild(item);
             });
@@ -1129,6 +1212,7 @@
                 id: newId, 
                 label: '新群組區域', 
                 color: '#10b981',
+                parent: '',
                 x: centerPt.x - 150,
                 y: centerPt.y - 100
             });
@@ -1136,16 +1220,19 @@
             updateRelationsPanel();
             if(selectedNodeId) refreshPropertiesPanel();
             renderDiagram();
-            showToast('已新增群組！請點選節點修改「所屬群組」');
+            showToast('已新增群組！可設定「上層群組」以進行嵌套');
         }
         function updateGroup(idx, key, val) {
             state.subgraphs[idx][key] = val;
             renderDiagram();
+            updateRelationsPanel();
         }
         function removeGroup(idx) {
             const id = state.subgraphs[idx].id;
+            const parentId = state.subgraphs[idx].parent || '';
             state.subgraphs.splice(idx, 1);
             state.nodes.forEach(n => { if (n.group === id) n.group = ''; });
+            state.subgraphs.forEach(g => { if (g.parent === id) g.parent = parentId; });
             saveHistory();
             updateRelationsPanel();
             if(selectedNodeId) refreshPropertiesPanel();
@@ -1176,25 +1263,133 @@
             }
         }
 
-        function computeEdgePath(n1, n2) {
-            const cx1 = n1.x + NODE_W/2;
-            const cy1 = n1.y + NODE_H/2;
-            const cx2 = n2.x + NODE_W/2;
-            const cy2 = n2.y + NODE_H/2;
+        // --- Multi-edge Adaptive Routing Helpers ---
+        function getEdgePairKey(id1, id2) {
+            return id1 < id2 ? `${id1}___${id2}` : `${id2}___${id1}`;
+        }
+
+        function buildEdgePairIndexMap() {
+            const pairMap = new Map();
+            state.edges.forEach((e, idx) => {
+                const key = getEdgePairKey(e.from, e.to);
+                if (!pairMap.has(key)) pairMap.set(key, []);
+                pairMap.get(key).push({ edgeIndex: idx, from: e.from, to: e.to });
+            });
             
-            const dx = Math.abs(cx2 - cx1);
-            const dy = Math.abs(cy2 - cy1);
+            const edgeInfoMap = new Map();
+            pairMap.forEach((list, key) => {
+                const total = list.length;
+                list.forEach((item, i) => {
+                    edgeInfoMap.set(item.edgeIndex, {
+                        indexInPair: i,
+                        totalInPair: total,
+                        from: item.from,
+                        to: item.to
+                    });
+                });
+            });
+            return edgeInfoMap;
+        }
+
+        function computeEdgePath(n1, n2, pairIndex = 0, totalInPair = 1) {
+            const cx1 = n1.x + NODE_W / 2;
+            const cy1 = n1.y + NODE_H / 2;
+            const cx2 = n2.x + NODE_W / 2;
+            const cy2 = n2.y + NODE_H / 2;
             
-            let d = "";
-            if(dx > dy) {
-                const controlOffset = dx * 0.4;
-                d = `M ${cx1} ${cy1} C ${cx1 + (cx2>cx1?controlOffset:-controlOffset)} ${cy1}, ${cx2 - (cx2>cx1?controlOffset:-controlOffset)} ${cy2}, ${cx2} ${cy2}`;
-            } else {
-                const controlOffset = dy * 0.4;
-                d = `M ${cx1} ${cy1} C ${cx1} ${cy1 + (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2 - (cy2>cy1?controlOffset:-controlOffset)}, ${cx2} ${cy2}`;
+            const dx = cx2 - cx1;
+            const dy = cy2 - cy1;
+            const dist = Math.hypot(dx, dy) || 1;
+
+            // Single edge between these two nodes: use natural curve
+            if (totalInPair <= 1) {
+                const absDx = Math.abs(dx);
+                const absDy = Math.abs(dy);
+                let d = "";
+                if (absDx > absDy) {
+                    const controlOffset = absDx * 0.4;
+                    d = `M ${cx1} ${cy1} C ${cx1 + (dx > 0 ? controlOffset : -controlOffset)} ${cy1}, ${cx2 - (dx > 0 ? controlOffset : -controlOffset)} ${cy2}, ${cx2} ${cy2}`;
+                } else {
+                    const controlOffset = absDy * 0.4;
+                    d = `M ${cx1} ${cy1} C ${cx1} ${cy1 + (dy > 0 ? controlOffset : -controlOffset)}, ${cx2} ${cy2 - (dy > 0 ? controlOffset : -controlOffset)}, ${cx2} ${cy2}`;
+                }
+                return { d: d, midX: (cx1 + cx2) / 2, midY: (cy1 + cy2) / 2 };
             }
-            
-            return { d: d, midX: (cx1 + cx2) / 2, midY: (cy1 + cy2) / 2 };
+
+            // Multiple edges between the same two nodes: calculate adaptive perpendicular normal offset
+            const nx = -dy / dist;
+            const ny = dx / dist;
+
+            // Compute balanced symmetric offset spread: e.g. -45, +45, -90, +90, etc.
+            const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
+            const curveOffset = offsetMultiplier * 50;
+
+            const cp1x = cx1 + dx * 0.25 + nx * curveOffset;
+            const cp1y = cy1 + dy * 0.25 + ny * curveOffset;
+            const cp2x = cx1 + dx * 0.75 + nx * curveOffset;
+            const cp2y = cy1 + dy * 0.75 + ny * curveOffset;
+
+            const d = `M ${cx1} ${cy1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${cx2} ${cy2}`;
+
+            // Exact midpoint of cubic Bezier at t = 0.5
+            const midX = 0.125 * cx1 + 0.375 * cp1x + 0.375 * cp2x + 0.125 * cx2;
+            const midY = 0.125 * cy1 + 0.375 * cp1y + 0.375 * cp2y + 0.125 * cy2;
+
+            return { d: d, midX: midX, midY: midY };
+        }
+
+        // --- Hierarchy and Bounding Box Calculations for Groups ---
+        function getGroupDepth(gid, visited = new Set()) {
+            if (visited.has(gid)) return 0;
+            visited.add(gid);
+            const g = state.subgraphs.find(x => x.id === gid);
+            if (!g || !g.parent) return 0;
+            return 1 + getGroupDepth(g.parent, visited);
+        }
+
+        function getGroupBoundingBox(gid, visited = new Set()) {
+            if (visited.has(gid)) return { gx: 100, gy: 100, gw: 300, gh: 200, minX: 100, minY: 100, maxX: 400, maxY: 300, isEmpty: true };
+            visited.add(gid);
+            const g = state.subgraphs.find(x => x.id === gid);
+            if (!g) return { gx: 100, gy: 100, gw: 300, gh: 200, minX: 100, minY: 100, maxX: 400, maxY: 300, isEmpty: true };
+
+            const directNodes = state.nodes.filter(n => n.group === gid);
+            const childGroups = state.subgraphs.filter(cg => cg.parent === gid);
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            directNodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + NODE_W);
+                maxY = Math.max(maxY, n.y + NODE_H);
+            });
+
+            childGroups.forEach(cg => {
+                const cBox = getGroupBoundingBox(cg.id, new Set(visited));
+                minX = Math.min(minX, cBox.minX);
+                minY = Math.min(minY, cBox.minY);
+                maxX = Math.max(maxX, cBox.maxX);
+                maxY = Math.max(maxY, cBox.maxY);
+            });
+
+            const pad = 24; const topPad = 40;
+            if (minX === Infinity) {
+                const gx = (g.x !== undefined ? g.x : 100) - pad;
+                const gy = (g.y !== undefined ? g.y : 100) - topPad;
+                return {
+                    gx, gy, gw: 300, gh: 200,
+                    minX: gx, minY: gy, maxX: gx + 300, maxY: gy + 200,
+                    isEmpty: true
+                };
+            }
+
+            const gx = minX - pad;
+            const gy = minY - topPad;
+            const gw = (maxX - minX) + pad * 2;
+            const gh = (maxY - minY) + pad + topPad;
+            g.x = gx + pad;
+            g.y = gy + topPad;
+            return { gx, gy, gw, gh, minX: gx, minY: gy, maxX: gx + gw, maxY: gy + gh, isEmpty: false };
         }
 
         function renderDiagram() {
@@ -1202,15 +1397,10 @@
             
             // Build lookup maps for O(1) queries
             const nodeMap = new Map();
-            const groupNodesMap = new Map();
-            state.subgraphs.forEach(g => groupNodesMap.set(g.id, []));
+            state.nodes.forEach(n => nodeMap.set(n.id, n));
 
             let minX = 0, minY = 0, maxX = 800, maxY = 600;
             state.nodes.forEach(n => {
-                nodeMap.set(n.id, n);
-                if (n.group && groupNodesMap.has(n.group)) {
-                    groupNodesMap.get(n.group).push(n);
-                }
                 minX = Math.min(minX, n.x - 100); minY = Math.min(minY, n.y - 100);
                 maxX = Math.max(maxX, n.x + NODE_W + 100); maxY = Math.max(maxY, n.y + NODE_H + 100);
             });
@@ -1232,44 +1422,36 @@
                     <g id="groupsLayer">
             `;
 
-            state.subgraphs.forEach(g => {
-                const groupNodes = groupNodesMap.get(g.id) || [];
-                let gx, gy, gw, gh;
-                const pad = 24; const topPad = 40;
+            // Sort subgraphs by hierarchy depth: root groups first (background), nested groups after (foreground)
+            const sortedGroups = [...state.subgraphs].sort((a, b) => getGroupDepth(a.id) - getGroupDepth(b.id));
+
+            sortedGroups.forEach(g => {
+                const box = getGroupBoundingBox(g.id);
+                const gColor = g.color || theme.groupBorder;
                 
-                if (groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    
-                    gx = gMinX - pad; gy = gMinY - topPad;
-                    gw = (gMaxX - gMinX) + pad*2; gh = (gMaxY - gMinY) + pad + topPad;
-                    
-                    g.x = gx + pad; g.y = gy + topPad;
-                } else {
-                    gx = (g.x || 100) - pad; gy = (g.y || 100) - topPad;
-                    gw = 300; gh = 200;
-                }
-                    
                 svgHtml += `
-                    <g data-group-id="${g.id}" transform="translate(${gx}, ${gy})">
-                        <rect class="group-rect" width="${gw}" height="${gh}" rx="16" fill="${theme.groupBg}" stroke="${g.color || theme.groupBorder}" stroke-width="1.5" stroke-dasharray="5 4" />
-                        <text class="group-title" x="16" y="24" fill="${g.color || theme.text}" font-size="12" font-weight="700" letter-spacing="0.5">${g.label}</text>
-                        ${groupNodes.length === 0 ? `<text class="group-empty-hint" x="${gw/2}" y="${gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：請在節點「屬性」中指派至此群組</text>` : ''}
+                    <g data-group-id="${g.id}" class="group-container" transform="translate(${box.gx}, ${box.gy})">
+                        <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="16" fill="${theme.groupBg}" stroke="${gColor}" stroke-width="1.5" stroke-dasharray="5 4" />
+                        <!-- Group Draggable Header Bar -->
+                        <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
+                        <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
+                        ${box.isEmpty ? `<text class="group-empty-hint" x="${box.gw/2}" y="${box.gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：可拖曳移動或指派節點/子群組</text>` : ''}
                     </g>
                 `;
             });
 
             svgHtml += `</g><g id="edgesLayer">`;
 
+            // Multi-edge pair index map for adaptive routing
+            const edgePairInfoMap = buildEdgePairIndexMap();
+
             state.edges.forEach((e, idx) => {
                 const nodeA = nodeMap.get(e.from);
                 const nodeB = nodeMap.get(e.to);
                 
                 if (nodeA && nodeB) {
-                    const pathData = computeEdgePath(nodeA, nodeB);
+                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                    const pathData = computeEdgePath(nodeA, nodeB, edgeInfo.indexInPair, edgeInfo.totalInPair);
                     const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
 
                     svgHtml += `
@@ -1524,28 +1706,20 @@
         }
 
         function getNodesBoundingBox() {
-            if (state.nodes.length === 0) return {x:0, y:0, w:800, h:600};
+            if (state.nodes.length === 0 && state.subgraphs.length === 0) return { x: 0, y: 0, w: 800, h: 600 };
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             state.nodes.forEach(n => {
                 minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
                 maxX = Math.max(maxX, n.x + NODE_W); maxY = Math.max(maxY, n.y + NODE_H);
             });
             state.subgraphs.forEach(g => {
-                const groupNodes = state.nodes.filter(n => n.group === g.id);
-                if(groupNodes.length > 0) {
-                    let gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-                    groupNodes.forEach(n => {
-                        gMinX = Math.min(gMinX, n.x); gMinY = Math.min(gMinY, n.y);
-                        gMaxX = Math.max(gMaxX, n.x + NODE_W); gMaxY = Math.max(gMaxY, n.y + NODE_H);
-                    });
-                    minX = Math.min(minX, gMinX - 24); minY = Math.min(minY, gMinY - 40);
-                    maxX = Math.max(maxX, gMaxX + 24); maxY = Math.max(maxY, gMaxY + 24);
-                } else {
-                    const gx = (g.x || 100) - 24; const gy = (g.y || 100) - 40;
-                    minX = Math.min(minX, gx); minY = Math.min(minY, gy);
-                    maxX = Math.max(maxX, gx + 300); maxY = Math.max(maxY, gy + 200);
-                }
+                const box = getGroupBoundingBox(g.id);
+                minX = Math.min(minX, box.minX);
+                minY = Math.min(minY, box.minY);
+                maxX = Math.max(maxX, box.maxX);
+                maxY = Math.max(maxY, box.maxY);
             });
+            if (minX === Infinity) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
             return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
         }
 
