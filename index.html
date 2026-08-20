@@ -694,15 +694,18 @@
         let nodeDragOffsetX = 0;
         let nodeDragOffsetY = 0;
         
-        // Export State
-        let selectedExportFormat = 'png';
+        // Selection Box & Mode State
+        let appMode = 'drag'; 
+        let isSelectingArea = false;
+        let selectStartX = 0;
+        let selectStartY = 0;
+        let customExportBox = null;
 
         // Multi-Selection State
         let selectedNodeIds = new Set();
         let selectedNodeOrder = [];
         let multiDragStartPt = { x: 0, y: 0 };
         let multiDragInitialNodes = [];
-        let multiDragDropZoneMap = {};
 
         // Official Lucide Raw Vector Database (Downloaded to Git assets/icons/ & Embedded for Instant Offline Zero-Config)
         const OFFICIAL_LUCIDE_ICONS = {
@@ -1317,10 +1320,10 @@
                 if (nodeGroup) {
                     const nodeId = nodeGroup.getAttribute('data-id');
                     if (isShift) {
-                        selectNode(nodeId, true);
+                        selectNode(nodeId, true, false);
                     } else {
                         if (!selectedNodeIds.has(nodeId)) {
-                            selectNode(nodeId, false);
+                            selectNode(nodeId, false, false);
                         }
                     }
 
@@ -1332,10 +1335,9 @@
                         return n ? { node: n, startX: n.x, startY: n.y } : null;
                     }).filter(Boolean);
 
-                    const node = state.nodes.find(n => n.id === nodeId);
-                    if (node) {
-                        nodeDragOffsetX = pt.x - node.x;
-                        nodeDragOffsetY = pt.y - node.y;
+                    if (multiDragInitialNodes.length === 0) {
+                        const n = state.nodes.find(x => x.id === nodeId);
+                        if (n) multiDragInitialNodes = [{ node: n, startX: n.x, startY: n.y }];
                     }
                     
                     viewport.classList.remove('cursor-grab');
@@ -1372,6 +1374,71 @@
                 }
             });
 
+            // Fast local DOM updates during multi-node / single-node drag (60 FPS smooth updates)
+            function updateMultiDraggedNodesDOM(deltaX, deltaY) {
+                const movedIds = new Set();
+                multiDragInitialNodes.forEach(item => {
+                    item.node.x = item.startX + deltaX;
+                    item.node.y = item.startY + deltaY;
+                    movedIds.add(item.node.id);
+                    const nodeEl = document.querySelector(`.node-group[data-id="${item.node.id}"]`);
+                    if (nodeEl) {
+                        nodeEl.setAttribute('transform', `translate(${item.node.x}, ${item.node.y})`);
+                    }
+                });
+
+                const edgePairInfoMap = buildEdgePairIndexMap();
+                state.edges.forEach((e, idx) => {
+                    const effFrom = resolveEffectiveEndpointId(e.from);
+                    const effTo = resolveEffectiveEndpointId(e.to);
+                    const isAffected = movedIds.has(effFrom) || movedIds.has(effTo) || movedIds.has(e.from) || movedIds.has(e.to);
+                    if (isAffected && effFrom && effTo && effFrom !== effTo) {
+                        const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
+                        if (edgeEl) {
+                            const epA = getEndpointBounds(effFrom);
+                            const epB = getEndpointBounds(effTo);
+                            if (epA && epB) {
+                                const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                                const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
+                                const pathEl = edgeEl.querySelector('.edge-path');
+                                if (pathEl) pathEl.setAttribute('d', pathData.d);
+                                const hitboxEl = edgeEl.querySelector('.edge-hitbox');
+                                if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
+                                
+                                const labelBg = edgeEl.querySelector('.edge-label-bg');
+                                const labelText = edgeEl.querySelector('.edge-label-text');
+                                if (labelBg && labelText) {
+                                    const labelLen = (e.label || '').length;
+                                    const boxW = Math.max(50, labelLen * 9 + 16);
+                                    labelBg.setAttribute('x', pathData.midX - boxW/2);
+                                    labelBg.setAttribute('y', pathData.midY - 12);
+                                    labelText.setAttribute('x', pathData.midX);
+                                    labelText.setAttribute('y', pathData.midY + 4);
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Update affected group containers
+                state.subgraphs.forEach(g => {
+                    const groupEl = document.querySelector(`[data-group-id="${g.id}"]`);
+                    if (groupEl) {
+                        const box = getGroupBoundingBox(g.id);
+                        groupEl.setAttribute('transform', `translate(${box.gx}, ${box.gy})`);
+                        const rectEl = groupEl.querySelector('.group-rect');
+                        const headerEl = groupEl.querySelector('.group-header');
+                        if (rectEl) {
+                            rectEl.setAttribute('width', box.gw);
+                            rectEl.setAttribute('height', box.gh);
+                        }
+                        if (headerEl) {
+                            headerEl.setAttribute('width', box.gw);
+                        }
+                    }
+                });
+            }
+
             // Context Menu Handler for Right Click
             viewport.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -1393,7 +1460,7 @@
                 if (nodeGroup) {
                     const nodeId = nodeGroup.getAttribute('data-id');
                     if (!selectedNodeIds.has(nodeId)) {
-                        selectNode(nodeId, false);
+                        selectNode(nodeId, false, true);
                     }
                     ctxNode.classList.remove('hidden');
                     if (selectedNodeIds.size > 1) {
@@ -1443,14 +1510,9 @@
                     const deltaX = Math.round((pt.x - multiDragStartPt.x) / 10) * 10;
                     const deltaY = Math.round((pt.y - multiDragStartPt.y) / 10) * 10;
 
-                    multiDragInitialNodes.forEach(item => {
-                        item.node.x = item.startX + deltaX;
-                        item.node.y = item.startY + deltaY;
-                    });
-
                     if (!dragRafId) {
                         dragRafId = requestAnimationFrame(() => {
-                            renderDiagram();
+                            updateMultiDraggedNodesDOM(deltaX, deltaY);
                             dragRafId = null;
                         });
                     }
@@ -1695,7 +1757,7 @@
             }
         }
 
-        function selectNode(id, isShift = false) {
+        function selectNode(id, isShift = false, shouldRender = true) {
             if (!id) {
                 selectedNodeIds.clear();
                 selectedNodeOrder = [];
@@ -1720,7 +1782,20 @@
                 }
             }
             updateMultiSelectBar();
-            renderDiagram(); 
+
+            if (shouldRender) {
+                renderDiagram();
+            } else {
+                // Fast local class toggle without destroying SVG DOM elements
+                document.querySelectorAll('.node-group').forEach(el => {
+                    const nid = el.getAttribute('data-id');
+                    if (selectedNodeIds.has(nid) || selectedNodeId === nid) {
+                        el.classList.add('node-selected');
+                    } else {
+                        el.classList.remove('node-selected');
+                    }
+                });
+            }
             
             if (selectedNodeId && activeTab !== 'properties') {
                 switchSidebarTab('properties');
