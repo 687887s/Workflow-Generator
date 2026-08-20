@@ -930,20 +930,31 @@
                         const nodeCX = node.x + dim.w / 2;
                         const nodeCY = node.y + dim.h / 2;
                         
-                        let droppedInGroup = null;
-                        for (let i = state.subgraphs.length - 1; i >= 0; i--) {
-                            const gid = state.subgraphs[i].id;
-                            const z = dropZones[gid];
-                            if (nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
-                                droppedInGroup = gid;
-                                break;
+                        // Collect all matched candidate groups
+                        const matchedGroups = [];
+                        state.subgraphs.forEach(g => {
+                            const z = dropZones[g.id];
+                            if (z && nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
+                                matchedGroups.push({
+                                    id: g.id,
+                                    depth: getGroupDepth(g.id),
+                                    area: (z.maxX - z.minX) * (z.maxY - z.minY)
+                                });
                             }
-                        }
+                        });
                         
-                        // FIX: Only switch group if dropped into a VALID group. Otherwise keep original.
-                        if (droppedInGroup && node.group !== droppedInGroup) {
-                            node.group = droppedInGroup;
-                            showToast('已自動吸附至群組');
+                        // Deepest-Child-First sorting (highest depth first, then smallest bounding box)
+                        matchedGroups.sort((a, b) => b.depth - a.depth || a.area - b.area);
+                        const targetGroupId = matchedGroups.length > 0 ? matchedGroups[0].id : '';
+                        
+                        if (node.group !== targetGroupId) {
+                            node.group = targetGroupId;
+                            if (targetGroupId) {
+                                const targetGroup = state.subgraphs.find(g => g.id === targetGroupId);
+                                showToast(`已自動吸附至「${targetGroup ? targetGroup.label : '群組'}」`);
+                            } else {
+                                showToast('已移出群組');
+                            }
                             if (activeTab === 'properties') refreshPropertiesPanel();
                             renderDiagram();
                         } else {
@@ -980,11 +991,16 @@
         }
 
         function updateCanvasTransform() {
-            const container = document.getElementById('svgContainer');
-            container.style.transform = `translate(${panX}px, ${panY}px) scale(${canvasZoom})`;
+            const vpTransform = document.getElementById('viewportTransform');
+            if (vpTransform) {
+                vpTransform.setAttribute('transform', `translate(${panX}, ${panY}) scale(${canvasZoom})`);
+            } else {
+                renderDiagram();
+            }
             document.getElementById('zoomLevelDisplay').innerText = Math.round(canvasZoom * 100) + '%';
         }
 
+        let lastZoomLOD = 1.0;
         function zoomCanvas(factor) {
             const viewport = document.getElementById('canvasViewport');
             const rect = viewport.getBoundingClientRect();
@@ -997,7 +1013,15 @@
 
             panX = rect.width / 2 - cx * canvasZoom;
             panY = rect.height / 2 - cy * canvasZoom;
-            updateCanvasTransform();
+            
+            // Check LOD threshold transition (e.g. crossing 0.65 or 1.4) to re-render fine details
+            const currentLOD = canvasZoom < 0.65 ? 0.5 : (canvasZoom > 1.4 ? 2.0 : 1.0);
+            if (currentLOD !== lastZoomLOD) {
+                lastZoomLOD = currentLOD;
+                renderDiagram();
+            } else {
+                updateCanvasTransform();
+            }
         }
 
         function centerView() {
@@ -1152,11 +1176,16 @@
             document.getElementById('propColor').value = node.color;
             
             const groupSelect = document.getElementById('propGroup');
-            groupSelect.innerHTML = `<option value="">(無群組)</option>`;
-            state.subgraphs.forEach(g => {
+            groupSelect.innerHTML = `<option value="">(無群組 / 畫布頂層)</option>`;
+            
+            // Sort groups by hierarchy depth and render with tree indentation
+            const sortedGroups = [...state.subgraphs].sort((a, b) => getGroupDepth(a.id) - getGroupDepth(b.id));
+            sortedGroups.forEach(g => {
+                const depth = getGroupDepth(g.id);
+                const indent = depth > 0 ? '　'.repeat(depth) + '↳ ' : '';
                 const opt = document.createElement('option');
                 opt.value = g.id;
-                opt.text = g.label;
+                opt.textContent = indent + g.label;
                 opt.selected = (node.group === g.id);
                 groupSelect.appendChild(opt);
             });
@@ -1585,23 +1614,27 @@
                 edgeWidth: 2.5
             };
             const activeFont = FONT_FAMILIES[typo.fontFamily] || FONT_FAMILIES.sans;
+
+            // Dynamic Level of Detail (LOD) based on zoom scale
+            const isFarZoom = canvasZoom < 0.65;
+            const isNearZoom = canvasZoom > 1.4;
+            
+            let shadowDy = 4, shadowStdDev = 6, shadowOpacity = 0.35;
+            if (isFarZoom) {
+                shadowDy = 2; shadowStdDev = 3; shadowOpacity = 0.25;
+            } else if (isNearZoom) {
+                shadowDy = 6; shadowStdDev = 9; shadowOpacity = 0.45;
+            }
+
+            const baseEdgeWidth = typo.edgeWidth || 2.5;
+            const effectiveEdgeWidth = isFarZoom ? (baseEdgeWidth + 0.8) : baseEdgeWidth;
             
             // Build lookup maps for O(1) queries
             const nodeMap = new Map();
             state.nodes.forEach(n => nodeMap.set(n.id, n));
 
-            let minX = 0, minY = 0, maxX = 800, maxY = 600;
-            state.nodes.forEach(n => {
-                const dim = getNodeDimensions(n);
-                minX = Math.min(minX, n.x - 100); minY = Math.min(minY, n.y - 100);
-                maxX = Math.max(maxX, n.x + dim.w + 100); maxY = Math.max(maxY, n.y + dim.h + 100);
-            });
-
-            const svgW = Math.max(2000, maxX);
-            const svgH = Math.max(2000, maxY);
-
             let svgHtml = `
-                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
+                <svg id="workflowSvg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="overflow: visible; display:block; font-family: ${activeFont};" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
                     <defs>
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="${theme.edgeColor}" />
@@ -1609,12 +1642,14 @@
                         <marker id="arrow-selected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
                         </marker>
-                        <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="${theme.shadow}" />
+                        <filter id="dropShadow" x="-25%" y="-25%" width="150%" height="150%">
+                            <feDropShadow dx="0" dy="${shadowDy}" stdDeviation="${shadowStdDev}" flood-color="${theme.shadow}" flood-opacity="${shadowOpacity}" />
                         </filter>
                     </defs>
                     <rect width="100%" height="100%" fill="transparent" id="exportBg" />
-                    <g id="groupsLayer">
+                    <!-- Native SVG Vector Viewport Transform Container (Zero Blur Scaling) -->
+                    <g id="viewportTransform" transform="translate(${panX}, ${panY}) scale(${canvasZoom})">
+                        <g id="groupsLayer">
             `;
 
             // Sort subgraphs by hierarchy depth: root groups first (background), nested groups after (foreground)
@@ -1639,7 +1674,6 @@
 
             // Multi-edge pair index map for adaptive routing
             const edgePairInfoMap = buildEdgePairIndexMap();
-            const edgeStrokeWidth = typo.edgeWidth || 2.5;
 
             state.edges.forEach((e, idx) => {
                 const nodeA = nodeMap.get(e.from);
@@ -1655,8 +1689,8 @@
 
                     svgHtml += `
                         <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
-                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${edgeStrokeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
-                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${edgeStrokeWidth}" ${strokeDash} marker-end="${markerId}" />
+                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${effectiveEdgeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${effectiveEdgeWidth}" ${strokeDash} marker-end="${markerId}" />
                             <!-- Hit area for easy clicking & selection -->
                             <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="18" style="cursor: pointer;" />
                     `;
@@ -1768,7 +1802,7 @@
                 `;
             });
 
-            svgHtml += `</g></svg>`;
+            svgHtml += `</g></g></svg>`;
 
             const container = document.getElementById('svgContainer');
             container.innerHTML = svgHtml;
@@ -1908,6 +1942,9 @@
                     exportH = vp.clientHeight / canvasZoom;
                     viewBoxStr = `${-panX/canvasZoom} ${-panY/canvasZoom} ${exportW} ${exportH}`;
                 }
+
+                const vpGroup = svgToExport.querySelector('#viewportTransform');
+                if (vpGroup) vpGroup.removeAttribute('transform');
 
                 svgToExport.setAttribute('viewBox', viewBoxStr);
                 svgToExport.setAttribute('width', exportW);
