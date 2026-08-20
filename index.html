@@ -50,6 +50,11 @@
             filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
         }
         .group-container { transition: all 0.2s ease-out; }
+        .group-selected .group-rect {
+            stroke: #3b82f6 !important;
+            stroke-width: 2.5px !important;
+            filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.5));
+        }
         .group-collapsed:hover .group-rect {
             stroke-width: 2.5px;
             filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.4));
@@ -1012,6 +1017,9 @@
                     if (selectedNodeId) {
                         e.preventDefault();
                         deleteSelectedNode();
+                    } else if (selectedGroupId) {
+                        e.preventDefault();
+                        deleteSelectedGroup();
                     } else if (selectedEdgeIdx !== null) {
                         e.preventDefault();
                         removeEdge(selectedEdgeIdx);
@@ -1154,19 +1162,19 @@
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-move');
                     e.stopPropagation(); 
-                } else if (groupEl && (e.target.classList.contains('group-header') || e.target.classList.contains('group-title') || e.target.classList.contains('group-rect'))) {
-                    // Start Group Drag
+                } else if (groupEl && (e.target.classList.contains('group-header') || e.target.classList.contains('group-title') || e.target.classList.contains('group-rect') || e.target.classList.contains('group-container'))) {
+                    // Start Group Drag & Selection
                     isDraggingGroup = true;
-                    selectedGroupId = groupEl.getAttribute('data-group-id');
+                    const gid = groupEl.getAttribute('data-group-id');
+                    selectGroup(gid);
                     groupDragStartPt = getMousePositionInSVG(e);
 
-                    const desc = getAllGroupDescendants(selectedGroupId);
+                    const desc = getAllGroupDescendants(gid);
                     groupDragInitialNodes = desc.nodes.map(n => ({ node: n, startX: n.x, startY: n.y }));
                     groupDragInitialGroups = desc.subgraphs.map(g => ({ group: g, startX: g.x !== undefined ? g.x : 100, startY: g.y !== undefined ? g.y : 100 }));
 
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-move');
-                    selectNode(null);
                     e.stopPropagation();
                 } else {
                     isDraggingCanvas = true;
@@ -1175,6 +1183,7 @@
                     viewport.classList.remove('cursor-grab');
                     viewport.classList.add('cursor-grabbing');
                     selectNode(null);
+                    selectGroup(null);
                     if (selectedEdgeIdx !== null) {
                         selectedEdgeIdx = null;
                         updateRelationsPanel();
@@ -1528,6 +1537,10 @@
 
         function selectNode(id) {
             selectedNodeId = id;
+            if (id) {
+                selectedGroupId = null;
+                selectedEdgeIdx = null;
+            }
             renderDiagram(); 
             
             if (id && activeTab !== 'properties') {
@@ -1536,6 +1549,28 @@
                 refreshPropertiesPanel();
             } else if (!id && activeTab === 'properties') {
                 refreshPropertiesPanel();
+            }
+        }
+
+        function selectGroup(gid) {
+            selectedGroupId = gid;
+            if (gid) {
+                selectedNodeId = null;
+                selectedEdgeIdx = null;
+            }
+            renderDiagram();
+            if (activeTab === 'relations') {
+                updateRelationsPanel();
+            }
+        }
+
+        function deleteSelectedGroup() {
+            if (!selectedGroupId) return;
+            const idx = state.subgraphs.findIndex(g => g.id === selectedGroupId);
+            if (idx !== -1) {
+                removeGroup(idx);
+                selectedGroupId = null;
+                showToast('已刪除群組容器');
             }
         }
 
@@ -1934,11 +1969,17 @@
             state.subgraphs.forEach((g, idx) => {
                 const item = document.createElement('div');
                 const isCollapsed = !!g.collapsed;
-                item.className = `p-2.5 rounded-lg border space-y-2 text-xs transition ${
-                    isCollapsed 
-                        ? 'bg-slate-900/90 border-emerald-500/50' 
-                        : 'bg-slate-900/50 border-slate-700/60'
+                const isGroupSelected = selectedGroupId === g.id;
+                item.className = `p-2.5 rounded-lg border space-y-2 text-xs transition cursor-pointer ${
+                    isGroupSelected
+                        ? 'bg-blue-950/40 border-blue-500 shadow-md ring-1 ring-blue-500/50'
+                        : (isCollapsed ? 'bg-slate-900/90 border-emerald-500/50' : 'bg-slate-900/50 border-slate-700/60 hover:border-slate-600')
                 }`;
+                item.onclick = (evt) => {
+                    if (evt.target.tagName !== 'SELECT' && evt.target.tagName !== 'INPUT' && evt.target.tagName !== 'BUTTON' && !evt.target.closest('button')) {
+                        selectGroup(g.id);
+                    }
+                };
                 
                 // Parent group options (exclude self and own descendants to avoid cyclic references)
                 const validParentOptions = state.subgraphs
@@ -1949,24 +1990,35 @@
                 const childNodeCount = state.nodes.filter(n => n.group === g.id).length;
 
                 item.innerHTML = `
-                    <div class="flex items-center space-x-2">
-                        <button onclick="toggleGroupCollapse('${g.id}')" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-${isCollapsed ? 'emerald-400' : 'slate-400'} shrink-0 transition" title="${isCollapsed ? '點擊展開群組' : '點擊收折群組'}">
-                            <i class="fa-solid fa-${isCollapsed ? 'chevron-right' : 'chevron-down'} text-[11px] w-3 text-center"></i>
+                    <!-- Row 1: Collapse Toggle + Color + Label Input + Copy/Delete Actions -->
+                    <div class="flex items-center space-x-1.5 min-w-0">
+                        <button onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-${isCollapsed ? 'emerald-400' : 'slate-400'} shrink-0 transition" title="${isCollapsed ? '點擊展開群組' : '點擊收折群組'}">
+                            <i class="fa-solid fa-${isCollapsed ? 'chevron-right' : 'chevron-down'} text-[10px] w-3 text-center"></i>
                         </button>
-                        <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0">
-                        <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-200 text-xs" placeholder="群組名稱">
-                        <span class="text-[10px] px-1.5 py-0.5 rounded ${isCollapsed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'} shrink-0">${childNodeCount} 節點</span>
-                        <button onclick="copySelectedGroup('${g.id}')" title="複製此群組與內含所有節點 (Ctrl+C)" class="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-slate-800 shrink-0 transition">
-                            <i class="fa-regular fa-copy text-xs"></i>
-                        </button>
-                        <button onclick="removeGroup(${idx})" title="刪除群組" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 shrink-0"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        <input type="color" value="${g.color}" onchange="updateGroup(${idx}, 'color', this.value); saveHistory();" class="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0 shrink-0" title="自訂群組顏色">
+                        <input type="text" value="${g.label}" onchange="updateGroup(${idx}, 'label', this.value); saveHistory();" class="flex-1 min-w-0 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-200 text-xs focus:border-blue-500 focus:outline-none truncate" placeholder="群組名稱">
+                        <div class="flex items-center space-x-0.5 shrink-0">
+                            <button onclick="copySelectedGroup('${g.id}'); event.stopPropagation();" title="複製此群組與內含所有節點 (Ctrl+C)" class="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-slate-800 transition">
+                                <i class="fa-regular fa-copy text-xs"></i>
+                            </button>
+                            <button onclick="removeGroup(${idx}); event.stopPropagation();" title="刪除群組" class="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <span class="text-[11px] text-slate-400 shrink-0"><i class="fa-solid fa-folder-tree mr-1"></i>上層群組:</span>
-                        <select onchange="updateGroup(${idx}, 'parent', this.value); saveHistory();" class="flex-1 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 text-[11px] focus:outline-none">
-                            <option value="">(無 / 最上層群組)</option>
-                            ${validParentOptions}
-                        </select>
+
+                    <!-- Row 2: Node Count Badge + Parent Group Selection -->
+                    <div class="flex items-center space-x-1.5 min-w-0 pt-0.5">
+                        <span class="text-[10px] px-1.5 py-0.5 rounded ${isCollapsed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'} shrink-0 font-medium">
+                            <i class="fa-solid fa-shapes mr-1 text-[9px]"></i>${childNodeCount} 節點
+                        </span>
+                        <div class="flex-1 flex items-center min-w-0 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700">
+                            <span class="text-[10px] text-slate-500 mr-1 shrink-0"><i class="fa-solid fa-folder-tree mr-0.5 text-[9px]"></i>上層:</span>
+                            <select onchange="updateGroup(${idx}, 'parent', this.value); saveHistory();" class="w-full min-w-0 bg-transparent text-slate-300 text-[10px] focus:outline-none truncate">
+                                <option value="">(無 / 最上層群組)</option>
+                                ${validParentOptions}
+                            </select>
+                        </div>
                     </div>
                 `;
                 groupsContainer.appendChild(item);
@@ -2185,36 +2237,40 @@
             // 1. Explicit Anchor Port Tuning
             if (port && port !== 'auto') {
                 if (port === 'top') {
-                    if (shape === 'diamond') return { x: cx + ox, y: box.y };
-                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y };
+                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
                 }
                 if (port === 'bottom') {
-                    if (shape === 'diamond') return { x: cx + ox, y: box.y + h };
-                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h };
+                    return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
                 }
                 if (port === 'left') {
-                    if (shape === 'diamond') return { x: box.x, y: cy + ox };
-                    return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)) };
+                    return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: -1, ny: 0, side: 'left' };
                 }
                 if (port === 'right') {
-                    if (shape === 'diamond') return { x: box.x + w, y: cy + ox };
-                    return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)) };
+                    return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: 1, ny: 0, side: 'right' };
                 }
             }
 
             const dx = pTarget.x - cx;
             const dy = pTarget.y - cy;
             if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
-                return { x: cx, y: cy - halfH };
+                return { x: cx, y: cy - halfH, nx: 0, ny: -1, side: 'top' };
             }
 
             // 2. Shape-Specific True Boundary Intersection
 
-            // Shape: Diamond (4 diagonal line segments)
+            // Shape: Diamond
             if (shape === 'diamond') {
                 const denom = Math.abs(dx) / (halfW || 1) + Math.abs(dy) / (halfH || 1);
                 const t = denom > 0 ? 1 / denom : 0;
-                return { x: cx + dx * t, y: cy + dy * t };
+                const px = cx + dx * t;
+                const py = cy + dy * t;
+                const snx = dx > 0 ? 1 : -1;
+                const sny = dy > 0 ? 1 : -1;
+                return { 
+                    x: px, y: py, 
+                    nx: snx * 0.707, ny: sny * 0.707, 
+                    side: Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top') 
+                };
             }
 
             // Shape: Hexagon (6 polygon boundary segments, inset p = 22)
@@ -2232,11 +2288,17 @@
                     const v1 = vertices[i];
                     const v2 = vertices[(i + 1) % 6];
                     const hit = raySegmentIntersection(cx, cy, cx + dx, cy + dy, v1.x, v1.y, v2.x, v2.y);
-                    if (hit) return hit;
+                    if (hit) {
+                        const edx = v2.x - v1.x, edy = v2.y - v1.y;
+                        const elen = Math.hypot(edx, edy) || 1;
+                        let nx = edy / elen, ny = -edx / elen;
+                        if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
+                        return { x: hit.x, y: hit.y, nx, ny, side: Math.abs(nx) > Math.abs(ny) ? (nx > 0 ? 'right' : 'left') : (ny > 0 ? 'bottom' : 'top') };
+                    }
                 }
             }
 
-            // Shape: Pill (Capsule: Horizontal top/bottom straight lines + Left/Right true circular arcs)
+            // Shape: Pill (Capsule)
             if (shape === 'pill') {
                 const r = halfH;
                 const straightHalfW = Math.max(0, halfW - r);
@@ -2244,34 +2306,43 @@
                 if (Math.abs(dy) > 0.001) {
                     const tTop = -halfH / dy;
                     if (tTop > 0 && Math.abs(tTop * dx) <= straightHalfW) {
-                        return { x: cx + tTop * dx, y: box.y };
+                        return { x: cx + tTop * dx, y: box.y, nx: 0, ny: -1, side: 'top' };
                     }
                     const tBottom = halfH / dy;
                     if (tBottom > 0 && Math.abs(tBottom * dx) <= straightHalfW) {
-                        return { x: cx + tBottom * dx, y: box.y + h };
+                        return { x: cx + tBottom * dx, y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
                     }
                 }
 
                 if (dx > 0) {
                     const arcCx = cx + straightHalfW;
                     const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
-                    if (hit && hit.x >= arcCx) return hit;
+                    if (hit && hit.x >= arcCx) {
+                        const nx = (hit.x - arcCx) / r;
+                        const ny = (hit.y - cy) / r;
+                        return { x: hit.x, y: hit.y, nx, ny, side: 'right' };
+                    }
                 } else if (dx < 0) {
                     const arcCx = cx - straightHalfW;
                     const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
-                    if (hit && hit.x <= arcCx) return hit;
+                    if (hit && hit.x <= arcCx) {
+                        const nx = (hit.x - arcCx) / r;
+                        const ny = (hit.y - cy) / r;
+                        return { x: hit.x, y: hit.y, nx, ny, side: 'left' };
+                    }
                 }
             }
 
             // Default Box (Rectangle, Rounded Rect, Group Container)
-            const tx = Math.abs(dx) > 0 ? halfW / Math.abs(dx) : Infinity;
-            const ty = Math.abs(dy) > 0 ? halfH / Math.abs(dy) : Infinity;
-            const t = Math.min(tx, ty);
-            
-            return {
-                x: cx + dx * t,
-                y: cy + dy * t
-            };
+            const scaleX = halfW / Math.abs(dx || 0.0001);
+            const scaleY = halfH / Math.abs(dy || 0.0001);
+            if (scaleX < scaleY) {
+                const nx = dx > 0 ? 1 : -1;
+                return { x: cx + dx * scaleX, y: cy + dy * scaleX, nx, ny: 0, side: dx > 0 ? 'right' : 'left' };
+            } else {
+                const ny = dy > 0 ? 1 : -1;
+                return { x: cx + dx * scaleY, y: cy + dy * scaleY, nx: 0, ny, side: dy > 0 ? 'bottom' : 'top' };
+            }
         }
 
         // --- Collapse Hierarchy & Filtering Helpers ---
@@ -2420,9 +2491,11 @@
             const center1 = { x: b1.cx, y: b1.cy };
             const center2 = { x: b2.cx, y: b2.cy };
             
-            // Edge-to-Edge True Boundary Intersection with Port & Fine-Tuning Support
-            const p1 = getBorderIntersection(center1, center2, b1, b1.shape, fromPort, fromOffset);
-            const p2 = getBorderIntersection(center2, center1, b2, b2.shape, toPort, toOffset);
+            // Two-Pass Geometric Convergence for True Shape Boundary Intersection
+            const p1_est = getBorderIntersection(center1, center2, b1, b1.shape, fromPort, fromOffset);
+            const p2_est = getBorderIntersection(center2, center1, b2, b2.shape, toPort, toOffset);
+            const p1 = getBorderIntersection(center1, p2_est, b1, b1.shape, fromPort, fromOffset);
+            const p2 = getBorderIntersection(center2, p1, b2, b2.shape, toPort, toOffset);
             
             const x1 = p1.x, y1 = p1.y;
             const x2 = p2.x, y2 = p2.y;
@@ -2440,104 +2513,59 @@
                 return { d, midX, midY };
             }
 
-            // 2. Orthogonal Step Line (Right-Angle)
+            // 2. Orthogonal Step Line with Normal Guidance
             if (edgeType === 'orthogonal') {
-                const absDx = Math.abs(dx);
-                const absDy = Math.abs(dy);
                 let d = '';
-                let midX = 0, midY = 0;
+                let midX = x1 + dx * t, midY = y1 + dy * t;
+                const side1 = p1.side || (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top'));
 
-                if (absDx >= absDy) {
-                    const midX1 = x1 + dx / 2;
-                    d = `M ${x1} ${y1} L ${midX1} ${y1} L ${midX1} ${y2} L ${x2} ${y2}`;
-                    
-                    const len1 = Math.abs(dx / 2);
-                    const len2 = absDy;
-                    const len3 = Math.abs(dx / 2);
-                    const totalLen = len1 + len2 + len3 || 1;
-                    const targetLen = totalLen * t;
-
-                    if (targetLen <= len1) {
-                        const segT = targetLen / (len1 || 1);
-                        midX = x1 + (dx / 2) * segT;
-                        midY = y1;
-                    } else if (targetLen <= len1 + len2) {
-                        const segT = (targetLen - len1) / (len2 || 1);
-                        midX = midX1;
-                        midY = y1 + dy * segT;
-                    } else {
-                        const segT = (targetLen - len1 - len2) / (len3 || 1);
-                        midX = midX1 + (dx / 2) * segT;
-                        midY = y2;
-                    }
-                } else {
-                    const midY1 = y1 + dy / 2;
+                if (side1 === 'top' || side1 === 'bottom') {
+                    const stepY = (side1 === 'top' ? -1 : 1) * Math.min(30, Math.max(16, Math.abs(dy) / 2));
+                    const midY1 = y1 + stepY;
                     d = `M ${x1} ${y1} L ${x1} ${midY1} L ${x2} ${midY1} L ${x2} ${y2}`;
-
-                    const len1 = Math.abs(dy / 2);
-                    const len2 = absDx;
-                    const len3 = Math.abs(dy / 2);
-                    const totalLen = len1 + len2 + len3 || 1;
-                    const targetLen = totalLen * t;
-
-                    if (targetLen <= len1) {
-                        const segT = targetLen / (len1 || 1);
-                        midX = x1;
-                        midY = y1 + (dy / 2) * segT;
-                    } else if (targetLen <= len1 + len2) {
-                        const segT = (targetLen - len1) / (len2 || 1);
-                        midX = x1 + dx * segT;
-                        midY = midY1;
-                    } else {
-                        const segT = (targetLen - len1 - len2) / (len3 || 1);
-                        midX = x2;
-                        midY = midY1 + (dy / 2) * segT;
-                    }
+                    midX = x1 + dx * t;
+                    midY = midY1;
+                } else {
+                    const stepX = (side1 === 'left' ? -1 : 1) * Math.min(30, Math.max(16, Math.abs(dx) / 2));
+                    const midX1 = x1 + stepX;
+                    d = `M ${x1} ${y1} L ${midX1} ${y1} L ${midX1} ${y2} L ${x2} ${y2}`;
+                    midX = midX1;
+                    midY = y1 + dy * t;
                 }
                 return { d, midX, midY };
             }
 
-            // 3. Smooth Bezier Curve (Default)
+            // 3. Smooth Bezier Curve with Normal-Oriented Tangents
+            const curvature = Math.max(30, Math.min(180, dist * 0.45));
+            const n1x = p1.nx !== undefined ? p1.nx : (dx > 0 ? 1 : -1);
+            const n1y = p1.ny !== undefined ? p1.ny : 0;
+            const n2x = p2.nx !== undefined ? p2.nx : (dx > 0 ? -1 : 1);
+            const n2y = p2.ny !== undefined ? p2.ny : 0;
+
             let cp1x, cp1y, cp2x, cp2y;
 
             if (totalInPair <= 1) {
-                const absDx = Math.abs(dx);
-                const absDy = Math.abs(dy);
-                if (absDx > absDy) {
-                    const controlOffset = absDx * 0.45;
-                    cp1x = x1 + (dx > 0 ? controlOffset : -controlOffset);
-                    cp1y = y1;
-                    cp2x = x2 - (dx > 0 ? controlOffset : -controlOffset);
-                    cp2y = y2;
-                } else {
-                    const controlOffset = absDy * 0.45;
-                    cp1x = x1;
-                    cp1y = y1 + (dy > 0 ? controlOffset : -controlOffset);
-                    cp2x = x2;
-                    cp2y = y2 - (dy > 0 ? controlOffset : -controlOffset);
-                }
+                cp1x = x1 + n1x * curvature;
+                cp1y = y1 + n1y * curvature;
+                cp2x = x2 + n2x * curvature;
+                cp2y = y2 + n2y * curvature;
             } else {
-                const nx = -dy / dist;
-                const ny = dx / dist;
+                const perpX = -dy / dist;
+                const perpY = dx / dist;
                 const offsetMultiplier = (pairIndex - (totalInPair - 1) / 2);
                 const curveOffset = offsetMultiplier * 45;
 
-                cp1x = x1 + dx * 0.25 + nx * curveOffset;
-                cp1y = y1 + dy * 0.25 + ny * curveOffset;
-                cp2x = x1 + dx * 0.75 + nx * curveOffset;
-                cp2y = y1 + dy * 0.75 + ny * curveOffset;
+                cp1x = x1 + n1x * curvature + perpX * curveOffset;
+                cp1y = y1 + n1y * curvature + perpY * curveOffset;
+                cp2x = x2 + n2x * curvature + perpX * curveOffset;
+                cp2y = y2 + n2y * curvature + perpY * curveOffset;
             }
 
             const d = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
 
-            const omt = 1 - t;
-            const omt2 = omt * omt;
-            const omt3 = omt2 * omt;
-            const t2 = t * t;
-            const t3 = t2 * t;
-
-            const midX = omt3 * x1 + 3 * omt2 * t * cp1x + 3 * omt * t2 * cp2x + t3 * x2;
-            const midY = omt3 * y1 + 3 * omt2 * t * cp1y + 3 * omt * t2 * cp2y + t3 * y2;
+            const it = 1 - t;
+            const midX = it*it*it*x1 + 3*it*it*t*cp1x + 3*it*t*t*cp2x + t*t*t*x2;
+            const midY = it*it*it*y1 + 3*it*it*t*cp1y + 3*it*t*t*cp2y + t*t*t*y2;
 
             return { d, midX, midY };
         }
@@ -2680,11 +2708,12 @@
                 const box = getGroupBoundingBox(g.id);
                 const gColor = g.color || theme.groupBorder;
                 const childNodeCount = state.nodes.filter(n => n.group === g.id).length;
+                const isGroupSelected = selectedGroupId === g.id;
                 
                 if (g.collapsed) {
                     // Collapsed Capsule / Card State
                     svgHtml += `
-                        <g data-group-id="${g.id}" class="group-container group-collapsed" transform="translate(${box.gx}, ${box.gy})" style="cursor: pointer;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
+                        <g data-group-id="${g.id}" class="group-container group-collapsed ${isGroupSelected ? 'group-selected' : ''}" transform="translate(${box.gx}, ${box.gy})" style="cursor: pointer;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
                             <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="24" fill="${theme.nodeBg}" stroke="${gColor}" stroke-width="2" filter="url(#dropShadow)" />
                             <!-- Collapse / Expand Icon Button -->
                             <g data-action="toggle-collapse" data-group-id="${g.id}" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊展開容器">
@@ -2700,7 +2729,7 @@
                 } else {
                     // Expanded Bounding Box State
                     svgHtml += `
-                        <g data-group-id="${g.id}" class="group-container" transform="translate(${box.gx}, ${box.gy})" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
+                        <g data-group-id="${g.id}" class="group-container ${isGroupSelected ? 'group-selected' : ''}" transform="translate(${box.gx}, ${box.gy})" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
                             <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="16" fill="${theme.groupBg}" stroke="${gColor}" stroke-width="1.5" stroke-dasharray="5 4" />
                             <!-- Group Draggable Header Bar -->
                             <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
