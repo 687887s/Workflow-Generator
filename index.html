@@ -395,17 +395,17 @@
         <!-- Right Preview Canvas Area -->
         <main id="canvasViewport" class="flex-1 bg-slate-950 flex flex-col relative overflow-hidden bg-grid-pattern cursor-grab">
             <!-- Selection Overlay Box in Working Area -->
-            <div id="selectionBox" class="absolute border-2 border-blue-400 bg-blue-500/15 shadow-[0_0_20px_rgba(59,130,246,0.35)] hidden pointer-events-none z-40 rounded-sm">
+            <div id="selectionBox" class="absolute border-2 border-dashed border-blue-400 bg-blue-500/20 shadow-[0_0_25px_rgba(59,130,246,0.45)] ring-1 ring-white/50 hidden pointer-events-none z-40 rounded-sm">
                 <!-- Top Badge on Canvas -->
-                <div id="selectionBoxBadge" class="absolute -top-7 left-0 bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow flex items-center space-x-1 whitespace-nowrap font-mono">
-                    <svg class="w-3 h-3 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6v2H5v4H3V3zm18 0v6h-2V5h-4V3h6zm0 18h-6v-2h4v-4h2v6zm-18 0v-6h2v4h4v2H3z"/></svg>
+                <div id="selectionBoxBadge" class="absolute -top-7 left-0 bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center space-x-1 whitespace-nowrap font-mono ring-1 ring-white/30">
+                    <svg class="w-3.5 h-3.5 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6v2H5v4H3V3zm18 0v6h-2V5h-4V3h6zm0 18h-6v-2h4v-4h2v6zm-18 0v-6h2v4h4v2H3z"/></svg>
                     <span id="selectionBoxBadgeText">0 × 0 px</span>
                 </div>
                 <!-- 4 Corner Handles -->
-                <div class="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
-                <div class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
-                <div class="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
-                <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-blue-600 rounded-sm shadow"></div>
+                <div class="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-blue-600 rounded-sm shadow"></div>
             </div>
 
             <!-- Floating Multi-Select Action Capsule Bar -->
@@ -1425,20 +1425,25 @@
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 const panel = document.getElementById(`panel-${t}`);
-                if (t === tabName) {
-                    btn.className = "flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition";
-                    panel.classList.remove('hidden');
-                    if(t==='properties' || t==='code') panel.classList.add('flex');
-                } else {
-                    btn.className = "flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition";
-                    panel.classList.add('hidden');
-                    panel.classList.remove('flex');
+                if (btn && panel) {
+                    if (t === tabName) {
+                        btn.className = "flex-1 py-3 text-xs font-semibold text-blue-400 border-b-2 border-blue-500 transition flex items-center justify-center space-x-1.5";
+                        panel.classList.remove('hidden');
+                        if (t === 'properties' || t === 'code') panel.classList.add('flex');
+                    } else {
+                        btn.className = "flex-1 py-3 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-slate-200 transition flex items-center justify-center space-x-1.5";
+                        panel.classList.add('hidden');
+                        panel.classList.remove('flex');
+                    }
                 }
             });
 
             if (tabName === 'properties') refreshPropertiesPanel();
             if (tabName === 'relations') updateRelationsPanel();
-            if (tabName === 'code') document.getElementById('jsonEditor').value = JSON.stringify(state, null, 2);
+            if (tabName === 'code') {
+                const editor = document.getElementById('jsonEditor');
+                if (editor) editor.value = JSON.stringify(state, null, 2);
+            }
         }
 
         function getMousePositionInSVG(e) {
@@ -1503,15 +1508,19 @@
                 // Priority 0: Area Selection in Select Mode (Highest priority over any node/edge/collapse click!)
                 if (appMode === 'select' && e.button === 0) {
                     isSelectingArea = true;
+                    selectMoved = false;
                     const rect = viewport.getBoundingClientRect();
                     selectStartX = e.clientX - rect.left;
                     selectStartY = e.clientY - rect.top;
-                    const sb = document.getElementById('selectionBox');
-                    sb.style.left = selectStartX + 'px';
-                    sb.style.top = selectStartY + 'px';
-                    sb.style.width = '0px';
-                    sb.style.height = '0px';
-                    sb.classList.remove('hidden');
+                    
+                    try {
+                        if (e.pointerId !== undefined && viewport.setPointerCapture) {
+                            viewport.setPointerCapture(e.pointerId);
+                        }
+                    } catch (err) {}
+
+                    e.preventDefault();
+                    e.stopPropagation();
                     return;
                 }
 
@@ -1524,10 +1533,12 @@
                     return;
                 }
 
-                // Priority 2: Edge Click Detection
+                // Priority 2: Edge Path or Edge Tag Click Detection
+                const edgeLabelGroup = e.target.closest('[data-edge-label-idx]');
                 const edgeGroup = e.target.closest('[data-edge-idx]');
-                if (edgeGroup) {
-                    const edgeIdx = parseInt(edgeGroup.getAttribute('data-edge-idx'));
+                if (edgeLabelGroup || edgeGroup) {
+                    const idxStr = edgeLabelGroup ? edgeLabelGroup.getAttribute('data-edge-label-idx') : edgeGroup.getAttribute('data-edge-idx');
+                    const edgeIdx = parseInt(idxStr);
                     selectEdge(edgeIdx);
                     e.stopPropagation();
                     return;
@@ -1540,10 +1551,10 @@
                 if (nodeGroup) {
                     const nodeId = nodeGroup.getAttribute('data-id');
                     if (isShift) {
-                        selectNode(nodeId, true, false);
+                        selectNode(nodeId, true, false, false);
                     } else {
                         if (!selectedNodeIds.has(nodeId)) {
-                            selectNode(nodeId, false, false);
+                            selectNode(nodeId, false, false, false);
                         }
                     }
 
@@ -1567,7 +1578,7 @@
                     // Start Group Drag & Selection (Robust check for any area inside group container)
                     isDraggingGroup = true;
                     const gid = groupEl.getAttribute('data-group-id');
-                    selectGroup(gid);
+                    selectGroup(gid, false);
                     groupDragStartPt = getMousePositionInSVG(e);
 
                     const desc = getAllGroupDescendants(gid);
@@ -1594,70 +1605,7 @@
                 }
             });
 
-            // Fast local DOM updates during multi-node / single-node drag (60 FPS smooth updates)
-            function updateMultiDraggedNodesDOM(deltaX, deltaY) {
-                const movedIds = new Set();
-                multiDragInitialNodes.forEach(item => {
-                    item.node.x = item.startX + deltaX;
-                    item.node.y = item.startY + deltaY;
-                    movedIds.add(item.node.id);
-                    const nodeEl = document.querySelector(`.node-group[data-id="${item.node.id}"]`);
-                    if (nodeEl) {
-                        nodeEl.setAttribute('transform', `translate(${item.node.x}, ${item.node.y})`);
-                    }
-                });
 
-                const edgePairInfoMap = buildEdgePairIndexMap();
-                state.edges.forEach((e, idx) => {
-                    const effFrom = resolveEffectiveEndpointId(e.from);
-                    const effTo = resolveEffectiveEndpointId(e.to);
-                    const isAffected = movedIds.has(effFrom) || movedIds.has(effTo) || movedIds.has(e.from) || movedIds.has(e.to);
-                    if (isAffected && effFrom && effTo && effFrom !== effTo) {
-                        const edgeEl = document.querySelector(`[data-edge-idx="${idx}"]`);
-                        if (edgeEl) {
-                            const epA = getEndpointBounds(effFrom);
-                            const epB = getEndpointBounds(effTo);
-                            if (epA && epB) {
-                                const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                                const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
-                                const pathEl = edgeEl.querySelector('.edge-path');
-                                if (pathEl) pathEl.setAttribute('d', pathData.d);
-                                const hitboxEl = edgeEl.querySelector('.edge-hitbox');
-                                if (hitboxEl) hitboxEl.setAttribute('d', pathData.d);
-                                
-                                const labelBg = edgeEl.querySelector('.edge-label-bg');
-                                const labelText = edgeEl.querySelector('.edge-label-text');
-                                if (labelBg && labelText) {
-                                    const labelLen = (e.label || '').length;
-                                    const boxW = Math.max(50, labelLen * 9 + 16);
-                                    labelBg.setAttribute('x', pathData.midX - boxW/2);
-                                    labelBg.setAttribute('y', pathData.midY - 12);
-                                    labelText.setAttribute('x', pathData.midX);
-                                    labelText.setAttribute('y', pathData.midY + 4);
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // Update affected group containers
-                state.subgraphs.forEach(g => {
-                    const groupEl = document.querySelector(`[data-group-id="${g.id}"]`);
-                    if (groupEl) {
-                        const box = getGroupBoundingBox(g.id);
-                        groupEl.setAttribute('transform', `translate(${box.gx}, ${box.gy})`);
-                        const rectEl = groupEl.querySelector('.group-rect');
-                        const headerEl = groupEl.querySelector('.group-header');
-                        if (rectEl) {
-                            rectEl.setAttribute('width', box.gw);
-                            rectEl.setAttribute('height', box.gh);
-                        }
-                        if (headerEl) {
-                            headerEl.setAttribute('width', box.gw);
-                        }
-                    }
-                });
-            }
 
             // Context Menu Handler for Right Click
             viewport.addEventListener('contextmenu', (e) => {
@@ -1725,26 +1673,53 @@
                     const rect = viewport.getBoundingClientRect();
                     const currX = e.clientX - rect.left;
                     const currY = e.clientY - rect.top;
-                    const sb = document.getElementById('selectionBox');
-                    const badgeText = document.getElementById('selectionBoxBadgeText');
-                    const minX = Math.min(selectStartX, currX);
-                    const minY = Math.min(selectStartY, currY);
                     const w = Math.abs(currX - selectStartX);
                     const h = Math.abs(currY - selectStartY);
-                    sb.style.left = minX + 'px';
-                    sb.style.top = minY + 'px';
-                    sb.style.width = w + 'px';
-                    sb.style.height = h + 'px';
-                    sb.classList.remove('hidden');
-                    
-                    const svgW = Math.round(w / canvasZoom);
-                    const svgH = Math.round(h / canvasZoom);
-                    if (badgeText) {
-                        badgeText.innerText = `${svgW} × ${svgH} px`;
+
+                    if (!selectMoved && (w > 6 || h > 6)) {
+                        selectMoved = true;
                     }
-                    const dimLabel = document.getElementById('selectionBoxDimension');
-                    if (dimLabel) {
-                        dimLabel.innerText = `選取範圍: ${svgW} × ${svgH} px`;
+
+                    if (selectMoved) {
+                        const sb = document.getElementById('selectionBox');
+                        const badgeText = document.getElementById('selectionBoxBadgeText');
+                        const minX = Math.min(selectStartX, currX);
+                        const minY = Math.min(selectStartY, currY);
+                        sb.style.left = minX + 'px';
+                        sb.style.top = minY + 'px';
+                        sb.style.width = w + 'px';
+                        sb.style.height = h + 'px';
+                        sb.classList.remove('hidden');
+                        
+                        // Real-time calculate & sync customExportBox world coordinates on mousemove!
+                        const pt1 = { x: (minX - panX) / canvasZoom, y: (minY - panY) / canvasZoom };
+                        const pt2 = { x: (minX + w - panX) / canvasZoom, y: (minY + h - panY) / canvasZoom };
+                        customExportBox = { 
+                            x: Math.round(pt1.x), 
+                            y: Math.round(pt1.y), 
+                            w: Math.max(20, Math.round(pt2.x - pt1.x)), 
+                            h: Math.max(20, Math.round(pt2.y - pt1.y)) 
+                        };
+
+                        const radioCustom = document.getElementById('radioCustomArea');
+                        const labelCustom = document.getElementById('labelCustomArea');
+                        const customDesc = document.getElementById('customAreaDesc');
+                        if (radioCustom) {
+                            radioCustom.disabled = false;
+                            radioCustom.checked = true;
+                        }
+                        if (labelCustom) labelCustom.classList.remove('opacity-50');
+                        if (customDesc) {
+                            customDesc.innerText = `已鎖定框選：${customExportBox.w} × ${customExportBox.h} px (X: ${customExportBox.x}, Y: ${customExportBox.y})`;
+                        }
+
+                        if (badgeText) {
+                            badgeText.innerText = `${customExportBox.w} × ${customExportBox.h} px`;
+                        }
+                        const dimLabel = document.getElementById('selectionBoxDimension');
+                        if (dimLabel) {
+                            dimLabel.innerText = `已鎖定選區: ${customExportBox.w} × ${customExportBox.h} px`;
+                        }
                     }
                     return;
                 }
@@ -1754,9 +1729,14 @@
                     const deltaX = Math.round((pt.x - multiDragStartPt.x) / 10) * 10;
                     const deltaY = Math.round((pt.y - multiDragStartPt.y) / 10) * 10;
 
+                    multiDragInitialNodes.forEach(item => {
+                        item.node.x = item.startX + deltaX;
+                        item.node.y = item.startY + deltaY;
+                    });
+
                     if (!dragRafId) {
                         dragRafId = requestAnimationFrame(() => {
-                            updateMultiDraggedNodesDOM(deltaX, deltaY);
+                            renderDiagram();
                             dragRafId = null;
                         });
                     }
@@ -1798,28 +1778,94 @@
 
                 if (isSelectingArea) {
                     isSelectingArea = false;
-                    const rect = viewport.getBoundingClientRect();
-                    const endX = e.clientX - rect.left;
-                    const endY = e.clientY - rect.top;
-                    const minX = Math.min(selectStartX, endX);
-                    const minY = Math.min(selectStartY, endY);
-                    const w = Math.abs(endX - selectStartX);
-                    const h = Math.abs(endY - selectStartY);
+                    try {
+                        if (e.pointerId !== undefined && viewport.releasePointerCapture) {
+                            viewport.releasePointerCapture(e.pointerId);
+                        }
+                    } catch (err) {}
 
-                    if (w > 15 && h > 15) {
-                        const pt1 = { x: (minX - panX) / canvasZoom, y: (minY - panY) / canvasZoom };
-                        const pt2 = { x: (minX + w - panX) / canvasZoom, y: (minY + h - panY) / canvasZoom };
-                        customExportBox = { 
-                            x: Math.round(pt1.x), 
-                            y: Math.round(pt1.y), 
-                            w: Math.max(20, Math.round(pt2.x - pt1.x)), 
-                            h: Math.max(20, Math.round(pt2.y - pt1.y)) 
-                        };
+                    if (selectMoved) {
+                        const rect = viewport.getBoundingClientRect();
+                        const endX = e.clientX - rect.left;
+                        const endY = e.clientY - rect.top;
+                        const minX = Math.min(selectStartX, endX);
+                        const minY = Math.min(selectStartY, endY);
+                        const w = Math.abs(endX - selectStartX);
+                        const h = Math.abs(endY - selectStartY);
+
+                        if (w > 10 && h > 10) {
+                            const pt1 = { x: (minX - panX) / canvasZoom, y: (minY - panY) / canvasZoom };
+                            const pt2 = { x: (minX + w - panX) / canvasZoom, y: (minY + h - panY) / canvasZoom };
+                            customExportBox = { 
+                                x: Math.round(pt1.x), 
+                                y: Math.round(pt1.y), 
+                                w: Math.max(20, Math.round(pt2.x - pt1.x)), 
+                                h: Math.max(20, Math.round(pt2.y - pt1.y)) 
+                            };
+                        }
+                    } else {
+                        // Single click in Select Mode: Smart Auto-Fit clicked Element or Standard Box!
+                        const clickPt = { x: (selectStartX - panX) / canvasZoom, y: (selectStartY - panY) / canvasZoom };
                         
-                        // Keep #selectionBox visible on workspace!
-                        const sb = document.getElementById('selectionBox');
-                        if (sb) sb.classList.remove('hidden');
+                        // 1. Check if clicked on a node
+                        const hitNode = [...state.nodes].reverse().find(n => {
+                            if (isNodeHidden(n)) return false;
+                            const dim = getNodeDimensions(n);
+                            return clickPt.x >= n.x && clickPt.x <= n.x + dim.w && clickPt.y >= n.y && clickPt.y <= n.y + dim.h;
+                        });
 
+                        if (hitNode) {
+                            const dim = getNodeDimensions(hitNode);
+                            const pad = 24;
+                            customExportBox = {
+                                x: Math.round(hitNode.x - pad),
+                                y: Math.round(hitNode.y - pad),
+                                w: Math.round(dim.w + pad * 2),
+                                h: Math.round(dim.h + pad * 2)
+                            };
+                            showToast(`已自動框選節點「${hitNode.label}」！`);
+                        } else {
+                            // 2. Check if clicked inside a group
+                            let hitGroup = null;
+                            const sortedGroups = [...state.subgraphs].sort((a, b) => getGroupDepth(b.id) - getGroupDepth(a.id));
+                            for (const g of sortedGroups) {
+                                const box = getGroupBoundingBox(g.id);
+                                if (clickPt.x >= box.gx && clickPt.x <= box.gx + box.gw && clickPt.y >= box.gy && clickPt.y <= box.gy + box.gh) {
+                                    hitGroup = { group: g, box };
+                                    break;
+                                }
+                            }
+
+                            if (hitGroup) {
+                                const pad = 20;
+                                customExportBox = {
+                                    x: Math.round(hitGroup.box.gx - pad),
+                                    y: Math.round(hitGroup.box.gy - pad),
+                                    w: Math.round(hitGroup.box.gw + pad * 2),
+                                    h: Math.round(hitGroup.box.gh + pad * 2)
+                                };
+                                showToast(`已自動框選群組「${hitGroup.group.label}」！`);
+                            } else {
+                                // 3. Blank area: Auto-fit entire diagram (same as Autofit export!)
+                                const bbox = getNodesBoundingBox();
+                                const pad = 30;
+                                customExportBox = {
+                                    x: Math.round(bbox.x - pad),
+                                    y: Math.round(bbox.y - pad),
+                                    w: Math.max(200, Math.round(bbox.w + pad * 2)),
+                                    h: Math.max(150, Math.round(bbox.h + pad * 2))
+                                };
+                                showToast('已自動框選全圖區域！');
+                            }
+                        }
+                    }
+
+                    if (customExportBox) {
+                        const sb = document.getElementById('selectionBox');
+                        if (sb) {
+                            sb.classList.remove('hidden');
+                            updateSelectionBoxScreenPosition();
+                        }
                         const radioCustom = document.getElementById('radioCustomArea');
                         const labelCustom = document.getElementById('labelCustomArea');
                         const customDesc = document.getElementById('customAreaDesc');
@@ -1827,24 +1873,13 @@
                             radioCustom.disabled = false;
                             radioCustom.checked = true;
                         }
-                        if (labelCustom) {
-                            labelCustom.classList.remove('opacity-50');
-                        }
+                        if (labelCustom) labelCustom.classList.remove('opacity-50');
                         if (customDesc) {
                             customDesc.innerText = `已鎖定框選：${customExportBox.w} × ${customExportBox.h} px (X: ${customExportBox.x}, Y: ${customExportBox.y})`;
                         }
                         const dimLabel = document.getElementById('selectionBoxDimension');
                         if (dimLabel) {
                             dimLabel.innerText = `已鎖定選區: ${customExportBox.w} × ${customExportBox.h} px`;
-                        }
-                        showToast(`已鎖定選區 (${customExportBox.w} × ${customExportBox.h} px)，可點擊下方按鈕直接下載！`);
-                    } else {
-                        const sb = document.getElementById('selectionBox');
-                        if (sb) sb.classList.add('hidden');
-                        customExportBox = null;
-                        const dimLabel = document.getElementById('selectionBoxDimension');
-                        if (dimLabel) {
-                            dimLabel.innerText = "請在畫布上拖曳圈選區域";
                         }
                     }
                     return;
@@ -1855,20 +1890,21 @@
                     if (selectedNodeId) {
                         const node = state.nodes.find(n => n.id === selectedNodeId);
                         if (node) {
-                            const dropZones = getGroupDropZones(selectedNodeId);
                             const dim = getNodeDimensions(node);
                             const nodeCX = node.x + dim.w / 2;
                             const nodeCY = node.y + dim.h / 2;
                             
                             const matchedGroups = [];
                             state.subgraphs.forEach(g => {
-                                const z = dropZones[g.id];
-                                if (z && nodeCX >= z.minX && nodeCX <= z.maxX && nodeCY >= z.minY && nodeCY <= z.maxY) {
-                                    matchedGroups.push({
-                                        id: g.id,
-                                        depth: getGroupDepth(g.id),
-                                        area: (z.maxX - z.minX) * (z.maxY - z.minY)
-                                    });
+                                if (!g.collapsed) {
+                                    const box = getGroupBoundingBox(g.id);
+                                    if (nodeCX >= box.gx && nodeCX <= box.gx + box.gw && nodeCY >= box.gy && nodeCY <= box.gy + box.gh) {
+                                        matchedGroups.push({
+                                            id: g.id,
+                                            depth: getGroupDepth(g.id),
+                                            area: box.gw * box.gh
+                                        });
+                                    }
                                 }
                             });
                             
@@ -1879,18 +1915,59 @@
                                 node.group = targetGroupId;
                                 if (targetGroupId) {
                                     const targetGroup = state.subgraphs.find(g => g.id === targetGroupId);
-                                    showToast(`已自動吸附至「${targetGroup ? targetGroup.label : '群組'}」`);
+                                    showToast(`已自動吸附至群組「${targetGroup ? targetGroup.label : ''}」`);
                                 } else {
-                                    showToast('已移出群組');
+                                    showToast('已移出群組成為獨立節點');
                                 }
                             }
                         }
+
+                        // --- 1. Same-Layer Element-Element Collision Avoidance ---
+                        resolveNodeCollisions(selectedNodeId);
                     }
                     renderDiagram();
                     if (activeTab === 'properties') refreshPropertiesPanel();
                     saveHistory();
-                } else if (isDraggingGroup) {
+                } else if (isDraggingGroup && selectedGroupId) {
+                    // Check auto-nesting for dragged group into parent group
+                    const currentG = state.subgraphs.find(g => g.id === selectedGroupId);
+                    if (currentG) {
+                        const curBox = getGroupBoundingBox(currentG.id);
+                        const gCX = curBox.gx + curBox.gw / 2;
+                        const gCY = curBox.gy + curBox.gh / 2;
+                        
+                        const candidateParents = [];
+                        state.subgraphs.forEach(other => {
+                            if (other.id !== currentG.id && !isGroupDescendantOf(other.id, currentG.id) && !other.collapsed) {
+                                const pBox = getGroupBoundingBox(other.id);
+                                if (gCX >= pBox.gx && gCX <= pBox.gx + pBox.gw && gCY >= pBox.gy && gCY <= pBox.gy + pBox.gh) {
+                                    candidateParents.push({
+                                        id: other.id,
+                                        depth: getGroupDepth(other.id),
+                                        area: pBox.gw * pBox.gh
+                                    });
+                                }
+                            }
+                        });
+                        
+                        candidateParents.sort((a, b) => b.depth - a.depth || a.area - b.area);
+                        const targetParentId = candidateParents.length > 0 ? candidateParents[0].id : '';
+                        
+                        if (currentG.parent !== targetParentId) {
+                            currentG.parent = targetParentId;
+                            if (targetParentId) {
+                                const parentG = state.subgraphs.find(g => g.id === targetParentId);
+                                showToast(`群組「${currentG.label}」已嵌入「${parentG ? parentG.label : ''}」`);
+                            } else {
+                                showToast(`群組「${currentG.label}」已移出父群組`);
+                            }
+                        }
+
+                        // --- 2. Same-Layer Group-Group Collision Avoidance ---
+                        resolveGroupCollisions(selectedGroupId);
+                    }
                     renderDiagram();
+                    if (activeTab === 'relations') updateRelationsPanel();
                     saveHistory();
                 }
 
@@ -2053,6 +2130,7 @@
         }
 
         function selectNode(id, isShift = false, shouldRender = true) {
+            if (appMode === 'select') return;
             if (!id) {
                 selectedNodeIds.clear();
                 selectedNodeOrder = [];
@@ -2109,6 +2187,7 @@
         }
 
         function selectGroup(gid) {
+            if (appMode === 'select') return;
             selectedGroupId = gid;
             if (gid) {
                 selectedNodeId = null;
@@ -2123,6 +2202,16 @@
             } else if (activeTab === 'properties') {
                 refreshPropertiesPanel();
             }
+        }
+
+        function selectEdge(idx) {
+            if (appMode === 'select') return;
+            selectedEdgeIdx = idx;
+            selectedNodeIds.clear();
+            selectedNodeId = null;
+            selectedGroupId = null;
+            renderDiagram();
+            if (activeTab === 'relations') updateRelationsPanel();
         }
 
         function updateMultiSelectBar() {
@@ -3400,22 +3489,52 @@
                 return { d, midX, midY };
             }
 
-            // 3. Smooth Bezier Curve with Normal-Oriented Tangents & Tag Offset
+            // 3. Smooth Bezier Curve with Normal-Oriented Tangents, Multi-edge Spread & Dynamic Obstacle Avoidance
             const curvature = Math.max(30, Math.min(180, dist * 0.45));
             const n1x = p1.nx !== undefined ? p1.nx : (dx > 0 ? 1 : -1);
             const n1y = p1.ny !== undefined ? p1.ny : 0;
             const n2x = p2.nx !== undefined ? p2.nx : (dx > 0 ? -1 : 1);
             const n2y = p2.ny !== undefined ? p2.ny : 0;
 
+            // --- Obstacle Avoidance: Detect intermediate nodes along path ---
+            let obstacleOffset = 0;
+            const lineMinX = Math.min(x1, x2) - 10, lineMaxX = Math.max(x1, x2) + 10;
+            const lineMinY = Math.min(y1, y2) - 10, lineMaxY = Math.max(y1, y2) + 10;
+            
+            const obstacles = state.nodes.filter(n => {
+                if (n.id === b1.id || n.id === b2.id || isNodeHidden(n)) return false;
+                const dim = getNodeDimensions(n);
+                const nCX = n.x + dim.w / 2;
+                const nCY = n.y + dim.h / 2;
+                if (nCX < lineMinX || nCX > lineMaxX || nCY < lineMinY || nCY > lineMaxY) return false;
+                
+                const l2 = dx * dx + dy * dy;
+                if (l2 === 0) return false;
+                const tProj = Math.max(0, Math.min(1, ((nCX - x1) * dx + (nCY - y1) * dy) / l2));
+                const projX = x1 + tProj * dx;
+                const projY = y1 + tProj * dy;
+                const distToSegment = Math.hypot(nCX - projX, nCY - projY);
+                return distToSegment < (Math.max(dim.w, dim.h) / 2 + 15);
+            });
+
+            if (obstacles.length > 0) {
+                let maxDist = 0;
+                obstacles.forEach(obs => {
+                    const dim = getNodeDimensions(obs);
+                    maxDist = Math.max(maxDist, Math.max(dim.w, dim.h) / 2 + 45);
+                });
+                obstacleOffset = (perpY < 0 ? -1 : 1) * maxDist;
+            }
+
             let cp1x, cp1y, cp2x, cp2y;
 
             if (totalInPair <= 1) {
-                cp1x = x1 + n1x * curvature;
-                cp1y = y1 + n1y * curvature;
-                cp2x = x2 + n2x * curvature;
-                cp2y = y2 + n2y * curvature;
+                cp1x = x1 + n1x * curvature + perpX * obstacleOffset;
+                cp1y = y1 + n1y * curvature + perpY * obstacleOffset;
+                cp2x = x2 + n2x * curvature + perpX * obstacleOffset;
+                cp2y = y2 + n2y * curvature + perpY * obstacleOffset;
             } else {
-                const curveOffset = offsetMultiplier * 55;
+                const curveOffset = offsetMultiplier * 55 + obstacleOffset;
                 cp1x = x1 + n1x * curvature + perpX * curveOffset;
                 cp1y = y1 + n1y * curvature + perpY * curveOffset;
                 cp2x = x2 + n2x * curvature + perpX * curveOffset;
@@ -3432,6 +3551,34 @@
         }
 
         // --- Hierarchy and Bounding Box Calculations for Groups ---
+        function getAllGroupDescendants(gid) {
+            const visitedGroups = new Set();
+            const resultNodes = [];
+            const resultGroups = [];
+
+            function collect(currentGid) {
+                if (visitedGroups.has(currentGid)) return;
+                visitedGroups.add(currentGid);
+                const g = state.subgraphs.find(x => x.id === currentGid);
+                if (g) resultGroups.push(g);
+
+                // All direct nodes under this group
+                const nodes = state.nodes.filter(n => n.group === currentGid);
+                nodes.forEach(n => {
+                    if (!resultNodes.some(x => x.id === n.id)) {
+                        resultNodes.push(n);
+                    }
+                });
+
+                // All child groups under this group
+                const children = state.subgraphs.filter(cg => cg.parent === currentGid);
+                children.forEach(cg => collect(cg.id));
+            }
+
+            collect(gid);
+            return { nodes: resultNodes, subgraphs: resultGroups };
+        }
+
         function getGroupDepth(gid, visited = new Set()) {
             if (visited.has(gid)) return 0;
             visited.add(gid);
@@ -3474,19 +3621,21 @@
 
             childGroups.forEach(cg => {
                 const cBox = getGroupBoundingBox(cg.id, new Set(visited));
-                minX = Math.min(minX, cBox.minX);
-                minY = Math.min(minY, cBox.minY);
-                maxX = Math.max(maxX, cBox.maxX);
-                maxY = Math.max(maxY, cBox.maxY);
+                minX = Math.min(minX, cBox.gx);
+                minY = Math.min(minY, cBox.gy);
+                maxX = Math.max(maxX, cBox.gx + cBox.gw);
+                maxY = Math.max(maxY, cBox.gy + cBox.gh);
             });
 
-            const pad = 24; const topPad = 40;
+            const pad = 28; 
+            const topPad = 52; // 32px header bar + 20px breathing room
+            
             if (minX === Infinity) {
                 const gx = (g.x !== undefined ? g.x : 100) - pad;
                 const gy = (g.y !== undefined ? g.y : 100) - topPad;
                 return {
-                    gx, gy, gw: 300, gh: 200,
-                    minX: gx, minY: gy, maxX: gx + 300, maxY: gy + 200,
+                    gx, gy, gw: 320, gh: 220,
+                    minX: gx, minY: gy, maxX: gx + 320, maxY: gy + 220,
                     isEmpty: true,
                     isCollapsed: false
                 };
@@ -3556,120 +3705,60 @@
                     <rect width="100%" height="100%" fill="transparent" id="exportBg" />
                     <!-- Native SVG Vector Viewport Transform Container (Zero Blur Scaling) -->
                     <g id="viewportTransform" transform="translate(${panX}, ${panY}) scale(${canvasZoom})">
-                        <g id="groupsLayer">
             `;
 
-            // Sort subgraphs by hierarchy depth: root groups first (background), nested groups after (foreground)
-            const sortedGroups = [...state.subgraphs].sort((a, b) => getGroupDepth(a.id) - getGroupDepth(b.id));
-
-            sortedGroups.forEach(g => {
-                // If this group is a descendant of a collapsed ancestor, do not render this inner group
-                if (g.parent && isGroupCollapsed(g.parent)) return;
+            // --- 1. Helper to Render Group Background and Nested Subgroup Structures ---
+            function renderGroupTree(g) {
+                if (g.parent && isGroupCollapsed(g.parent)) return '';
 
                 const box = getGroupBoundingBox(g.id);
                 const gColor = g.color || theme.groupBorder;
                 const childNodeCount = state.nodes.filter(n => n.group === g.id).length;
                 const isGroupSelected = selectedGroupId === g.id;
-                
+
                 if (g.collapsed) {
-                    // Collapsed Capsule / Card State
-                    svgHtml += `
+                    return `
                         <g data-group-id="${g.id}" class="group-container group-collapsed ${isGroupSelected ? 'group-selected' : ''}" transform="translate(${box.gx}, ${box.gy})" style="cursor: pointer;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
                             <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="24" fill="${theme.nodeBg}" stroke="${gColor}" stroke-width="2" filter="url(#dropShadow)" />
-                            <!-- Collapse / Expand Icon Button -->
                             <g data-action="toggle-collapse" data-group-id="${g.id}" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊展開容器">
                                 <circle cx="24" cy="24" r="14" fill="${gColor}25" />
                                 <path d="M 21 18 L 28 24 L 21 30" fill="none" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
                             </g>
                             <text class="group-title" x="46" y="25" dominant-baseline="central" fill="${gColor}" font-size="12" font-weight="700" style="user-select: none;">${g.label}</text>
-                            <!-- Node Count Badge -->
                             <rect x="${box.gw - 66}" y="14" width="54" height="20" rx="10" fill="${gColor}20" stroke="${gColor}50" stroke-width="1" />
                             <text x="${box.gw - 39}" y="25" dominant-baseline="central" text-anchor="middle" fill="${gColor}" font-size="10" font-weight="700">${childNodeCount} 節點</text>
                         </g>
                     `;
-                } else {
-                    // Expanded Bounding Box State
-                    svgHtml += `
-                        <g data-group-id="${g.id}" class="group-container ${isGroupSelected ? 'group-selected' : ''}" transform="translate(${box.gx}, ${box.gy})" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">
+                }
+
+                let groupHtml = `
+                    <g data-group-id="${g.id}" class="group-composite group-container ${isGroupSelected ? 'group-selected' : ''}">
+                        <!-- Group Background (Native translucent theme color, no solid underlay block) -->
+                        <g transform="translate(${box.gx}, ${box.gy})">
                             <rect class="group-rect" width="${box.gw}" height="${box.gh}" rx="16" fill="${theme.groupBg}" stroke="${gColor}" stroke-width="1.5" stroke-dasharray="5 4" />
-                            <!-- Group Draggable Header Bar -->
-                            <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.12" style="cursor: move;" />
-                            <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;">${g.label}</text>
-                            <!-- Collapse Toggle Button in Header -->
+                            <rect class="group-header" x="0" y="0" width="${box.gw}" height="32" rx="16" fill="${gColor}" fill-opacity="0.16" style="cursor: move;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" />
+                            <text class="group-title" x="16" y="21" fill="${gColor}" font-size="12" font-weight="700" letter-spacing="0.5" style="cursor: move; user-select: none;" ondblclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();">${g.label}</text>
                             <g data-action="toggle-collapse" data-group-id="${g.id}" class="group-collapse-btn" onclick="toggleGroupCollapse('${g.id}'); event.stopPropagation();" style="cursor: pointer;" title="點擊收折容器 (或雙擊標題)">
                                 <rect x="${box.gw - 32}" y="4" width="24" height="24" rx="6" fill="${gColor}25" stroke="${gColor}60" stroke-width="1" />
                                 <path d="M ${box.gw - 25} 16 L ${box.gw - 15} 16" stroke="${gColor}" stroke-width="2.5" stroke-linecap="round" />
                             </g>
                             ${box.isEmpty ? `<text class="group-empty-hint" x="${box.gw/2}" y="${box.gh/2}" fill="${theme.textSub}" font-size="12" font-weight="500" text-anchor="middle" opacity="0.6">空群組：可拖曳移動或指派節點/子群組</text>` : ''}
                         </g>
-                    `;
-                }
-            });
+                `;
 
-            svgHtml += `</g><g id="edgesLayer">`;
+                // Render Nested Subgroups (Recursive)
+                const childGroups = state.subgraphs.filter(cg => cg.parent === g.id);
+                childGroups.forEach(cg => {
+                    groupHtml += renderGroupTree(cg);
+                });
 
-            // Multi-edge pair index map for adaptive routing
-            const edgePairInfoMap = buildEdgePairIndexMap();
+                groupHtml += `</g>`;
+                return groupHtml;
+            }
 
-            state.edges.forEach((e, idx) => {
-                const effFrom = resolveEffectiveEndpointId(e.from);
-                const effTo = resolveEffectiveEndpointId(e.to);
-                
-                // If both endpoints route to the exact same collapsed group, skip rendering internal connection
-                if (!effFrom || !effTo || effFrom === effTo) return;
-
-                const epA = getEndpointBounds(effFrom);
-                const epB = getEndpointBounds(effTo);
-                
-                if (epA && epB) {
-                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
-                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
-                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
-                    const isEdgeSelected = selectedEdgeIdx === idx;
-                    const strokeColor = isEdgeSelected ? '#60a5fa' : theme.edgeColor;
-                    const strokeWidth = e.width ? parseFloat(e.width) : effectiveEdgeWidth;
-
-                    const markerEndId = isEdgeSelected ? 'url(#arrow-selected)' : 'url(#arrow)';
-                    const markerStartId = isEdgeSelected ? 'url(#arrow-selected-start)' : 'url(#arrow-start)';
-                    const arrowMode = e.arrow || 'end';
-
-                    let markerAttrs = '';
-                    if (arrowMode === 'both') {
-                        markerAttrs = `marker-start="${markerStartId}" marker-end="${markerEndId}"`;
-                    } else if (arrowMode === 'start') {
-                        markerAttrs = `marker-start="${markerStartId}"`;
-                    } else if (arrowMode === 'none') {
-                        markerAttrs = '';
-                    } else {
-                        markerAttrs = `marker-end="${markerEndId}"`;
-                    }
-
-                    svgHtml += `
-                        <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
-                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${strokeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
-                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" ${strokeDash} ${markerAttrs} />
-                            <!-- Hit area for easy clicking & selection -->
-                            <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="18" style="cursor: pointer;" />
-                    `;
-
-                    if (e.label) {
-                        const labelLen = e.label.length;
-                        const boxW = Math.max(50, labelLen * 9 + 16);
-                        svgHtml += `
-                            <rect class="edge-label-bg" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX - boxW/2}" y="${pathData.midY - 12}" width="${boxW}" height="24" rx="6" fill="${theme.bg}" stroke="${isEdgeSelected ? '#3b82f6' : theme.nodeBorder}" stroke-width="${isEdgeSelected ? 1.5 : 1}" opacity="0.95" style="cursor: pointer;" />
-                            <text class="edge-label-text" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${isEdgeSelected ? '#60a5fa' : theme.edgeText}" font-size="${typo.edgeLabelSize || 11}" font-weight="600" text-anchor="middle" style="cursor: pointer; user-select: none;">${e.label}</text>
-                        `;
-                    }
-                    svgHtml += `</g>`;
-                }
-            });
-
-            svgHtml += `</g><g id="nodesLayer">`;
-
-            state.nodes.forEach(n => {
-                // Filter out hidden nodes belonging to collapsed groups
-                if (isNodeHidden(n)) return;
-
+            // --- 2. Helper to Render Node SVG Element ---
+            function renderNodeSVG(n) {
+                if (isNodeHidden(n)) return '';
                 const dim = getNodeDimensions(n);
                 const w = dim.w;
                 const h = dim.h;
@@ -3688,7 +3777,6 @@
                 let mainTextY = n.sub ? Math.round(h / 2 - 2) : Math.round(h / 2 + 5);
                 let subTextY = Math.round(h / 2 + 15);
 
-                // Specific placement based on shape to ensure 100% containment
                 if (n.shape === 'diamond') {
                     if (nodeShowIcon) {
                         const iconX = Math.round(w / 2 - 16);
@@ -3749,7 +3837,7 @@
                     textStartX = nodeShowIcon ? 66 : 24;
                 }
 
-                svgHtml += `
+                return `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
                         ${renderNodeShape(n.shape, w, h, theme.nodeBg, nodeBorder)}
                         ${iconHtml}
@@ -3757,8 +3845,94 @@
                         ${n.sub ? `<text x="${textStartX}" y="${subTextY}" text-anchor="${textAnchor}" font-size="${typo.nodeSubSize || 11}" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
                     </g>
                 `;
-            });
+            }
 
+            // --- Layer 1: Render All Groups (Tree Hierarchy) ---
+            svgHtml += `<g id="groupsLayer">`;
+            const rootGroups = state.subgraphs.filter(g => !g.parent);
+            rootGroups.forEach(g => {
+                svgHtml += renderGroupTree(g);
+            });
+            svgHtml += `</g>`;
+
+            // --- Layer 2: Render Edge Paths & Arrows ---
+            const edgePairInfoMap = buildEdgePairIndexMap();
+            svgHtml += `<g id="edgePathsLayer">`;
+            state.edges.forEach((e, idx) => {
+                const effFrom = resolveEffectiveEndpointId(e.from);
+                const effTo = resolveEffectiveEndpointId(e.to);
+                if (!effFrom || !effTo || effFrom === effTo) return;
+
+                const epA = getEndpointBounds(effFrom);
+                const epB = getEndpointBounds(effTo);
+                
+                if (epA && epB) {
+                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
+                    const strokeDash = e.style === 'dashed' ? 'stroke-dasharray="6 6"' : '';
+                    const isEdgeSelected = selectedEdgeIdx === idx;
+                    const strokeColor = isEdgeSelected ? '#60a5fa' : theme.edgeColor;
+                    const strokeWidth = e.width ? parseFloat(e.width) : effectiveEdgeWidth;
+
+                    const markerEndId = isEdgeSelected ? 'url(#arrow-selected)' : 'url(#arrow)';
+                    const markerStartId = isEdgeSelected ? 'url(#arrow-selected-start)' : 'url(#arrow-start)';
+                    const arrowMode = e.arrow || 'end';
+
+                    let markerAttrs = '';
+                    if (arrowMode === 'both') {
+                        markerAttrs = `marker-start="${markerStartId}" marker-end="${markerEndId}"`;
+                    } else if (arrowMode === 'start') {
+                        markerAttrs = `marker-start="${markerStartId}"`;
+                    } else if (arrowMode === 'none') {
+                        markerAttrs = '';
+                    } else {
+                        markerAttrs = `marker-end="${markerEndId}"`;
+                    }
+
+                    svgHtml += `
+                        <g data-edge-idx="${idx}" data-from="${e.from}" data-to="${e.to}" class="edge-group ${isEdgeSelected ? 'edge-selected' : ''}">
+                            ${isEdgeSelected ? `<path d="${pathData.d}" fill="none" stroke="#3b82f6" stroke-width="${strokeWidth + 4}" opacity="0.4" stroke-linecap="round" />` : ''}
+                            <path class="edge-path" d="${pathData.d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" ${strokeDash} ${markerAttrs} />
+                            <!-- Hit area for easy clicking & selection (Expanded to 26px) -->
+                            <path class="edge-hitbox" onclick="selectEdge(${idx}); event.stopPropagation();" d="${pathData.d}" fill="none" stroke="transparent" stroke-width="26" style="cursor: pointer;" />
+                        </g>
+                    `;
+                }
+            });
+            svgHtml += `</g>`;
+
+            // --- Layer 3: Render All Nodes (On Top of Groups & Paths) ---
+            svgHtml += `<g id="nodesLayer">`;
+            state.nodes.forEach(n => {
+                svgHtml += renderNodeSVG(n);
+            });
+            svgHtml += `</g>`;
+
+            // --- Layer 4: Render Edge Labels on the Very Top Layer (Never Blocked by Nodes) ---
+            svgHtml += `<g id="edgeLabelsLayer">`;
+            state.edges.forEach((e, idx) => {
+                if (!e.label) return;
+                const effFrom = resolveEffectiveEndpointId(e.from);
+                const effTo = resolveEffectiveEndpointId(e.to);
+                if (!effFrom || !effTo || effFrom === effTo) return;
+
+                const epA = getEndpointBounds(effFrom);
+                const epB = getEndpointBounds(effTo);
+                if (epA && epB) {
+                    const edgeInfo = edgePairInfoMap.get(idx) || { indexInPair: 0, totalInPair: 1 };
+                    const pathData = computeEdgePath(epA, epB, edgeInfo.indexInPair, edgeInfo.totalInPair, e.type, e.labelPos, e.fromPort, e.toPort, e.fromOffset, e.toOffset);
+                    const isEdgeSelected = selectedEdgeIdx === idx;
+                    const labelLen = e.label.length;
+                    const boxW = Math.max(54, labelLen * 9 + 20);
+
+                    svgHtml += `
+                        <g data-edge-label-idx="${idx}" onclick="selectEdge(${idx}); event.stopPropagation();" class="edge-label-group ${isEdgeSelected ? 'edge-selected' : ''}" style="cursor: pointer;">
+                            <rect class="edge-label-bg" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX - boxW/2}" y="${pathData.midY - 13}" width="${boxW}" height="26" rx="8" fill="${theme.bg}" stroke="${isEdgeSelected ? '#3b82f6' : theme.nodeBorder}" stroke-width="${isEdgeSelected ? 1.5 : 1}" opacity="0.96" filter="url(#dropShadow)" />
+                            <text class="edge-label-text" onclick="selectEdge(${idx}); event.stopPropagation();" x="${pathData.midX}" y="${pathData.midY + 4}" fill="${isEdgeSelected ? '#60a5fa' : theme.edgeText}" font-size="${typo.edgeLabelSize || 11}" font-weight="600" text-anchor="middle" style="user-select: none;">${e.label}</text>
+                        </g>
+                    `;
+                }
+            });
             svgHtml += `</g></g></svg>`;
 
             const container = document.getElementById('svgContainer');
@@ -3825,8 +3999,19 @@
             const vp = document.getElementById('canvasViewport');
             const guideBar = document.getElementById('selectionModeGuide');
             const dimLabel = document.getElementById('selectionBoxDimension');
+            const sidebar = document.querySelector('aside');
             
             if (mode === 'select') {
+                // Collapse sidebar and clear any existing element selection
+                if (sidebar) sidebar.classList.add('hidden');
+                clearNodeSelection();
+                selectGroup(null);
+                if (selectedEdgeIdx !== null) {
+                    selectedEdgeIdx = null;
+                    updateRelationsPanel();
+                }
+                renderDiagram();
+
                 if (btnSelect) btnSelect.className = "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm";
                 if (btnDrag) btnDrag.className = "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
                 if (vp) {
@@ -3837,11 +4022,26 @@
                     guideBar.classList.remove('hidden');
                     guideBar.classList.add('flex');
                 }
-                if (dimLabel) {
-                    dimLabel.innerText = "請在畫布上拖曳圈選區域";
+                
+                const sb = document.getElementById('selectionBox');
+                if (customExportBox) {
+                    if (sb) {
+                        sb.classList.remove('hidden');
+                        updateSelectionBoxScreenPosition();
+                    }
+                    if (dimLabel) {
+                        dimLabel.innerText = `已鎖定選區: ${customExportBox.w} × ${customExportBox.h} px`;
+                    }
+                } else {
+                    if (sb) sb.classList.add('hidden');
+                    if (dimLabel) {
+                        dimLabel.innerText = "請在畫布上拖曳圈選區域 (單點空白處可自動框選全圖)";
+                    }
                 }
-                showToast('已進入「框選匯出」模式：請在畫布上拖曳拉出選取矩形');
+                showToast('已進入「框選匯出」模式：側邊欄已收折，請在畫布上拖曳或單點框選');
             } else {
+                // Restore sidebar
+                if (sidebar) sidebar.classList.remove('hidden');
                 if (btnDrag) btnDrag.className = "px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm";
                 if (btnSelect) btnSelect.className = "px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition";
                 if (vp) {
@@ -3858,22 +4058,500 @@
             }
         }
 
+        // --- Clipboard & Layer Management System (Strict Topmost Z-Order) ---
+        let internalClipboard = null;
+
+        function copySelection() {
+            if (selectedNodeIds.size === 0 && !selectedNodeId && !selectedGroupId) {
+                showToast('請先選取要複製的物件', 'warning');
+                return;
+            }
+
+            if (selectedGroupId) {
+                copySelectedGroup(selectedGroupId);
+                return;
+            }
+
+            const targetIds = selectedNodeIds.size > 0 ? Array.from(selectedNodeIds) : [selectedNodeId];
+            const nodesToCopy = state.nodes.filter(n => targetIds.includes(n.id)).map(n => JSON.parse(JSON.stringify(n)));
+            const edgesToCopy = state.edges.filter(e => targetIds.includes(e.from) && targetIds.includes(e.to)).map(e => JSON.parse(JSON.stringify(e)));
+
+            internalClipboard = {
+                type: 'nodes',
+                nodes: nodesToCopy,
+                edges: edgesToCopy
+            };
+            showToast(`已複製 ${nodesToCopy.length} 個節點至剪貼簿`);
+        }
+
+        function copySelectedGroup(gid) {
+            const group = state.subgraphs.find(g => g.id === gid);
+            if (!group) return;
+
+            const desc = getAllGroupDescendants(gid);
+            const nodesToCopy = desc.nodes.map(n => JSON.parse(JSON.stringify(n)));
+            const subgraphsToCopy = desc.subgraphs.map(g => JSON.parse(JSON.stringify(g)));
+            const allIds = new Set(nodesToCopy.map(n => n.id));
+            const edgesToCopy = state.edges.filter(e => allIds.has(e.from) && allIds.has(e.to)).map(e => JSON.parse(JSON.stringify(e)));
+
+            internalClipboard = {
+                type: 'group',
+                rootGroupId: gid,
+                nodes: nodesToCopy,
+                subgraphs: subgraphsToCopy,
+                edges: edgesToCopy
+            };
+            showToast(`已複製群組「${group.label}」及其子物件`);
+        }
+
+        function selectNode(id, isMulti = false, fromRightClick = false, shouldRender = true) {
+            if (appMode === 'select') return;
+            if (!isMulti) {
+                selectedNodeIds.clear();
+            }
+            if (id) {
+                selectedNodeIds.add(id);
+                selectedNodeId = id;
+            } else {
+                selectedNodeId = null;
+            }
+            selectedGroupId = null;
+            selectedEdgeIdx = null;
+
+            if (shouldRender) {
+                renderDiagram();
+            }
+            if (id && activeTab !== 'properties') {
+                switchSidebarTab('properties');
+            } else {
+                if (activeTab === 'properties') refreshPropertiesPanel();
+            }
+            if (activeTab === 'relations') updateRelationsPanel();
+        }
+
+        function selectGroup(gid, shouldRender = true) {
+            if (appMode === 'select') return;
+            selectedGroupId = gid;
+            selectedNodeIds.clear();
+            selectedNodeId = null;
+            selectedEdgeIdx = null;
+
+            if (shouldRender) {
+                renderDiagram();
+            }
+            if (gid && activeTab !== 'properties') {
+                switchSidebarTab('properties');
+            } else {
+                if (activeTab === 'properties') refreshPropertiesPanel();
+            }
+            if (activeTab === 'relations') updateRelationsPanel();
+        }
+
+        function selectEdge(idx, shouldRender = true) {
+            if (appMode === 'select') return;
+            selectedEdgeIdx = idx;
+            selectedNodeIds.clear();
+            selectedNodeId = null;
+            selectedGroupId = null;
+
+            if (shouldRender) {
+                renderDiagram();
+            }
+            if (idx !== null && activeTab !== 'relations') {
+                switchSidebarTab('relations');
+            } else {
+                if (activeTab === 'relations') updateRelationsPanel();
+            }
+            if (idx !== null) {
+                setTimeout(() => {
+                    const card = document.querySelector(`[data-relation-edge-idx="${idx}"]`);
+                    if (card) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 80);
+            }
+        }
+
+        function duplicateSelection() {
+            copySelection();
+            pasteClipboard(true);
+        }
+
+        let selectedExportFormat = 'png';
+        let isPastingLocked = false;
+
+        function isBoxOverlap(r1, r2) {
+            return !(r1.x + r1.w <= r2.x || r2.x + r2.w <= r1.x || r1.y + r1.h <= r2.y || r2.y + r2.h <= r1.y);
+        }
+
+        // --- Hierarchical Bottom-Up Avoidance Engine (Supports arbitrary N-depth nested trees) ---
+        
+        // 1. Shift an item (node or group with all its descendants) by dx, dy
+        function shiftHierarchicalItem(item, dx, dy) {
+            if (dx === 0 && dy === 0) return;
+            if (item.type === 'node') {
+                item.data.x += dx;
+                item.data.y += dy;
+            } else if (item.type === 'group') {
+                const gid = item.data.id;
+                const desc = getAllGroupDescendants(gid);
+                desc.nodes.forEach(n => {
+                    n.x += dx;
+                    n.y += dy;
+                });
+                desc.subgraphs.forEach(sg => {
+                    if (sg.x !== undefined) sg.x += dx;
+                    if (sg.y !== undefined) sg.y += dy;
+                });
+                if (item.data.x !== undefined) item.data.x += dx;
+                if (item.data.y !== undefined) item.data.y += dy;
+            }
+        }
+
+        // 2. Get bounding box of an item (node or group)
+        function getHierarchicalItemBounds(item) {
+            if (item.type === 'node') {
+                const dim = getNodeDimensions(item.data);
+                return { x: item.data.x, y: item.data.y, w: dim.w, h: dim.h };
+            } else {
+                const box = getGroupBoundingBox(item.data.id);
+                return { x: box.gx, y: box.gy, w: box.gw, h: box.gh };
+            }
+        }
+
+        // 3. Resolve collisions within a single container level (Tag-Aware Dynamic Spacing)
+        function resolveSingleLevelSweep(primaryId, containerId, baseGap = 32) {
+            const childNodes = state.nodes.filter(n => (n.group || '') === (containerId || '') && !isNodeHidden(n));
+            const childGroups = state.subgraphs.filter(g => (g.parent || '') === (containerId || '') && !isGroupCollapsed(g.id));
+
+            const items = [
+                ...childNodes.map(n => ({ type: 'node', id: n.id, data: n })),
+                ...childGroups.map(g => ({ type: 'group', id: g.id, data: g }))
+            ];
+
+            const primaryItem = items.find(it => it.id === primaryId);
+            if (!primaryItem) return false;
+
+            function getDynamicGap(item1, item2) {
+                let dynamicGap = baseGap;
+                if (item1 && item2 && item1.type === 'node' && item2.type === 'node') {
+                    const edge = state.edges.find(e => 
+                        (e.from === item1.id && e.to === item2.id) ||
+                        (e.from === item2.id && e.to === item1.id)
+                    );
+                    if (edge) {
+                        // Connected nodes always have guaranteed minimum spacing (72px)
+                        if (edge.label) {
+                            const tagW = Math.max(54, edge.label.length * 10 + 24);
+                            dynamicGap = Math.max(72, tagW + 72);
+                        } else {
+                            dynamicGap = Math.max(dynamicGap, 72);
+                        }
+                    }
+                }
+                return dynamicGap;
+            }
+
+            let anyChanged = false;
+            const pBounds = getHierarchicalItemBounds(primaryItem);
+
+            // Rightward Wave: sweep items situated to the right of primary item
+            const rightItems = items.filter(it => it.id !== primaryId);
+            rightItems.sort((a, b) => getHierarchicalItemBounds(a).x - getHierarchicalItemBounds(b).x);
+
+            let currentRightAnchor = pBounds.x + pBounds.w + getDynamicGap(primaryItem, rightItems[0] || primaryItem);
+
+            rightItems.forEach((it, idx) => {
+                const b = getHierarchicalItemBounds(it);
+                const yOverlap = Math.min(pBounds.y + pBounds.h, b.y + b.h) - Math.max(pBounds.y, b.y);
+                if (yOverlap > 12 && b.x >= pBounds.x - 20) {
+                    if (b.x < currentRightAnchor) {
+                        const pushX = Math.round(currentRightAnchor - b.x);
+                        shiftHierarchicalItem(it, pushX, 0);
+                        anyChanged = true;
+                    }
+                    const updatedB = getHierarchicalItemBounds(it);
+                    const nextIt = rightItems[idx + 1];
+                    const nextGap = nextIt ? getDynamicGap(it, nextIt) : baseGap;
+                    currentRightAnchor = updatedB.x + updatedB.w + nextGap;
+                }
+            });
+
+            // Leftward Wave: sweep items situated to the left
+            const leftItems = items.filter(it => it.id !== primaryId);
+            leftItems.sort((a, b) => getHierarchicalItemBounds(b).x - getHierarchicalItemBounds(a).x);
+
+            let currentLeftAnchor = pBounds.x - getDynamicGap(primaryItem, leftItems[0] || primaryItem);
+
+            leftItems.forEach((it, idx) => {
+                const b = getHierarchicalItemBounds(it);
+                const yOverlap = Math.min(pBounds.y + pBounds.h, b.y + b.h) - Math.max(pBounds.y, b.y);
+                if (yOverlap > 12 && b.x < pBounds.x - 20) {
+                    if (b.x + b.w > currentLeftAnchor) {
+                        const pushX = Math.round(currentLeftAnchor - (b.x + b.w));
+                        shiftHierarchicalItem(it, pushX, 0);
+                        anyChanged = true;
+                    }
+                    const updatedB = getHierarchicalItemBounds(it);
+                    const nextIt = leftItems[idx + 1];
+                    const nextGap = nextIt ? getDynamicGap(it, nextIt) : baseGap;
+                    currentLeftAnchor = updatedB.x - nextGap;
+                }
+            });
+
+            return anyChanged;
+        }
+
+        // 4. Hierarchical Bottom-Up Ripple Propagator (Recursively propagates up the tree to top canvas)
+        function resolveHierarchicalRipple(startItemId, startType) {
+            let currentId = startItemId;
+            let currentType = startType;
+            let maxLevels = 10; // safety ceiling for deep nested trees
+
+            while (maxLevels-- > 0) {
+                let parentContainerId = '';
+                if (currentType === 'node') {
+                    const n = state.nodes.find(node => node.id === currentId);
+                    if (!n) break;
+                    parentContainerId = n.group || '';
+                } else if (currentType === 'group') {
+                    const g = state.subgraphs.find(group => group.id === currentId);
+                    if (!g) break;
+                    parentContainerId = g.parent || '';
+                }
+
+                // Execute single level sweep in the current container
+                resolveSingleLevelSweep(currentId, parentContainerId, currentType === 'node' ? 32 : 44);
+
+                // If we are already at top-level canvas (parentContainerId === ''), propagation completes
+                if (!parentContainerId) {
+                    break;
+                }
+
+                // Move up to parent group level: the container itself becomes the new primary item in its parent container
+                currentId = parentContainerId;
+                currentType = 'group';
+            }
+        }
+
+        // Backward-compatible wrappers
+        function resolveNodeCollisions(primaryNodeId) {
+            resolveHierarchicalRipple(primaryNodeId, 'node');
+        }
+
+        function resolveGroupCollisions(primaryGroupId) {
+            resolveHierarchicalRipple(primaryGroupId, 'group');
+        }
+
+        function pasteClipboard(isDuplicate = false) {
+            if (isPastingLocked) return;
+            isPastingLocked = true;
+            setTimeout(() => { isPastingLocked = false; }, 150);
+
+            if (!internalClipboard || !internalClipboard.nodes || internalClipboard.nodes.length === 0) {
+                showToast('剪貼簿中沒有可貼上的物件', 'warning');
+                return;
+            }
+
+            // 1. Calculate bounding box of copied elements
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            internalClipboard.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + dim.w);
+                maxY = Math.max(maxY, n.y + dim.h);
+            });
+            const copiedW = Math.max(140, maxX - minX);
+            const copiedH = Math.max(60, maxY - minY);
+
+            // 2. Calculate global layout boundary of all existing elements (nodes + groups)
+            let globalMaxX = -Infinity, globalMinY = Infinity, globalMaxY = -Infinity;
+            state.nodes.forEach(n => {
+                const dim = getNodeDimensions(n);
+                globalMaxX = Math.max(globalMaxX, n.x + dim.w);
+                globalMinY = Math.min(globalMinY, n.y);
+                globalMaxY = Math.max(globalMaxY, n.y + dim.h);
+            });
+            state.subgraphs.forEach(g => {
+                const b = getGroupBoundingBox(g.id);
+                globalMaxX = Math.max(globalMaxX, b.gx + b.gw);
+                globalMinY = Math.min(globalMinY, b.gy);
+                globalMaxY = Math.max(globalMaxY, b.gy + b.gh);
+            });
+            if (globalMaxX === -Infinity) { globalMaxX = 500; globalMinY = 100; globalMaxY = 300; }
+
+            let deltaX = 60, deltaY = 60;
+            if (lastContextMenuPosInSVG && !isDuplicate) {
+                deltaX = lastContextMenuPosInSVG.x - minX;
+                deltaY = lastContextMenuPosInSVG.y - minY;
+            } else {
+                if (internalClipboard.type === 'group') {
+                    // Smart Clean Placement for Group: Place entirely in clean blank space to the right of whole diagram
+                    deltaX = (globalMaxX + 80) - minX;
+                    deltaY = globalMinY - minY;
+                } else {
+                    // Smart Step Placement for Nodes: Step offset to avoid overlap
+                    let attempts = 0;
+                    while (attempts < 10) {
+                        const candidateBox = {
+                            x: minX + deltaX,
+                            y: minY + deltaY,
+                            w: copiedW,
+                            h: copiedH
+                        };
+
+                        let hasCollision = false;
+                        for (const existing of state.nodes) {
+                            const eDim = getNodeDimensions(existing);
+                            const eBox = { x: existing.x, y: existing.y, w: eDim.w, h: eDim.h };
+                            if (isBoxOverlap(candidateBox, eBox)) {
+                                hasCollision = true;
+                                break;
+                            }
+                        }
+
+                        if (hasCollision) {
+                            deltaX += (copiedW > copiedH ? 40 : 60);
+                            deltaY += 60;
+                            attempts++;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const idMap = new Map();
+            const newNodes = [];
+            const newSubgraphs = [];
+
+            // 3. Map & Clone Subgraphs
+            if (internalClipboard.type === 'group' && internalClipboard.subgraphs) {
+                internalClipboard.subgraphs.forEach(g => {
+                    const newGid = `group_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+                    idMap.set(g.id, newGid);
+                    const clonedG = JSON.parse(JSON.stringify(g));
+                    clonedG.id = newGid;
+                    clonedG.label = `${g.label} (副本)`;
+                    if (clonedG.x !== undefined) clonedG.x += deltaX;
+                    if (clonedG.y !== undefined) clonedG.y += deltaY;
+                    newSubgraphs.push(clonedG);
+                });
+                newSubgraphs.forEach(g => {
+                    if (g.parent && idMap.has(g.parent)) {
+                        g.parent = idMap.get(g.parent);
+                    } else {
+                        // Completely decouple from old parent group so it becomes an independent topmost group
+                        g.parent = '';
+                    }
+                });
+            }
+
+            // 4. Map & Clone Nodes
+            internalClipboard.nodes.forEach(n => {
+                const newNid = `node_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+                idMap.set(n.id, newNid);
+                const clonedN = JSON.parse(JSON.stringify(n));
+                clonedN.id = newNid;
+                clonedN.x = n.x + deltaX;
+                clonedN.y = n.y + deltaY;
+                if (clonedN.group && idMap.has(clonedN.group)) {
+                    clonedN.group = idMap.get(clonedN.group);
+                } else if (internalClipboard.type !== 'group') {
+                    // Detach from group if only copying loose nodes
+                    clonedN.group = '';
+                }
+                newNodes.push(clonedN);
+            });
+
+            // 5. Map & Clone Edges
+            const newEdges = [];
+            if (internalClipboard.edges) {
+                internalClipboard.edges.forEach(e => {
+                    if (idMap.has(e.from) && idMap.has(e.to)) {
+                        const clonedE = JSON.parse(JSON.stringify(e));
+                        clonedE.from = idMap.get(e.from);
+                        clonedE.to = idMap.get(e.to);
+                        newEdges.push(clonedE);
+                    }
+                });
+            }
+
+            // 6. Strict Topmost Layer Injection (Append to arrays)
+            newSubgraphs.forEach(g => state.subgraphs.push(g));
+            newNodes.forEach(n => state.nodes.push(n));
+            newEdges.forEach(e => state.edges.push(e));
+
+            // Select newly pasted elements
+            selectedNodeIds.clear();
+            newNodes.forEach(n => selectedNodeIds.add(n.id));
+            if (newNodes.length > 0) {
+                selectedNodeId = newNodes[0].id;
+            }
+            if (internalClipboard.type === 'group' && newSubgraphs.length > 0) {
+                selectedGroupId = newSubgraphs[0].id;
+            }
+
+            // Append newly pasted top-level items to displayOrder so they render on the very top layer
+            if (!Array.isArray(state.displayOrder)) state.displayOrder = [];
+            newSubgraphs.forEach(g => {
+                if (!g.parent && !state.displayOrder.includes(g.id)) state.displayOrder.push(g.id);
+            });
+            newNodes.forEach(n => {
+                if (!n.group && !state.displayOrder.includes(n.id)) state.displayOrder.push(n.id);
+            });
+
+            saveHistory();
+            renderDiagram();
+            if (activeTab === 'properties') refreshPropertiesPanel();
+            if (activeTab === 'relations') updateRelationsPanel();
+            showToast(`已貼上 ${newNodes.length} 個物件並置於全新頂層區域！`);
+        }
+
+        // Global Keyboard Shortcuts for Copy, Paste, Duplicate
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'c' || e.key === 'C') {
+                    e.preventDefault();
+                    copySelection();
+                } else if (e.key === 'v' || e.key === 'V') {
+                    e.preventDefault();
+                    pasteClipboard();
+                } else if (e.key === 'd' || e.key === 'D') {
+                    e.preventDefault();
+                    duplicateSelection();
+                }
+            }
+        });
+
         function openExportModal() {
             const modal = document.getElementById('exportModal');
             const content = document.getElementById('exportModalContent');
+            const radioAuto = document.querySelector('input[name="expArea"][value="autofit"]');
+            const radioCustom = document.getElementById('radioCustomArea');
+            const labelCustom = document.getElementById('labelCustomArea');
+            const customDesc = document.getElementById('customAreaDesc');
             
-            // If customExportBox exists, automatically select 'custom' radio and activate options
+            setExportFmt(selectedExportFormat || 'png');
+
+            if (radioCustom) {
+                radioCustom.disabled = false;
+            }
+            if (labelCustom) labelCustom.classList.remove('opacity-50');
+
             if (customExportBox) {
-                const radioCustom = document.getElementById('radioCustomArea');
-                const labelCustom = document.getElementById('labelCustomArea');
-                const customDesc = document.getElementById('customAreaDesc');
-                if (radioCustom) {
-                    radioCustom.disabled = false;
-                    radioCustom.checked = true;
-                }
-                if (labelCustom) labelCustom.classList.remove('opacity-50');
+                if (radioCustom) radioCustom.checked = true;
+                if (radioAuto) radioAuto.checked = false;
                 if (customDesc) {
                     customDesc.innerText = `已鎖定框選：${Math.round(customExportBox.w)} × ${Math.round(customExportBox.h)} px (X: ${Math.round(customExportBox.x)}, Y: ${Math.round(customExportBox.y)})`;
+                }
+            } else {
+                if (radioAuto) radioAuto.checked = true;
+                if (customDesc) {
+                    customDesc.innerText = "若選取此項，將以當前畫布自訂裁切匯出";
                 }
             }
 
@@ -3887,7 +4565,6 @@
         function closeExportModal() {
             const modal = document.getElementById('exportModal');
             const content = document.getElementById('exportModalContent');
-            // Keep selection box on canvas for easy user verification!
             modal.classList.add('opacity-0');
             content.classList.add('scale-95');
             setTimeout(() => {
@@ -3896,45 +4573,94 @@
         }
 
         function setExportFmt(fmt) {
-            selectedExportFormat = fmt;
+            selectedExportFormat = fmt || 'png';
             const btnPng = document.getElementById('expFmtPng');
             const btnSvg = document.getElementById('expFmtSvg');
             const scaleSec = document.getElementById('pngScaleSection');
             
-            if (fmt === 'png') {
-                btnPng.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
-                btnSvg.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+            if (selectedExportFormat === 'png') {
+                if (btnPng) btnPng.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
+                if (btnSvg) btnSvg.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
                 if (scaleSec) scaleSec.style.display = 'block';
             } else {
-                btnSvg.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
-                btnPng.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
+                if (btnSvg) btnSvg.className = "flex-1 py-2 rounded border border-blue-500 bg-blue-500/10 text-blue-400 text-xs font-bold transition";
+                if (btnPng) btnPng.className = "flex-1 py-2 rounded border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 text-xs font-bold transition";
                 if (scaleSec) scaleSec.style.display = 'none';
             }
         }
 
         function executeQuickExport(format) {
             if (!customExportBox) {
+                const sb = document.getElementById('selectionBox');
+                if (sb && !sb.classList.contains('hidden')) {
+                    const sbLeft = parseFloat(sb.style.left) || 0;
+                    const sbTop = parseFloat(sb.style.top) || 0;
+                    const sbW = parseFloat(sb.style.width) || 0;
+                    const sbH = parseFloat(sb.style.height) || 0;
+                    if (sbW > 10 && sbH > 10) {
+                        customExportBox = {
+                            x: Math.round((sbLeft - panX) / canvasZoom),
+                            y: Math.round((sbTop - panY) / canvasZoom),
+                            w: Math.max(20, Math.round(sbW / canvasZoom)),
+                            h: Math.max(20, Math.round(sbH / canvasZoom))
+                        };
+                    }
+                }
+            }
+
+            if (!customExportBox) {
                 showToast('請先在畫布上拖曳拉出框選範圍', 'warning');
                 return;
             }
             const bg = document.getElementById('expBg')?.value || 'transparent';
-            executeExport(format, 'custom', bg);
+            executeExport(format || 'png', 'custom', bg);
         }
 
         function confirmExport() {
             const checkedRadio = document.querySelector('input[name="expArea"]:checked');
             let area = checkedRadio ? checkedRadio.value : 'autofit';
-            if (customExportBox && (!checkedRadio || checkedRadio.value === 'custom')) {
-                area = 'custom';
+            if (area === 'custom' && !customExportBox) {
+                const bbox = getNodesBoundingBox();
+                const pad = 30;
+                customExportBox = {
+                    x: Math.round(bbox.x - pad),
+                    y: Math.round(bbox.y - pad),
+                    w: Math.max(200, Math.round(bbox.w + pad * 2)),
+                    h: Math.max(150, Math.round(bbox.h + pad * 2))
+                };
             }
-            const bg = document.getElementById('expBg').value;
+            const bg = document.getElementById('expBg')?.value || 'transparent';
             closeExportModal();
-            executeExport(selectedExportFormat, area, bg);
+            executeExport(selectedExportFormat || 'png', area, bg);
         }
 
         function executeExport(format, area, bgSetting) {
             const originalSvg = document.getElementById('workflowSvg');
             if (!originalSvg) return;
+
+            // Resolve custom export box with DOM fallback if needed
+            let currentBoxSnapshot = null;
+            if (area === 'custom') {
+                if (customExportBox) {
+                    currentBoxSnapshot = { ...customExportBox };
+                } else {
+                    const sb = document.getElementById('selectionBox');
+                    if (sb && !sb.classList.contains('hidden')) {
+                        const sbLeft = parseFloat(sb.style.left) || 0;
+                        const sbTop = parseFloat(sb.style.top) || 0;
+                        const sbW = parseFloat(sb.style.width) || 0;
+                        const sbH = parseFloat(sb.style.height) || 0;
+                        if (sbW > 10 && sbH > 10) {
+                            currentBoxSnapshot = {
+                                x: Math.round((sbLeft - panX) / canvasZoom),
+                                y: Math.round((sbTop - panY) / canvasZoom),
+                                w: Math.max(20, Math.round(sbW / canvasZoom)),
+                                h: Math.max(20, Math.round(sbH / canvasZoom))
+                            };
+                        }
+                    }
+                }
+            }
 
             const oldSelectedId = selectedNodeId;
             const oldSelectedEdge = selectedEdgeIdx;
@@ -3953,13 +4679,13 @@
                 if (bgRect) bgRect.setAttribute('fill', bgColor);
 
                 let exportW, exportH, viewBoxStr;
-                if (area === 'custom' && customExportBox) {
-                    exportW = Math.max(20, Math.round(customExportBox.w));
-                    exportH = Math.max(20, Math.round(customExportBox.h));
-                    viewBoxStr = `${Math.round(customExportBox.x)} ${Math.round(customExportBox.y)} ${exportW} ${exportH}`;
+                if (area === 'custom' && currentBoxSnapshot) {
+                    exportW = Math.max(20, Math.round(currentBoxSnapshot.w));
+                    exportH = Math.max(20, Math.round(currentBoxSnapshot.h));
+                    viewBoxStr = `${Math.round(currentBoxSnapshot.x)} ${Math.round(currentBoxSnapshot.y)} ${exportW} ${exportH}`;
                     if (bgRect) {
-                        bgRect.setAttribute('x', Math.round(customExportBox.x));
-                        bgRect.setAttribute('y', Math.round(customExportBox.y));
+                        bgRect.setAttribute('x', Math.round(currentBoxSnapshot.x));
+                        bgRect.setAttribute('y', Math.round(currentBoxSnapshot.y));
                         bgRect.setAttribute('width', exportW);
                         bgRect.setAttribute('height', exportH);
                     }
@@ -3979,6 +4705,7 @@
                 const vpGroup = svgToExport.querySelector('#viewportTransform');
                 if (vpGroup) vpGroup.removeAttribute('transform');
 
+                svgToExport.removeAttribute('style');
                 svgToExport.setAttribute('viewBox', viewBoxStr);
                 svgToExport.setAttribute('width', exportW);
                 svgToExport.setAttribute('height', exportH);
@@ -4013,14 +4740,10 @@
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                     }
 
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(svgBlob);
-                    
+                    const dataUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgData);
                     const img = new Image();
-                    img.crossOrigin = "Anonymous";
                     img.onload = function() {
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        URL.revokeObjectURL(url);
                         try {
                             const pngDataUrl = canvas.toDataURL('image/png');
                             const a = document.createElement('a');
@@ -4037,7 +4760,7 @@
                         showToast('圖像渲染失敗，請改用 SVG 格式下載', 'error');
                         restoreSelection();
                     };
-                    img.src = url;
+                    img.src = dataUrl;
                 }
             }, 50);
 
