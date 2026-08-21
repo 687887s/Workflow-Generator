@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workflow Figure SVG Generator</title>
+    <!-- Resource Hints & Preconnect for Fast Asset Loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome for UI & Node icons -->
@@ -799,8 +805,18 @@
             }
         };
 
+        // Fast & Safe Deep Clone with native structuredClone fallback
+        function cloneState(obj) {
+            if (typeof structuredClone === 'function') {
+                try {
+                    return structuredClone(obj);
+                } catch (e) {}
+            }
+            return JSON.parse(JSON.stringify(obj));
+        }
+
         // Application State
-        let state = JSON.parse(JSON.stringify(PRESETS.aiml));
+        let state = cloneState(PRESETS.aiml);
         let selectedNodeId = null;
         let activeTab = 'modules';
         let isShowGrid = true;
@@ -1059,7 +1075,7 @@
             if (currentHistoryIndex < historyStack.length - 1) {
                 historyStack = historyStack.slice(0, currentHistoryIndex + 1);
             }
-            historyStack.push(JSON.parse(JSON.stringify(state)));
+            historyStack.push(cloneState(state));
             currentHistoryIndex++;
             if (historyStack.length > 50) {
                 historyStack.shift();
@@ -1071,7 +1087,7 @@
         function undo() {
             if (currentHistoryIndex > 0) {
                 currentHistoryIndex--;
-                state = JSON.parse(JSON.stringify(historyStack[currentHistoryIndex]));
+                state = cloneState(historyStack[currentHistoryIndex]);
                 renderDiagram();
                 updateRelationsPanel();
                 if (selectedNodeId) refreshPropertiesPanel();
@@ -1083,7 +1099,7 @@
         function redo() {
             if (currentHistoryIndex < historyStack.length - 1) {
                 currentHistoryIndex++;
-                state = JSON.parse(JSON.stringify(historyStack[currentHistoryIndex]));
+                state = cloneState(historyStack[currentHistoryIndex]);
                 renderDiagram();
                 updateRelationsPanel();
                 if (selectedNodeId) refreshPropertiesPanel();
@@ -1127,7 +1143,7 @@
             const node = state.nodes.find(n => n.id === selectedNodeId);
             if (!node) return;
             clipboardType = 'node';
-            clipboardNode = JSON.parse(JSON.stringify(node));
+            clipboardNode = cloneState(node);
             showToast(`已複製「${node.label}」組件 (Ctrl+C)`);
         }
 
@@ -1139,8 +1155,8 @@
             
             clipboardType = 'multi_nodes';
             clipboardMultiNodes = {
-                nodes: JSON.parse(JSON.stringify(nodes)),
-                edges: JSON.parse(JSON.stringify(internalEdges))
+                nodes: cloneState(nodes),
+                edges: cloneState(internalEdges)
             };
             showToast(`已複製 ${nodes.length} 個組件及關聯連線 (Ctrl+C)`);
         }
@@ -1163,9 +1179,9 @@
             clipboardType = 'group';
             clipboardGroup = {
                 rootGroupId: targetGid,
-                subgraphs: JSON.parse(JSON.stringify(subgraphs)),
-                nodes: JSON.parse(JSON.stringify(nodes)),
-                edges: JSON.parse(JSON.stringify(internalEdges))
+                subgraphs: cloneState(subgraphs),
+                nodes: cloneState(nodes),
+                edges: cloneState(internalEdges)
             };
             showToast(`已複製「${rootGroup.label}」群組 (含 ${nodes.length} 個節點與 ${internalEdges.length} 條連線)`);
         }
@@ -1188,7 +1204,7 @@
                 return;
             }
             const newId = 'n_' + Date.now().toString().slice(-4);
-            const newNode = JSON.parse(JSON.stringify(clipboardNode));
+            const newNode = cloneState(clipboardNode);
             newNode.id = newId;
             newNode.label = newNode.label + ' (副本)';
             newNode.x = (newNode.x || 100) + 30;
@@ -1215,7 +1231,7 @@
             clipboardMultiNodes.nodes.forEach(n => {
                 const newId = 'n_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
                 idMap.set(n.id, newId);
-                const cloneN = JSON.parse(JSON.stringify(n));
+                const cloneN = cloneState(n);
                 cloneN.id = newId;
                 cloneN.label = cloneN.label + ' (副本)';
                 cloneN.x = (cloneN.x || 100) + offset;
@@ -1268,7 +1284,7 @@
             clipboardGroup.subgraphs.forEach(g => {
                 const newId = 'sg_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
                 idMap.set(g.id, newId);
-                const cloneG = JSON.parse(JSON.stringify(g));
+                const cloneG = cloneState(g);
                 cloneG.id = newId;
                 if (g.id === clipboardGroup.rootGroupId) {
                     cloneG.label = cloneG.label + ' (副本)';
@@ -1289,7 +1305,7 @@
             clipboardGroup.nodes.forEach(n => {
                 const newId = 'n_' + Date.now().toString().slice(-4) + '_' + Math.random().toString(36).substr(2, 3);
                 idMap.set(n.id, newId);
-                const cloneN = JSON.parse(JSON.stringify(n));
+                const cloneN = cloneState(n);
                 cloneN.id = newId;
                 cloneN.x = (cloneN.x || 100) + offset;
                 cloneN.y = (cloneN.y || 100) + offset;
@@ -1302,7 +1318,7 @@
             // Map internal edges
             clipboardGroup.edges.forEach(e => {
                 if (idMap.has(e.from) && idMap.has(e.to)) {
-                    const cloneE = JSON.parse(JSON.stringify(e));
+                    const cloneE = cloneState(e);
                     cloneE.from = idMap.get(e.from);
                     cloneE.to = idMap.get(e.to);
                     newEdges.push(cloneE);
@@ -3941,7 +3957,7 @@
 
         function loadPreset(key) {
             if (PRESETS[key]) {
-                state = JSON.parse(JSON.stringify(PRESETS[key]));
+                state = cloneState(PRESETS[key]);
                 document.getElementById('themeSelect').value = state.theme;
                 selectNode(null);
                 selectedEdgeIdx = null;
@@ -4073,8 +4089,8 @@
             }
 
             const targetIds = selectedNodeIds.size > 0 ? Array.from(selectedNodeIds) : [selectedNodeId];
-            const nodesToCopy = state.nodes.filter(n => targetIds.includes(n.id)).map(n => JSON.parse(JSON.stringify(n)));
-            const edgesToCopy = state.edges.filter(e => targetIds.includes(e.from) && targetIds.includes(e.to)).map(e => JSON.parse(JSON.stringify(e)));
+            const nodesToCopy = state.nodes.filter(n => targetIds.includes(n.id)).map(n => cloneState(n));
+            const edgesToCopy = state.edges.filter(e => targetIds.includes(e.from) && targetIds.includes(e.to)).map(e => cloneState(e));
 
             internalClipboard = {
                 type: 'nodes',
@@ -4089,10 +4105,10 @@
             if (!group) return;
 
             const desc = getAllGroupDescendants(gid);
-            const nodesToCopy = desc.nodes.map(n => JSON.parse(JSON.stringify(n)));
-            const subgraphsToCopy = desc.subgraphs.map(g => JSON.parse(JSON.stringify(g)));
+            const nodesToCopy = desc.nodes.map(n => cloneState(n));
+            const subgraphsToCopy = desc.subgraphs.map(g => cloneState(g));
             const allIds = new Set(nodesToCopy.map(n => n.id));
-            const edgesToCopy = state.edges.filter(e => allIds.has(e.from) && allIds.has(e.to)).map(e => JSON.parse(JSON.stringify(e)));
+            const edgesToCopy = state.edges.filter(e => allIds.has(e.from) && allIds.has(e.to)).map(e => cloneState(e));
 
             internalClipboard = {
                 type: 'group',
@@ -4431,7 +4447,7 @@
                 internalClipboard.subgraphs.forEach(g => {
                     const newGid = `group_${Date.now()}_${Math.floor(Math.random()*1000)}`;
                     idMap.set(g.id, newGid);
-                    const clonedG = JSON.parse(JSON.stringify(g));
+                    const clonedG = cloneState(g);
                     clonedG.id = newGid;
                     clonedG.label = `${g.label} (副本)`;
                     if (clonedG.x !== undefined) clonedG.x += deltaX;
@@ -4452,7 +4468,7 @@
             internalClipboard.nodes.forEach(n => {
                 const newNid = `node_${Date.now()}_${Math.floor(Math.random()*1000)}`;
                 idMap.set(n.id, newNid);
-                const clonedN = JSON.parse(JSON.stringify(n));
+                const clonedN = cloneState(n);
                 clonedN.id = newNid;
                 clonedN.x = n.x + deltaX;
                 clonedN.y = n.y + deltaY;
@@ -4470,7 +4486,7 @@
             if (internalClipboard.edges) {
                 internalClipboard.edges.forEach(e => {
                     if (idMap.has(e.from) && idMap.has(e.to)) {
-                        const clonedE = JSON.parse(JSON.stringify(e));
+                        const clonedE = cloneState(e);
                         clonedE.from = idMap.get(e.from);
                         clonedE.to = idMap.get(e.to);
                         newEdges.push(clonedE);
