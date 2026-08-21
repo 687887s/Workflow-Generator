@@ -78,8 +78,9 @@
 <body class="h-full bg-slate-900 text-slate-100 flex flex-col overflow-hidden">
 
     <!-- Navigation / Header Bar -->
-    <header class="h-16 bg-slate-800 border-b border-slate-700/80 px-4 flex items-center justify-between z-10 shrink-0">
-        <div class="flex items-center space-x-3">
+    <header class="h-16 bg-slate-800 border-b border-slate-700/80 px-4 flex items-center justify-between z-10 shrink-0 gap-3">
+        <!-- Left: Logo & Title -->
+        <div class="flex items-center space-x-3 shrink-0">
             <div class="p-2 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-500/20 flex items-center justify-center">
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 13h-4V9h4v4zm-6-2h-2V7h2v4zm-4 4H5v-4h4v4zm-4-8H1V3h4v4zm14 12h-4v-4h4v4zm-6-2h-2v-4h2v4z"/>
@@ -87,14 +88,44 @@
             </div>
             <div>
                 <h1 class="text-base font-bold text-white leading-tight">Workflow Figure Builder</h1>
-                <p class="text-xs text-slate-400">畫布拖拉式結構編輯器 <span class="hidden md:inline-block ml-2 px-1.5 py-0.5 rounded bg-slate-700/60 text-[10px] text-slate-300"><i class="fa-solid fa-keyboard mr-1 text-blue-400"></i>[Ctrl+C/V] 複製貼上 | [X] 交換順序 | [雙擊/按鈕] 收折容器</span></p>
+                <p class="text-[11px] text-slate-400">學術出版級流程架構圖編輯器</p>
             </div>
         </div>
 
-        <!-- Controls Toolbar -->
-        <div class="flex items-center space-x-3">
+        <!-- Center: Prominent Shortcut Banner & Question Mark Button -->
+        <div class="hidden lg:flex items-center space-x-2 bg-slate-900/80 border border-slate-700/80 rounded-lg px-3 py-1.5 shadow-inner">
+            <i class="fa-solid fa-keyboard text-blue-400 text-xs mr-0.5"></i>
+            <span class="text-[11px] text-slate-400 font-medium">常用快捷鍵:</span>
+            <div class="flex items-center space-x-1.5 text-[11px]">
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-blue-300 font-bold">Ctrl+C/V</kbd><span>貼上</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-blue-300 font-bold">Ctrl+D</kbd><span>副本</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-blue-300 font-bold">Del</kbd><span>刪除</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-amber-300 font-bold">G</kbd><span>群組</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-emerald-300 font-bold">L</kbd><span>連線</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-slate-300">
+                    <kbd class="font-mono text-[10px] text-purple-300 font-bold">1~4</kbd><span>側欄</span>
+                </span>
+            </div>
+            <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
+            <button onclick="openShortcutsModal()" class="w-6 h-6 rounded-full bg-blue-600/30 hover:bg-blue-600 border border-blue-500/60 hover:border-blue-400 text-blue-300 hover:text-white font-bold text-xs flex items-center justify-center transition shadow-sm hover:scale-105 active:scale-95" title="點擊查看完整快捷鍵清單 (快捷鍵: ? / F1)">
+                <i class="fa-solid fa-question text-[11px]"></i>
+            </button>
+        </div>
+
+        <!-- Right: Mode Switch & Presets & Actions -->
+        <div class="flex items-center space-x-2.5 shrink-0">
             <!-- Undo / Redo Buttons -->
-            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5 mr-2">
+            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5">
                 <button id="btnUndo" onclick="undo()" class="px-2.5 py-1.5 rounded-md text-slate-500 transition opacity-50 cursor-not-allowed flex items-center justify-center" title="復原 (Ctrl+Z)">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
@@ -109,13 +140,12 @@
             </div>
 
             <!-- Mode Switch -->
-            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5 mr-2">
-                <button id="modeDrag" onclick="setMode('drag')" class="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm">拖曳編輯</button>
-                <button id="modeSelect" onclick="setMode('select')" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition">框選匯出</button>
+            <div class="flex items-center bg-slate-900/60 rounded-lg border border-slate-700 p-0.5">
+                <button id="modeDrag" onclick="setMode('drag')" class="px-2.5 py-1.5 rounded-md bg-blue-600 text-white text-xs font-bold transition shadow-sm" title="拖曳模式 (快捷鍵: V)">拖曳</button>
+                <button id="modeSelect" onclick="setMode('select')" class="px-2.5 py-1.5 rounded-md text-slate-400 hover:text-white text-xs font-bold transition" title="框選模式 (快捷鍵: S)">框選</button>
             </div>
 
-            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
-                <span class="text-xs text-slate-400 pl-2 font-medium">範本:</span>
+            <div class="flex items-center space-x-1 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
                 <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
                     <option value="aiml">AI / ML 管線流程</option>
                     <option value="microservices">微服務架構</option>
@@ -123,8 +153,7 @@
                 </select>
             </div>
 
-            <div class="flex items-center space-x-1.5 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
-                <span class="text-xs text-slate-400 pl-2 font-medium">主題:</span>
+            <div class="flex items-center space-x-1 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
                 <select id="themeSelect" onchange="changeTheme(this.value)" class="bg-slate-800 text-xs text-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer border border-slate-700">
                     <option value="academic">Academic Clean (學術)</option>
                     <option value="tech">Tech Dark (科技)</option>
@@ -133,20 +162,24 @@
                 </select>
             </div>
 
-            <div class="h-6 w-[1px] bg-slate-700 mx-1"></div>
+            <div class="h-6 w-[1px] bg-slate-700 mx-0.5"></div>
 
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-1.5">
+                <!-- Mobile / Small screen Question Mark Trigger -->
+                <button onclick="openShortcutsModal()" class="lg:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 flex items-center justify-center transition" title="快捷鍵清單 (?)">
+                    <i class="fa-solid fa-question text-xs"></i>
+                </button>
                 <button onclick="copySVGCode()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center space-x-1.5 shadow-sm">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
                     </svg>
-                    <span>複製代碼</span>
+                    <span class="hidden sm:inline">複製代碼</span>
                 </button>
-                <button onclick="openExportModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20">
+                <button onclick="openExportModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 10v4H7l5 5 5-5h-3v-4h-4z"/>
                     </svg>
-                    <span>匯出圖表...</span>
+                    <span>匯出圖表</span>
                 </button>
             </div>
         </div>
@@ -187,30 +220,54 @@
             <!-- Content: Modules (Add Nodes) -->
             <div id="panel-modules" class="flex-1 overflow-y-auto p-4 space-y-4">
                 <div class="text-xs text-slate-400 mb-2">點擊以新增模塊到畫布中央</div>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="addNodeToCenter('rect')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-12 h-8 border-2 border-slate-500 rounded group-hover:border-blue-400"></div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button onclick="addNodeToCenter('rect')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <div class="w-10 h-6 border-2 border-slate-500 rounded group-hover:border-blue-400"></div>
                         <span class="text-xs text-slate-300">一般矩形</span>
                     </button>
-                    <button onclick="addNodeToCenter('pill')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-12 h-8 border-2 border-slate-500 rounded-full group-hover:border-blue-400"></div>
+                    <button onclick="addNodeToCenter('rounded')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <div class="w-10 h-6 border-2 border-slate-500 rounded-lg group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">圓角矩形</span>
+                    </button>
+                    <button onclick="addNodeToCenter('pill')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <div class="w-10 h-6 border-2 border-slate-500 rounded-full group-hover:border-blue-400"></div>
                         <span class="text-xs text-slate-300">膠囊節點</span>
                     </button>
-                    <button onclick="addNodeToCenter('database')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-solid fa-database text-2xl text-slate-500 group-hover:text-blue-400"></i>
-                        <span class="text-xs text-slate-300">資料庫</span>
-                    </button>
-                    <button onclick="addNodeToCenter('cloud')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-solid fa-cloud text-2xl text-slate-500 group-hover:text-blue-400"></i>
-                        <span class="text-xs text-slate-300">雲端服務</span>
-                    </button>
-                    <button onclick="addNodeToCenter('diamond')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <div class="w-8 h-8 border-2 border-slate-500 rotate-45 group-hover:border-blue-400"></div>
+                    <button onclick="addNodeToCenter('diamond')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <div class="w-6 h-6 border-2 border-slate-500 rotate-45 group-hover:border-blue-400"></div>
                         <span class="text-xs text-slate-300">決策菱形</span>
                     </button>
-                    <button onclick="addNodeToCenter('hexagon')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-3 flex flex-col items-center justify-center space-y-2 transition group">
-                        <i class="fa-regular fa-circle-stop text-2xl text-slate-500 group-hover:text-blue-400"></i>
+                    <button onclick="addNodeToCenter('database')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <i class="fa-solid fa-database text-xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">資料庫</span>
+                    </button>
+                    <button onclick="addNodeToCenter('cloud')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <i class="fa-solid fa-cloud text-xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">雲端服務</span>
+                    </button>
+                    <button onclick="addNodeToCenter('hexagon')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group">
+                        <i class="fa-regular fa-circle-stop text-xl text-slate-500 group-hover:text-blue-400"></i>
                         <span class="text-xs text-slate-300">六角節點</span>
+                    </button>
+                    <button onclick="addNodeToCenter('parallelogram')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group" title="輸入/輸出 (I/O)">
+                        <div class="w-10 h-6 border-2 border-slate-500 -skew-x-12 group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">平行四邊形</span>
+                    </button>
+                    <button onclick="addNodeToCenter('document')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group" title="文件/報表">
+                        <i class="fa-regular fa-file-lines text-xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">文件報表</span>
+                    </button>
+                    <button onclick="addNodeToCenter('subroutine')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group" title="子程序/預定義處理">
+                        <div class="w-10 h-6 border-2 border-slate-500 relative flex justify-between px-1.5 group-hover:border-blue-400"><div class="w-0.5 h-full bg-slate-500 group-hover:bg-blue-400"></div><div class="w-0.5 h-full bg-slate-500 group-hover:bg-blue-400"></div></div>
+                        <span class="text-xs text-slate-300">子程序模塊</span>
+                    </button>
+                    <button onclick="addNodeToCenter('circle')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group" title="事件/起止狀態">
+                        <div class="w-7 h-7 border-2 border-slate-500 rounded-full group-hover:border-blue-400"></div>
+                        <span class="text-xs text-slate-300">正圓事件</span>
+                    </button>
+                    <button onclick="addNodeToCenter('note')" class="bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-lg p-2.5 flex flex-col items-center justify-center space-y-1.5 transition group" title="註解/便籤">
+                        <i class="fa-regular fa-note-sticky text-xl text-slate-500 group-hover:text-blue-400"></i>
+                        <span class="text-xs text-slate-300">註解便籤</span>
                     </button>
                 </div>
                 
@@ -287,6 +344,37 @@
                                     <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="6,2 18,2 22,8 18,14 6,14 2,8"/></svg>
                                     <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">六角形</span>
                                 </button>
+                                <button type="button" onclick="selectNodeShape('parallelogram')" data-shape="parallelogram" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="平行四邊形 (I/O)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5,2 22,2 19,14 2,14"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">四邊形</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('document')" data-shape="document" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="文件/報表 (Document)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M 2 2 L 22 2 L 22 12 Q 17 10, 12 12 T 2 12 Z"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">文件</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('subroutine')" data-shape="subroutine" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="子程序 (Subroutine)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="12" rx="1"/><line x1="6" y1="2" x2="6" y2="14"/><line x1="18" y1="2" x2="18" y2="14"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">子程序</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('circle')" data-shape="circle" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="正圓形 (Circle Event)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="6"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">圓形</span>
+                                </button>
+                                <button type="button" onclick="selectNodeShape('note')" data-shape="note" class="shape-btn flex flex-col items-center justify-center p-1.5 rounded-md border border-slate-700/70 hover:border-blue-500 hover:bg-blue-500/10 transition group text-slate-300" title="便籤 (Sticky Note)">
+                                    <svg class="w-6 h-4 text-slate-400 group-hover:text-blue-400 transition" viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M 3 2 L 17 2 L 21 6 L 21 14 L 3 14 Z"/><polygon points="17,2 17,6 21,6"/></svg>
+                                    <span class="text-[9px] mt-1 text-slate-400 group-hover:text-white">便籤</span>
+                                </button>
+                            </div>
+                            <!-- Dynamic Corner Radius Slider for Rounded Rectangle -->
+                            <div id="propRadiusContainer" class="mt-2.5 pt-2 border-t border-slate-800/80 hidden">
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="text-[11px] text-slate-400 block font-medium">圓角曲率 (Corner Radius)</label>
+                                    <span id="propRadiusVal" class="text-[10px] text-blue-400 font-mono">14px</span>
+                                </div>
+                                <input type="range" id="propRadius" min="2" max="36" value="14" 
+                                    oninput="updateSelectedNode('radius', parseInt(this.value)); document.getElementById('propRadiusVal').innerText = this.value + 'px';" 
+                                    onchange="saveHistory();" 
+                                    class="w-full accent-blue-500 h-1.5 bg-slate-950 rounded cursor-pointer" title="調整圓角矩形之圓角半徑">
                             </div>
                         </div>
                         <div>
@@ -311,10 +399,11 @@
                             </div>
                         </div>
                         <div>
-                            <label class="text-[11px] text-slate-400 block mb-1">主題色 (Color)</label>
+                            <label class="text-[11px] text-slate-400 block mb-1">主題色 (Color / HEX)</label>
                             <div class="flex items-center space-x-2">
-                                <input type="color" id="propColor" onchange="updateSelectedNode('color', this.value); saveHistory();" class="w-8 h-8 rounded cursor-pointer border border-slate-700 bg-transparent p-0">
-                                <button onclick="document.getElementById('propColor').value='#3b82f6'; updateSelectedNode('color', '#3b82f6'); saveHistory();" class="text-[10px] text-slate-400 hover:text-white">重置</button>
+                                <input type="color" id="propColor" oninput="document.getElementById('propColorHex').value=this.value.toUpperCase(); updateSelectedNode('color', this.value);" onchange="saveHistory();" class="w-8 h-8 rounded cursor-pointer border border-slate-700 bg-transparent p-0 shrink-0">
+                                <input type="text" id="propColorHex" maxlength="9" placeholder="#3B82F6" oninput="let v=this.value.trim(); if(v && !v.startsWith('#')) v='#'+v; if(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(v)) { if(v.length===7) document.getElementById('propColor').value=v; updateSelectedNode('color', v); }" onchange="saveHistory();" class="w-28 bg-slate-950 px-2 py-1 rounded border border-slate-700 text-xs font-mono uppercase text-slate-200 focus:border-blue-500 focus:outline-none" title="支援 16 位元色碼 (如 #3B82F6 或帶透明度 #3B82F680)">
+                                <button onclick="document.getElementById('propColor').value='#3b82f6'; document.getElementById('propColorHex').value='#3B82F6'; updateSelectedNode('color', '#3b82f6'); saveHistory();" class="text-[10px] text-slate-400 hover:text-white px-1.5 py-1 bg-slate-800 rounded border border-slate-700">重置</button>
                             </div>
                         </div>
                         <div>
@@ -695,6 +784,57 @@
         </div>
     </div>
 
+    <!-- Keyboard Shortcuts Cheat Sheet Modal -->
+    <div id="shortcutsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[560px] max-h-[85vh] flex flex-col overflow-hidden transform scale-95 transition-transform duration-200" id="shortcutsModalContent">
+            <div class="px-5 py-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+                <h3 class="text-sm font-bold text-white flex items-center"><i class="fa-solid fa-keyboard text-blue-400 mr-2"></i>常用鍵盤快捷鍵速查</h3>
+                <button onclick="closeShortcutsModal()" class="text-slate-400 hover:text-white transition p-1"><i class="fa-solid fa-xmark text-base"></i></button>
+            </div>
+            <div class="p-5 overflow-y-auto space-y-4 text-xs">
+                <!-- 編輯操作 -->
+                <div>
+                    <h4 class="text-xs font-bold text-blue-400 mb-2 flex items-center"><i class="fa-solid fa-pen-to-square mr-1.5"></i>編輯與選取</h4>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                        <div class="flex justify-between items-center"><span class="text-slate-300">複製選取物件</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + C</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">貼上剪貼簿</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + V</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">原地快速複製</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + D</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">全選所有節點</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + A</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">復原操作 (Undo)</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + Z</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">重做操作 (Redo)</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Ctrl + Y</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">刪除節點 / 連線</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Delete / Backspace</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">清除選取 / 關閉彈窗</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Escape</kbd></div>
+                    </div>
+                </div>
+
+                <!-- 連線與群組 -->
+                <div>
+                    <h4 class="text-xs font-bold text-amber-400 mb-2 flex items-center"><i class="fa-solid fa-route mr-1.5"></i>連線與群組快捷</h4>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                        <div class="flex justify-between items-center"><span class="text-slate-300">連線選中節點</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">L 或 C</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">打包選中節點為群組</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">G</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">多選加選/減選</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">Shift + 點選</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">雙向互連</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">多選欄位按鈕</kbd></div>
+                    </div>
+                </div>
+
+                <!-- 畫布與面板導航 -->
+                <div>
+                    <h4 class="text-xs font-bold text-emerald-400 mb-2 flex items-center"><i class="fa-solid fa-compass mr-1.5"></i>畫布導航與面板切換</h4>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                        <div class="flex justify-between items-center"><span class="text-slate-300">拖曳模式 / 框選模式</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">V / S</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">畫布置中 (Fit)</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">0 或 Ctrl+0</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">切換側邊欄 Tab</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">1, 2, 3, 4</kbd></div>
+                        <div class="flex justify-between items-center"><span class="text-slate-300">平移視窗</span><kbd class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono text-[10px]">中鍵 / Space+拖曳</kbd></div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-5 py-3 bg-slate-900/50 border-t border-slate-700 flex justify-end">
+                <button onclick="closeShortcutsModal()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition">關閉</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Icon Picker Modal -->
     <div id="iconPickerModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[580px] max-h-[85vh] flex flex-col overflow-hidden transform scale-95 transition-transform duration-200" id="iconPickerModalContent">
@@ -896,6 +1036,22 @@
             "check-circle": '<circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />',
             "gear": '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" />',
             "layer-group": '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" />',
+            "sparkles": '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>',
+            "chart-line": '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
+            "activity": '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+            "shield-check": '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+            "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+            "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+            "wrench": '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+            "refresh-cw": '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+            "play": '<polygon points="6 3 20 12 6 21 6 3"/>',
+            "circle-stop": '<circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9"/>',
+            "git-merge": '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+            "message-square": '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+            "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+            "file-code": '<path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>',
+            "eye": '<path d="2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+            "zap": '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
             "default": '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 8v8"/><path d="M8 12h8"/>'
         };
 
@@ -910,13 +1066,16 @@
         const ICON_REGISTRY = [
             // AI & Compute
             { key: 'fa-brain', name: 'AI / 類神經網絡', cat: 'ai', icon: 'fa-brain' },
+            { key: 'fa-sparkles', name: '大模型 / 生成式 AI', cat: 'ai', icon: 'fa-sparkles' },
             { key: 'fa-microchip', name: '晶片 / 算力核心', cat: 'ai', icon: 'fa-microchip' },
             { key: 'fa-robot', name: '機器人 / 自動化', cat: 'ai', icon: 'fa-robot' },
             { key: 'fa-dna', name: '演算法 / 特徵提取', cat: 'ai', icon: 'fa-dna' },
             { key: 'fa-network-wired', name: '網絡 / 分散架構', cat: 'ai', icon: 'fa-network-wired' },
             { key: 'fa-chart-pie', name: '分析 / 模型分群', cat: 'ai', icon: 'fa-chart-pie' },
+            { key: 'fa-chart-line', name: '評估指標 / 趨勢', cat: 'ai', icon: 'fa-chart-line' },
             { key: 'fa-diagram-project', name: '管線 / 拓撲流程', cat: 'ai', icon: 'fa-diagram-project' },
             { key: 'fa-bolt', name: '即時推論 / 觸發', cat: 'ai', icon: 'fa-bolt' },
+            { key: 'fa-zap', name: '加速處理 / 高速管道', cat: 'ai', icon: 'fa-zap' },
 
             // Data & Storage
             { key: 'fa-database', name: 'SQL / 關聯資料庫', cat: 'data', icon: 'fa-database' },
@@ -925,6 +1084,7 @@
             { key: 'fa-box-archive', name: '冷存儲 / 資料歸檔', cat: 'data', icon: 'fa-box-archive' },
             { key: 'fa-table', name: '資料表 / 結構資料', cat: 'data', icon: 'fa-table' },
             { key: 'fa-file-lines', name: '日誌 / 文字檔案', cat: 'data', icon: 'fa-file-lines' },
+            { key: 'fa-file-code', name: '腳本原始碼 / Code', cat: 'data', icon: 'fa-file-code' },
             { key: 'fa-folder-open', name: '物件池 / 儲存桶', cat: 'data', icon: 'fa-folder-open' },
             { key: 'fa-filter', name: '過濾器 / 資料清洗', cat: 'data', icon: 'fa-filter' },
 
@@ -937,9 +1097,11 @@
             { key: 'fa-tower-broadcast', name: '訊息廣播 / MQ', cat: 'cloud', icon: 'fa-tower-broadcast' },
             { key: 'fa-share-nodes', name: '微服務通訊 / 拓撲', cat: 'cloud', icon: 'fa-share-nodes' },
             { key: 'fa-route', name: '網關 / 路由分流', cat: 'cloud', icon: 'fa-route' },
+            { key: 'fa-link', name: 'API 端點 / 串接', cat: 'cloud', icon: 'fa-link' },
 
             // Security & Auth
             { key: 'fa-shield-halved', name: '防火牆 / 安全盾', cat: 'security', icon: 'fa-shield-halved' },
+            { key: 'fa-shield-check', name: '合規驗證 / 安全通過', cat: 'security', icon: 'fa-shield-check' },
             { key: 'fa-key', name: '金鑰 / API Key', cat: 'security', icon: 'fa-key' },
             { key: 'fa-lock', name: '密文 / 加密傳輸', cat: 'security', icon: 'fa-lock' },
             { key: 'fa-user-shield', name: '身份驗證 / IAM', cat: 'security', icon: 'fa-user-shield' },
@@ -951,12 +1113,23 @@
             { key: 'fa-code', name: '核心邏輯 / API', cat: 'app', icon: 'fa-code' },
             { key: 'fa-terminal', name: 'CLI / 腳本執行', cat: 'app', icon: 'fa-terminal' },
             { key: 'fa-sliders', name: '設定參數 / Config', cat: 'app', icon: 'fa-sliders' },
+            { key: 'fa-wrench', name: '維護工具 / 排錯', cat: 'app', icon: 'fa-wrench' },
+            { key: 'fa-gear', name: '常規設置 / 引擎', cat: 'app', icon: 'fa-gear' },
             { key: 'fa-code-branch', name: 'Git 分支 / 條件判斷', cat: 'app', icon: 'fa-code-branch' },
-            { key: 'fa-user-gear', name: '管理員 / 系統設定', cat: 'app', icon: 'fa-user-gear' },
+            { key: 'fa-git-merge', name: '流程匯總 / Merge', cat: 'app', icon: 'fa-git-merge' },
+            { key: 'fa-refresh-cw', name: '輪詢循環 / Sync', cat: 'app', icon: 'fa-refresh-cw' },
+            { key: 'fa-play', name: '開始觸發 / Start', cat: 'app', icon: 'fa-play' },
+            { key: 'fa-circle-stop', name: '終止節點 / Stop', cat: 'app', icon: 'fa-circle-stop' },
+            { key: 'fa-activity', name: '系統指標 / 心跳', cat: 'app', icon: 'fa-activity' },
+            { key: 'fa-eye', name: '可觀測性 / 監控', cat: 'app', icon: 'fa-eye' },
+            { key: 'fa-user', name: '終端使用者', cat: 'app', icon: 'fa-user' },
+            { key: 'fa-users', name: '使用者群體 / 租戶', cat: 'app', icon: 'fa-users' },
+            { key: 'fa-user-gear', name: '管理員 / 運營者', cat: 'app', icon: 'fa-user-gear' },
             { key: 'fa-cart-shopping', name: '交易 / 電商服務', cat: 'app', icon: 'fa-cart-shopping' },
             { key: 'fa-mobile-screen', name: 'App / 前端介面', cat: 'app', icon: 'fa-mobile-screen' },
             { key: 'fa-bell', name: '告警 / 即時通知', cat: 'app', icon: 'fa-bell' },
             { key: 'fa-envelope', name: '電子郵件服務', cat: 'app', icon: 'fa-envelope' },
+            { key: 'fa-message-square', name: '即時通訊 / 訊息隊列', cat: 'app', icon: 'fa-message-square' },
             { key: 'fa-check-circle', name: '健康檢查 / 通過', cat: 'app', icon: 'fa-check-circle' },
             { key: 'fa-layer-group', name: '中介層 / 架構層', cat: 'app', icon: 'fa-layer-group' }
         ];
@@ -2465,7 +2638,12 @@
             'diamond': '決策菱形',
             'database': '資料庫圓柱',
             'cloud': '雲端容器',
-            'hexagon': '六角形'
+            'hexagon': '六角節點',
+            'parallelogram': '平行四邊形 (I/O)',
+            'document': '文件報表',
+            'subroutine': '子程序模塊',
+            'circle': '正圓事件',
+            'note': '註解便籤'
         };
 
         function selectNodeShape(shape) {
@@ -2518,6 +2696,20 @@
                 }
             });
             
+            const radiusContainer = document.getElementById('propRadiusContainer');
+            const radiusInput = document.getElementById('propRadius');
+            const radiusVal = document.getElementById('propRadiusVal');
+            if (radiusContainer && radiusInput && radiusVal) {
+                if (currentShape === 'rounded') {
+                    radiusContainer.classList.remove('hidden');
+                    const curRadius = (node.radius !== undefined && !isNaN(node.radius)) ? parseInt(node.radius) : 14;
+                    radiusInput.value = curRadius;
+                    radiusVal.innerText = curRadius + 'px';
+                } else {
+                    radiusContainer.classList.add('hidden');
+                }
+            }
+            
             const rawIconKey = node.icon || 'box';
             const normIconKey = rawIconKey.startsWith('fa-') ? rawIconKey.replace('fa-', '') : rawIconKey;
             
@@ -2530,7 +2722,10 @@
             }
 
             document.getElementById('propShowIcon').checked = node.showIcon !== false;
-            document.getElementById('propColor').value = node.color;
+            const curCol = node.color || '#3b82f6';
+            document.getElementById('propColor').value = curCol.startsWith('#') && curCol.length === 7 ? curCol : '#3b82f6';
+            const hexInput = document.getElementById('propColorHex');
+            if (hexInput) hexInput.value = curCol.toUpperCase();
             
             const groupSelect = document.getElementById('propGroup');
             groupSelect.innerHTML = `<option value="">(無群組 / 畫布頂層)</option>`;
@@ -2794,7 +2989,8 @@
                                     <span class="text-[9px] text-blue-400 font-mono" id="fromOffsetVal_${idx}">${fromOffset > 0 ? '+'+fromOffset : fromOffset}px</span>
                                 </div>
                                 <select onchange="updateEdge(${idx}, 'fromPort', this.value); saveHistory();" class="w-full bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200 text-[10px] focus:outline-none mb-1">
-                                    <option value="auto" ${fromPort === 'auto' ? 'selected' : ''}>自動 (Auto)</option>
+                                    <option value="auto" ${fromPort === 'auto' ? 'selected' : ''}>自動正交 (Auto)</option>
+                                    <option value="free" ${fromPort === 'free' ? 'selected' : ''}>自由射線 (Free)</option>
                                     <option value="top" ${fromPort === 'top' ? 'selected' : ''}>上方 (Top)</option>
                                     <option value="bottom" ${fromPort === 'bottom' ? 'selected' : ''}>下方 (Bottom)</option>
                                     <option value="left" ${fromPort === 'left' ? 'selected' : ''}>左側 (Left)</option>
@@ -2808,7 +3004,8 @@
                                     <span class="text-[9px] text-blue-400 font-mono" id="toOffsetVal_${idx}">${toOffset > 0 ? '+'+toOffset : toOffset}px</span>
                                 </div>
                                 <select onchange="updateEdge(${idx}, 'toPort', this.value); saveHistory();" class="w-full bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200 text-[10px] focus:outline-none mb-1">
-                                    <option value="auto" ${toPort === 'auto' ? 'selected' : ''}>自動 (Auto)</option>
+                                    <option value="auto" ${toPort === 'auto' ? 'selected' : ''}>自動正交 (Auto)</option>
+                                    <option value="free" ${toPort === 'free' ? 'selected' : ''}>自由射線 (Free)</option>
                                     <option value="top" ${toPort === 'top' ? 'selected' : ''}>上方 (Top)</option>
                                     <option value="bottom" ${toPort === 'bottom' ? 'selected' : ''}>下方 (Bottom)</option>
                                     <option value="left" ${toPort === 'left' ? 'selected' : ''}>左側 (Left)</option>
@@ -3009,12 +3206,13 @@
             renderDiagram();
         }
 
-        function renderNodeShape(shape, w, h, fill, border) {
+        function renderNodeShape(shape, w, h, fill, border, radius) {
             if (shape === 'pill') {
                 const rx = h / 2;
                 return `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'rounded') {
-                return `<rect x="0" y="0" width="${w}" height="${h}" rx="14" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+                const rx = (radius !== undefined && !isNaN(radius)) ? parseInt(radius) : 14;
+                return `<rect x="0" y="0" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'diamond') {
                 return `<polygon points="${w/2},0 ${w},${h/2} ${w/2},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             } else if (shape === 'database') {
@@ -3022,7 +3220,6 @@
                     <g>
                         <path d="M 0 12 C 0 0, ${w} 0, ${w} 12 L ${w} ${h-12} C ${w} ${h}, 0 ${h}, 0 ${h-12} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
                         <ellipse cx="${w/2}" cy="12" rx="${w/2}" ry="8" fill="${fill}" stroke="${border}" stroke-width="2" />
-                        <path d="M 0 26 C 0 34, ${w} 34, ${w} 26" fill="none" stroke="${border}" stroke-width="1.5" stroke-dasharray="3 2" />
                     </g>
                 `;
             } else if (shape === 'cloud') {
@@ -3030,6 +3227,30 @@
             } else if (shape === 'hexagon') {
                 const p = 22;
                 return `<polygon points="${p},0 ${w-p},0 ${w},${h/2} ${w-p},${h} ${p},${h} 0,${h/2}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'parallelogram') {
+                const sk = 16;
+                return `<polygon points="${sk},0 ${w},0 ${w-sk},${h} 0,${h}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'document') {
+                return `<path d="M 0 0 L ${w} 0 L ${w} ${h-10} Q ${w*0.75} ${h-20}, ${w*0.5} ${h-10} T 0 ${h-10} Z" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'subroutine') {
+                return `
+                    <g>
+                        <rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${border}" stroke-width="2" />
+                        <line x1="14" y1="0" x2="14" y2="${h}" stroke="${border}" stroke-width="1.5" />
+                        <line x1="${w-14}" y1="0" x2="${w-14}" y2="${h}" stroke="${border}" stroke-width="1.5" />
+                    </g>
+                `;
+            } else if (shape === 'circle') {
+                const r = Math.min(w, h) / 2;
+                return `<circle cx="${w/2}" cy="${h/2}" r="${r}" fill="${fill}" stroke="${border}" stroke-width="2" />`;
+            } else if (shape === 'note') {
+                const fold = 14;
+                return `
+                    <g>
+                        <path d="M 0 0 L ${w-fold} 0 L ${w} ${fold} L ${w} ${h} L 0 ${h} Z" fill="${fill}" stroke="${border}" stroke-width="2" />
+                        <polygon points="${w-fold},0 ${w-fold},${fold} ${w},${fold}" fill="${border}" fill-opacity="0.3" stroke="${border}" stroke-width="1.5" />
+                    </g>
+                `;
             } else {
                 return `<rect x="0" y="0" width="${w}" height="${h}" rx="4" fill="${fill}" stroke="${border}" stroke-width="2" />`;
             }
@@ -3065,11 +3286,9 @@
             if (n.shape === 'diamond') {
                 const maxTextW = Math.max(labelW, subW);
                 if (showIcon) {
-                    // With icon: vertical stacked layout, width strictly constrained by text
                     baseW = Math.max(170, Math.ceil((maxTextW + 36) / 0.75 / 10) * 10);
                     baseH = n.sub ? 88 : 80;
                 } else {
-                    // Without icon: text centered horizontally at y = H/2 (widest area)
                     baseW = Math.max(150, Math.ceil((maxTextW + 48) / 10) * 10);
                     baseH = n.sub ? 72 : 64;
                 }
@@ -3081,6 +3300,18 @@
                 baseW = Math.max(200, baseW + 24);
             } else if (n.shape === 'database') {
                 baseH = 76;
+            } else if (n.shape === 'parallelogram') {
+                baseW = Math.max(200, baseW + 36);
+            } else if (n.shape === 'document') {
+                baseH = 76;
+            } else if (n.shape === 'subroutine') {
+                baseW = Math.max(200, baseW + 28);
+            } else if (n.shape === 'circle') {
+                const d = Math.max(88, Math.ceil((Math.max(labelW, subW) + (showIcon ? 64 : 36)) / 10) * 10);
+                baseW = d;
+                baseH = d;
+            } else if (n.shape === 'note') {
+                baseW = Math.max(180, baseW + 16);
             }
             
             return { w: baseW, h: baseH };
@@ -3123,7 +3354,7 @@
             const ox = (offset && typeof offset === 'number') ? offset : 0;
 
             // 1. Explicit Anchor Port Tuning with Shape Geometry Awareness
-            if (port && port !== 'auto') {
+            if (port && port !== 'auto' && port !== 'free') {
                 if (shape === 'diamond') {
                     if (port === 'top') return { x: cx + ox, y: box.y + Math.abs(ox) * (h / (w || 1)), nx: 0, ny: -1, side: 'top' };
                     if (port === 'bottom') return { x: cx + ox, y: box.y + h - Math.abs(ox) * (h / (w || 1)), nx: 0, ny: 1, side: 'bottom' };
@@ -3142,6 +3373,11 @@
                     if (port === 'bottom') return { x: Math.max(cx - straightHalfW, Math.min(cx + straightHalfW, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
                     if (port === 'left') return { x: box.x, y: cy, nx: -1, ny: 0, side: 'left' };
                     if (port === 'right') return { x: box.x + w, y: cy, nx: 1, ny: 0, side: 'right' };
+                } else if (shape === 'database') {
+                    if (port === 'top') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + 4, nx: 0, ny: -1, side: 'top' };
+                    if (port === 'bottom') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
+                    if (port === 'left') return { x: box.x, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: -1, ny: 0, side: 'left' };
+                    if (port === 'right') return { x: box.x + w, y: Math.max(box.y, Math.min(box.y + h, cy + ox)), nx: 1, ny: 0, side: 'right' };
                 } else {
                     if (port === 'top') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y, nx: 0, ny: -1, side: 'top' };
                     if (port === 'bottom') return { x: Math.max(box.x, Math.min(box.x + w, cx + ox)), y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
@@ -3156,9 +3392,43 @@
                 return { x: cx, y: cy - halfH, nx: 0, ny: -1, side: 'top' };
             }
 
-            // 2. Shape-Specific True Boundary Intersection
+            // 2. Default "Auto" Mode: Shape-Aware 4 Major Orthogonal Extreme Geometric Anchors (100% Perimeter Snapped)
+            if (port === 'auto' || !port) {
+                const isHorizontal = Math.abs(dx) >= Math.abs(dy);
+                if (isHorizontal) {
+                    if (dx > 0) {
+                        const yPos = shape === 'document' ? box.y + (h - 10) / 2 : cy;
+                        const xPos = shape === 'parallelogram' ? box.x + w - 8 : (shape === 'circle' ? cx + Math.min(halfW, halfH) : box.x + w);
+                        return { x: xPos, y: yPos, nx: 1, ny: 0, side: 'right' };
+                    } else {
+                        const yPos = shape === 'document' ? box.y + (h - 10) / 2 : cy;
+                        const xPos = shape === 'parallelogram' ? box.x + 8 : (shape === 'circle' ? cx - Math.min(halfW, halfH) : box.x);
+                        return { x: xPos, y: yPos, nx: -1, ny: 0, side: 'left' };
+                    }
+                } else {
+                    if (dy > 0) {
+                        const yPos = shape === 'document' ? box.y + h - 10 : (shape === 'circle' ? cy + Math.min(halfW, halfH) : box.y + h);
+                        const xPos = shape === 'parallelogram' ? cx - 8 : cx;
+                        return { x: xPos, y: yPos, nx: 0, ny: 1, side: 'bottom' };
+                    } else {
+                        const yPos = shape === 'database' ? box.y + 4 : (shape === 'circle' ? cy - Math.min(halfW, halfH) : box.y);
+                        const xPos = shape === 'parallelogram' ? cx + 8 : cx;
+                        return { x: xPos, y: yPos, nx: 0, ny: -1, side: 'top' };
+                    }
+                }
+            }
 
-            // Shape: Diamond
+            // 3. "Free" Mode: Continuous Dynamic Ray-Intersection on True Geometry Perimeters
+            if (shape === 'circle') {
+                const r = Math.min(halfW, halfH);
+                const hit = rayCircleIntersection(cx, cy, dx, dy, cx, cy, r);
+                if (hit) {
+                    const nx = (hit.x - cx) / r;
+                    const ny = (hit.y - cy) / r;
+                    return { x: hit.x, y: hit.y, nx, ny, side: Math.abs(nx) > Math.abs(ny) ? (nx > 0 ? 'right' : 'left') : (ny > 0 ? 'bottom' : 'top') };
+                }
+            }
+
             if (shape === 'diamond') {
                 const denom = Math.abs(dx) / (halfW || 1) + Math.abs(dy) / (halfH || 1);
                 const t = denom > 0 ? 1 / denom : 0;
@@ -3173,7 +3443,6 @@
                 };
             }
 
-            // Shape: Hexagon (6 polygon boundary segments, inset p = 22)
             if (shape === 'hexagon') {
                 const p = 22;
                 const vertices = [
@@ -3198,61 +3467,178 @@
                 }
             }
 
-            // Shape: Pill (Capsule)
-            if (shape === 'pill') {
-                const r = halfH;
-                const straightHalfW = Math.max(0, halfW - r);
-                
-                if (Math.abs(dy) > 0.001) {
-                    const tTop = -halfH / dy;
-                    if (tTop > 0 && Math.abs(tTop * dx) <= straightHalfW) {
-                        return { x: cx + tTop * dx, y: box.y, nx: 0, ny: -1, side: 'top' };
-                    }
-                    const tBottom = halfH / dy;
-                    if (tBottom > 0 && Math.abs(tBottom * dx) <= straightHalfW) {
-                        return { x: cx + tBottom * dx, y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
-                    }
-                }
-
-                if (dx > 0) {
-                    const arcCx = cx + straightHalfW;
-                    const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
-                    if (hit && hit.x >= arcCx) {
-                        const nx = (hit.x - arcCx) / r;
-                        const ny = (hit.y - cy) / r;
-                        return { x: hit.x, y: hit.y, nx, ny, side: 'right' };
-                    }
-                } else if (dx < 0) {
-                    const arcCx = cx - straightHalfW;
-                    const hit = rayCircleIntersection(cx, cy, dx, dy, arcCx, cy, r);
-                    if (hit && hit.x <= arcCx) {
-                        const nx = (hit.x - arcCx) / r;
-                        const ny = (hit.y - cy) / r;
-                        return { x: hit.x, y: hit.y, nx, ny, side: 'left' };
+            if (shape === 'parallelogram') {
+                const sk = 16;
+                const vertices = [
+                    { x: box.x + sk, y: box.y },
+                    { x: box.x + w, y: box.y },
+                    { x: box.x + w - sk, y: box.y + h },
+                    { x: box.x, y: box.y + h }
+                ];
+                for (let i = 0; i < 4; i++) {
+                    const v1 = vertices[i];
+                    const v2 = vertices[(i + 1) % 4];
+                    const hit = raySegmentIntersection(cx, cy, cx + dx, cy + dy, v1.x, v1.y, v2.x, v2.y);
+                    if (hit) {
+                        const edx = v2.x - v1.x, edy = v2.y - v1.y;
+                        const elen = Math.hypot(edx, edy) || 1;
+                        let nx = edy / elen, ny = -edx / elen;
+                        if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
+                        return { x: hit.x, y: hit.y, nx, ny, side: Math.abs(nx) > Math.abs(ny) ? (nx > 0 ? 'right' : 'left') : (ny > 0 ? 'bottom' : 'top') };
                     }
                 }
             }
 
-            // Shape: Database (Cylinder with top ellipse rx=halfW, ry=14)
+            if (shape === 'pill') {
+                const p = 2.5;
+                const denom = Math.pow(Math.abs(dx) / (halfW || 1), p) + Math.pow(Math.abs(dy) / (halfH || 1), p);
+                const t = denom > 0 ? Math.pow(1 / denom, 1 / p) : 0;
+                const snx = dx > 0 ? 1 : -1;
+                const sny = dy > 0 ? 1 : -1;
+                return {
+                    x: cx + dx * t,
+                    y: cy + dy * t,
+                    nx: snx * 0.707,
+                    ny: sny * 0.707,
+                    side: Math.abs(dx) / (halfW || 1) >= Math.abs(dy) / (halfH || 1) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top')
+                };
+            }
+
+            if (shape === 'cloud') {
+                const rx = 22;
+                const p = Math.max(2.4, 6 - (rx / (halfH || 1)) * 3.5);
+                const denom = Math.pow(Math.abs(dx) / (halfW || 1), p) + Math.pow(Math.abs(dy) / (halfH || 1), p);
+                const t = denom > 0 ? Math.pow(1 / denom, 1 / p) : 0;
+                const snx = dx > 0 ? 1 : -1;
+                const sny = dy > 0 ? 1 : -1;
+                return {
+                    x: cx + dx * t,
+                    y: cy + dy * t,
+                    nx: snx * 0.707,
+                    ny: sny * 0.707,
+                    side: Math.abs(dx) / (halfW || 1) >= Math.abs(dy) / (halfH || 1) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top')
+                };
+            }
+
+            if (shape === 'rounded') {
+                const rx = (box.radius !== undefined && !isNaN(box.radius)) ? parseInt(box.radius) : 14;
+                const p = Math.max(2.4, 6 - (rx / (halfH || 1)) * 3.5);
+                const denom = Math.pow(Math.abs(dx) / (halfW || 1), p) + Math.pow(Math.abs(dy) / (halfH || 1), p);
+                const t = denom > 0 ? Math.pow(1 / denom, 1 / p) : 0;
+                const snx = dx > 0 ? 1 : -1;
+                const sny = dy > 0 ? 1 : -1;
+                return {
+                    x: cx + dx * t,
+                    y: cy + dy * t,
+                    nx: snx * 0.707,
+                    ny: sny * 0.707,
+                    side: Math.abs(dx) / (halfW || 1) >= Math.abs(dy) / (halfH || 1) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'bottom' : 'top')
+                };
+            }
+
+            if (shape === 'document') {
+                const vertices = [
+                    { x: box.x, y: box.y },
+                    { x: box.x + w, y: box.y },
+                    { x: box.x + w, y: box.y + h - 10 },
+                    { x: box.x + w * 0.75, y: box.y + h - 18 },
+                    { x: box.x + w * 0.5, y: box.y + h - 10 },
+                    { x: box.x + w * 0.25, y: box.y + h - 2 },
+                    { x: box.x, y: box.y + h - 10 }
+                ];
+                for (let i = 0; i < vertices.length; i++) {
+                    const v1 = vertices[i];
+                    const v2 = vertices[(i + 1) % vertices.length];
+                    const hit = raySegmentIntersection(cx, cy, cx + dx, cy + dy, v1.x, v1.y, v2.x, v2.y);
+                    if (hit) {
+                        const edx = v2.x - v1.x, edy = v2.y - v1.y;
+                        const elen = Math.hypot(edx, edy) || 1;
+                        let nx = edy / elen, ny = -edx / elen;
+                        if (nx * (hit.x - cx) + ny * (hit.y - cy) < 0) { nx = -nx; ny = -ny; }
+                        return { x: hit.x, y: hit.y, nx, ny, side: Math.abs(nx) > Math.abs(ny) ? (nx > 0 ? 'right' : 'left') : (ny > 0 ? 'bottom' : 'top') };
+                    }
+                }
+            }
+
+            if (shape === 'note') {
+                const fold = 14;
+                const vertices = [
+                    { x: box.x, y: box.y },
+                    { x: box.x + w - fold, y: box.y },
+                    { x: box.x + w, y: box.y + fold },
+                    { x: box.x + w, y: box.y + h },
+                    { x: box.x, y: box.y + h }
+                ];
+                for (let i = 0; i < 5; i++) {
+                    const v1 = vertices[i];
+                    const v2 = vertices[(i + 1) % 5];
+                    const hit = raySegmentIntersection(cx, cy, cx + dx, cy + dy, v1.x, v1.y, v2.x, v2.y);
+                    if (hit) {
+                        const edx = v2.x - v1.x, edy = v2.y - v1.y;
+                        const elen = Math.hypot(edx, edy) || 1;
+                        let nx = edy / elen, ny = -edx / elen;
+                        if (nx * (hit.x - cx) + ny * (hit.y - cy) < 0) { nx = -nx; ny = -ny; }
+                        return { x: hit.x, y: hit.y, nx, ny, side: Math.abs(nx) > Math.abs(ny) ? (nx > 0 ? 'right' : 'left') : (ny > 0 ? 'bottom' : 'top') };
+                    }
+                }
+            }
+
             if (shape === 'database') {
-                const ry = 14;
                 if (dy < 0) {
-                    // Top ellipse ray intersection: (dx*t/halfW)^2 + ((dy*t + (halfH - ry))/ry)^2 = 1
-                    const scaleX = halfW / Math.abs(dx || 0.0001);
-                    const scaleY = halfH / Math.abs(dy || 0.0001);
-                    if (scaleY <= scaleX) {
-                        return { x: cx + dx * scaleY, y: box.y, nx: 0, ny: -1, side: 'top' };
+                    // Top Ellipse: Center (cx, box.y + 12), a = halfW, b = 8
+                    const Y0 = cy - (box.y + 12);
+                    const a2 = halfW * halfW || 1;
+                    const b2 = 64;
+                    const A = (dx * dx) / a2 + (dy * dy) / b2;
+                    const B = (2 * Y0 * dy) / b2;
+                    const C = (Y0 * Y0) / b2 - 1;
+                    const disc = B * B - 4 * A * C;
+                    if (disc >= 0 && A > 0) {
+                        const t1 = (-B + Math.sqrt(disc)) / (2 * A);
+                        const t2 = (-B - Math.sqrt(disc)) / (2 * A);
+                        const t = t1 > 0 ? t1 : (t2 > 0 ? t2 : null);
+                        if (t !== null) {
+                            const px = cx + dx * t;
+                            const py = cy + dy * t;
+                            const ex = (px - cx) / a2;
+                            const ey = (py - (box.y + 12)) / b2;
+                            const elen = Math.hypot(ex, ey) || 1;
+                            return { x: px, y: py, nx: ex / elen, ny: ey / elen, side: 'top' };
+                        }
                     }
                 } else {
-                    const scaleY = halfH / Math.abs(dy || 0.0001);
-                    const scaleX = halfW / Math.abs(dx || 0.0001);
-                    if (scaleY <= scaleX) {
-                        return { x: cx + dx * scaleY, y: box.y + h, nx: 0, ny: 1, side: 'bottom' };
+                    // Bottom Ellipse: Center (cx, box.y + h - 12), a = halfW, b = 12
+                    const Y1 = cy - (box.y + h - 12);
+                    const a2 = halfW * halfW || 1;
+                    const b2 = 144;
+                    const A = (dx * dx) / a2 + (dy * dy) / b2;
+                    const B = (2 * Y1 * dy) / b2;
+                    const C = (Y1 * Y1) / b2 - 1;
+                    const disc = B * B - 4 * A * C;
+                    if (disc >= 0 && A > 0) {
+                        const t1 = (-B + Math.sqrt(disc)) / (2 * A);
+                        const t2 = (-B - Math.sqrt(disc)) / (2 * A);
+                        const t = t1 > 0 ? t1 : (t2 > 0 ? t2 : null);
+                        if (t !== null) {
+                            const px = cx + dx * t;
+                            const py = cy + dy * t;
+                            if (py >= box.y + h - 12) {
+                                const ex = (px - cx) / a2;
+                                const ey = (py - (box.y + h - 12)) / b2;
+                                const elen = Math.hypot(ex, ey) || 1;
+                                return { x: px, y: py, nx: ex / elen, ny: ey / elen, side: 'bottom' };
+                            }
+                        }
                     }
                 }
+                // Left & Right Vertical Cylinder Walls
+                const scaleX = halfW / Math.abs(dx || 0.0001);
+                const px = cx + (dx > 0 ? halfW : -halfW);
+                const py = cy + dy * scaleX;
+                return { x: px, y: Math.max(box.y + 12, Math.min(box.y + h - 12, py)), nx: dx > 0 ? 1 : -1, ny: 0, side: dx > 0 ? 'right' : 'left' };
             }
 
-            // Default Box (Rectangle, Rounded Rect, Group Container)
+            // Default Box (Rectangle, Subgraph Container) Free Mode
             const scaleX = halfW / Math.abs(dx || 0.0001);
             const scaleY = halfH / Math.abs(dy || 0.0001);
             if (scaleX < scaleY) {
@@ -3366,7 +3752,8 @@
                     cy: node.y + dim.h / 2,
                     label: node.label,
                     isGroup: false,
-                    shape: node.shape || 'rect'
+                    shape: node.shape || 'rect',
+                    radius: node.radius
                 };
             }
             
@@ -3506,11 +3893,33 @@
             }
 
             // 3. Smooth Bezier Curve with Normal-Oriented Tangents, Multi-edge Spread & Dynamic Obstacle Avoidance
-            const curvature = Math.max(30, Math.min(180, dist * 0.45));
-            const n1x = p1.nx !== undefined ? p1.nx : (dx > 0 ? 1 : -1);
-            const n1y = p1.ny !== undefined ? p1.ny : 0;
-            const n2x = p2.nx !== undefined ? p2.nx : (dx > 0 ? -1 : 1);
-            const n2y = p2.ny !== undefined ? p2.ny : 0;
+            const curvature = Math.max(35, Math.min(160, dist * 0.4));
+            let n1x = p1.nx !== undefined ? p1.nx : 0;
+            let n1y = p1.ny !== undefined ? p1.ny : 0;
+            let n2x = p2.nx !== undefined ? p2.nx : 0;
+            let n2y = p2.ny !== undefined ? p2.ny : 0;
+
+            // Fallback outward normals if missing
+            if (n1x === 0 && n1y === 0) {
+                if (Math.abs(dx) >= Math.abs(dy)) n1x = dx > 0 ? 1 : -1;
+                else n1y = dy > 0 ? 1 : -1;
+            }
+            if (n2x === 0 && n2y === 0) {
+                if (Math.abs(dx) >= Math.abs(dy)) n2x = dx > 0 ? -1 : 1;
+                else n2y = dy > 0 ? -1 : 1;
+            }
+
+            // Normalize normals
+            const len1 = Math.hypot(n1x, n1y) || 1;
+            n1x /= len1; n1y /= len1;
+            const len2 = Math.hypot(n2x, n2y) || 1;
+            n2x /= len2; n2y /= len2;
+
+            // Base outward tangent vectors (strictly pointing outward away from shapes)
+            const t1x = n1x * curvature;
+            const t1y = n1y * curvature;
+            const t2x = n2x * curvature;
+            const t2y = n2y * curvature;
 
             // --- Obstacle Avoidance: Detect intermediate nodes along path ---
             let obstacleOffset = 0;
@@ -3542,19 +3951,29 @@
                 obstacleOffset = (perpY < 0 ? -1 : 1) * maxDist;
             }
 
-            let cp1x, cp1y, cp2x, cp2y;
+            const totalOffset = (totalInPair > 1 ? offsetMultiplier * 45 : 0) + obstacleOffset;
+            const offX = perpX * totalOffset;
+            const offY = perpY * totalOffset;
 
-            if (totalInPair <= 1) {
-                cp1x = x1 + n1x * curvature + perpX * obstacleOffset;
-                cp1y = y1 + n1y * curvature + perpY * obstacleOffset;
-                cp2x = x2 + n2x * curvature + perpX * obstacleOffset;
-                cp2y = y2 + n2y * curvature + perpY * obstacleOffset;
-            } else {
-                const curveOffset = offsetMultiplier * 55 + obstacleOffset;
-                cp1x = x1 + n1x * curvature + perpX * curveOffset;
-                cp1y = y1 + n1y * curvature + perpY * curveOffset;
-                cp2x = x2 + n2x * curvature + perpX * curveOffset;
-                cp2y = y2 + n2y * curvature + perpY * curveOffset;
+            let cp1x = x1 + t1x + offX;
+            let cp1y = y1 + t1y + offY;
+            let cp2x = x2 + t2x + offX;
+            let cp2y = y2 + t2y + offY;
+
+            // Outward Clamping: (cp1 - p1) . N1 >= curvature * 0.5
+            const dot1 = (cp1x - x1) * n1x + (cp1y - y1) * n1y;
+            if (dot1 < curvature * 0.5) {
+                const diff = (curvature * 0.5) - dot1;
+                cp1x += n1x * diff;
+                cp1y += n1y * diff;
+            }
+
+            // Outward Clamping for cp2: (cp2 - p2) . N2 >= curvature * 0.5
+            const dot2 = (cp2x - x2) * n2x + (cp2y - y2) * n2y;
+            if (dot2 < curvature * 0.5) {
+                const diff = (curvature * 0.5) - dot2;
+                cp2x += n2x * diff;
+                cp2y += n2y * diff;
             }
 
             const d = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
@@ -3855,7 +4274,7 @@
 
                 return `
                     <g transform="translate(${n.x}, ${n.y})" class="node-group ${selectedClass}" data-id="${n.id}" filter="url(#dropShadow)" style="cursor: move;">
-                        ${renderNodeShape(n.shape, w, h, theme.nodeBg, nodeBorder)}
+                        ${renderNodeShape(n.shape, w, h, theme.nodeBg, nodeBorder, n.radius)}
                         ${iconHtml}
                         <text x="${textStartX}" y="${mainTextY}" text-anchor="${textAnchor}" font-size="${typo.nodeTitleSize || 14}" font-weight="bold" fill="${theme.text}">${n.label}</text>
                         ${n.sub ? `<text x="${textStartX}" y="${subTextY}" text-anchor="${textAnchor}" font-size="${typo.nodeSubSize || 11}" font-weight="normal" fill="${theme.textSub}">${n.sub}</text>` : ''}
@@ -4525,10 +4944,11 @@
             showToast(`已貼上 ${newNodes.length} 個物件並置於全新頂層區域！`);
         }
 
-        // Global Keyboard Shortcuts for Copy, Paste, Duplicate
+        // Full Keyboard Shortcuts System
         window.addEventListener('keydown', (e) => {
-            if (e.repeat) return;
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+            
+            // 1. Ctrl / Meta Combinations
             if (e.ctrlKey || e.metaKey) {
                 if (e.key === 'c' || e.key === 'C') {
                     e.preventDefault();
@@ -4539,9 +4959,102 @@
                 } else if (e.key === 'd' || e.key === 'D') {
                     e.preventDefault();
                     duplicateSelection();
+                } else if (e.key === 'z' || e.key === 'Z') {
+                    e.preventDefault();
+                    if (e.shiftKey) redo(); else undo();
+                } else if (e.key === 'y' || e.key === 'Y') {
+                    e.preventDefault();
+                    redo();
+                } else if (e.key === 'a' || e.key === 'A') {
+                    e.preventDefault();
+                    selectAllNodes();
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    centerView();
                 }
+                return;
+            }
+
+            // 2. Single Key Actions
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                if (selectedEdgeIdx !== null) {
+                    deleteEdge(selectedEdgeIdx);
+                } else if (selectedGroupId) {
+                    deleteGroup(selectedGroupId);
+                } else if (selectedNodeIds.size > 0 || selectedNodeId) {
+                    deleteSelectedNode();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                clearNodeSelection();
+                selectGroup(null);
+                selectedEdgeIdx = null;
+                renderDiagram();
+                closeShortcutsModal();
+                closeExportModal();
+            } else if (e.key === 'v' || e.key === 'V') {
+                setMode('drag');
+            } else if (e.key === 's' || e.key === 'S') {
+                setMode('select');
+            } else if (e.key === 'l' || e.key === 'L' || e.key === 'c' || e.key === 'C') {
+                if (selectedNodeOrder.length >= 2 || selectedNodeIds.size >= 2) {
+                    e.preventDefault();
+                    connectSelectedNodes();
+                }
+            } else if (e.key === 'g' || e.key === 'G') {
+                if (selectedNodeIds.size > 0) {
+                    e.preventDefault();
+                    groupSelectedNodes();
+                }
+            } else if (e.key === '1') {
+                switchSidebarTab('modules');
+            } else if (e.key === '2') {
+                switchSidebarTab('properties');
+            } else if (e.key === '3') {
+                switchSidebarTab('relations');
+            } else if (e.key === '4') {
+                switchSidebarTab('code');
+            } else if (e.key === '?' || e.key === 'F1') {
+                e.preventDefault();
+                openShortcutsModal();
             }
         });
+
+        function selectAllNodes() {
+            selectedNodeIds.clear();
+            state.nodes.forEach(n => selectedNodeIds.add(n.id));
+            selectedNodeOrder = Array.from(selectedNodeIds);
+            selectedNodeId = selectedNodeOrder[selectedNodeOrder.length - 1] || null;
+            selectedGroupId = null;
+            selectedEdgeIdx = null;
+            updateMultiSelectBar();
+            renderDiagram();
+            if (activeTab === 'properties') refreshPropertiesPanel();
+            showToast(`已全選 ${selectedNodeIds.size} 個節點組件 (Ctrl+A)`);
+        }
+
+        function openShortcutsModal() {
+            const modal = document.getElementById('shortcutsModal');
+            const content = document.getElementById('shortcutsModalContent');
+            if (!modal || !content) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeShortcutsModal() {
+            const modal = document.getElementById('shortcutsModal');
+            const content = document.getElementById('shortcutsModalContent');
+            if (!modal || !content) return;
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
 
         function openExportModal() {
             const modal = document.getElementById('exportModal');
@@ -4721,6 +5234,9 @@
                 const vpGroup = svgToExport.querySelector('#viewportTransform');
                 if (vpGroup) vpGroup.removeAttribute('transform');
 
+                // Clean export: remove collapse controls, interaction hitboxes, etc.
+                svgToExport.querySelectorAll('.group-collapse-btn, [data-action="toggle-collapse"], .edge-hitbox').forEach(el => el.remove());
+
                 svgToExport.removeAttribute('style');
                 svgToExport.setAttribute('viewBox', viewBoxStr);
                 svgToExport.setAttribute('width', exportW);
@@ -4806,6 +5322,28 @@
             });
             if (minX === Infinity) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
             return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+        }
+
+        function copySVGCode() {
+            const svgEl = document.getElementById('workflowSvg');
+            if (!svgEl) return;
+            const svgClone = svgEl.cloneNode(true);
+            svgClone.querySelectorAll('.group-collapse-btn, [data-action="toggle-collapse"], .edge-hitbox').forEach(el => el.remove());
+            const vpGroup = svgClone.querySelector('#viewportTransform');
+            if (vpGroup) vpGroup.removeAttribute('transform');
+            const bbox = getNodesBoundingBox();
+            const pad = 40;
+            const exportW = bbox.w + pad * 2;
+            const exportH = bbox.h + pad * 2;
+            svgClone.setAttribute('viewBox', `${bbox.x - pad} ${bbox.y - pad} ${exportW} ${exportH}`);
+            svgClone.setAttribute('width', exportW);
+            svgClone.setAttribute('height', exportH);
+            const svgData = new XMLSerializer().serializeToString(svgClone);
+            navigator.clipboard.writeText(svgData).then(() => {
+                showToast('SVG 代碼已複製至剪貼簿！');
+            }).catch(() => {
+                showToast('無法複製至剪貼簿', 'error');
+            });
         }
 
         function showToast(msg, type = 'success') {
